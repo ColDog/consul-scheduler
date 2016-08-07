@@ -3,6 +3,9 @@ package main
 import (
 	"github.com/urfave/cli"
 	"github.com/ghodss/yaml"
+	. "github.com/coldog/scheduler/api"
+	. "github.com/coldog/scheduler/agent"
+	. "github.com/coldog/scheduler/scheduler"
 
 	"os"
 	"time"
@@ -248,14 +251,8 @@ func main() {
 	})
 
 	app.Commands = append(app.Commands, cli.Command{
-		Name: "agent",
+		Name: "start",
 		Action: func(c *cli.Context) error {
-
-			fmt.Println("")
-
-			fmt.Printf("	")
-
-			fmt.Println("--")
 
 			m := NewMaster(api)
 			ag := NewAgent(api)

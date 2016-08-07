@@ -1,6 +1,8 @@
-package main
+package agent
 
 import (
+	. "github.com/coldog/scheduler/api"
+
 	"testing"
 	"time"
 	"fmt"

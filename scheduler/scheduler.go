@@ -1,8 +1,10 @@
-package main
+package scheduler
 
 import (
-	"math/rand"
+	. "github.com/coldog/scheduler/api"
 	log "github.com/Sirupsen/logrus"
+
+	"math/rand"
 )
 
 /**
@@ -39,12 +41,7 @@ func (master *Master) Run() {
 	for {
 		master.api.WaitForScheduler()
 
-		lock, err := master.api.client.LockKey("scheduler")
-		if err != nil {
-			panic(err)
-		}
-
-		lock.Lock(nil)
+		lock := master.api.LockScheduler()
 		log.Info("acquired scheduler lock")
 
 		master.schedule()

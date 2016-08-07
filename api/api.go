@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"github.com/hashicorp/consul/api"
@@ -7,12 +7,11 @@ import (
 	"time"
 )
 
-type RunningTask struct {
-	ServiceID 	string
-	Task		Task
-	Service 	Service
-	Passing 	bool
-	Exists 		bool
+type Config struct {
+	ConsulApiAddress 	string
+	ConsulApiDc 		string
+	ConsulApiToken 		string
+	ConsulApiWaitTime 	time.Duration
 }
 
 func NewSchedulerApiWithConfig(conf *Config) *SchedulerApi {
@@ -71,6 +70,20 @@ type SchedulerApi struct {
 	catalog 	*api.Catalog
 	health 		*api.Health
 	client 		*api.Client
+}
+
+func (a *SchedulerApi) LockScheduler() *api.Lock {
+	lock, err := a.client.LockKey("scheduler")
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = lock.Lock(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	return lock
 }
 
 func (a *SchedulerApi) TriggerScheduler() {

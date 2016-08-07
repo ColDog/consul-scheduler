@@ -1,7 +1,9 @@
-package main
+package scheduler
 
 import (
 	log "github.com/Sirupsen/logrus"
+	. "github.com/coldog/scheduler/api"
+
 	"testing"
 	"fmt"
 	"time"
@@ -99,24 +101,24 @@ func TestRunningMaster(t *testing.T) {
 	time.Sleep(5 * time.Second)
 }
 
-func TestFull(t *testing.T) {
-	a := NewSchedulerApi()
-
-	seed(a)
-
-	a.FinishedScheduling()
-
-	m := NewMaster(a)
-	ag := NewAgent(a)
-
-	go m.Run()
-	go ag.Run()
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		fmt.Println("starting scheduler")
-		a.TriggerScheduler()
-	}()
-
-	time.Sleep(30 * time.Second)
-}
+//func TestFull(t *testing.T) {
+//	a := NewSchedulerApi()
+//
+//	seed(a)
+//
+//	a.FinishedScheduling()
+//
+//	m := NewMaster(a)
+//	ag := NewAgent(a)
+//
+//	go m.Run()
+//	go ag.Run()
+//
+//	go func() {
+//		time.Sleep(2 * time.Second)
+//		fmt.Println("starting scheduler")
+//		a.TriggerScheduler()
+//	}()
+//
+//	time.Sleep(30 * time.Second)
+//}

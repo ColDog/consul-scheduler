@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -115,6 +115,16 @@ func (cluster Cluster) Validate(api *SchedulerApi) (errors []string) {
 func (c Cluster) Key() string {
 	return "config/cluster/" + c.Name
 }
+
+// A running task compiled by the agents
+type RunningTask struct {
+	ServiceID 	string
+	Task		Task
+	Service 	Service
+	Passing 	bool
+	Exists 		bool
+}
+
 
 func NewTask(cluster Cluster, taskDef TaskDefinition, service Service, instance int) Task {
 	return Task{

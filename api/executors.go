@@ -1,4 +1,4 @@
-package main
+package api
 
 // a type of executor
 type BashExecutor struct {

@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"time"
@@ -9,6 +9,7 @@ import (
 	"runtime"
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/mem"
+	. "github.com/coldog/scheduler/api"
 )
 
 type action struct {
