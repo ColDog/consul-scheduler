@@ -1,0 +1,27 @@
+clusters:
+  - name: default
+    services:
+      - helloworld
+
+services:
+  - name: helloworld
+    task_name: helloworld
+    task_version: 1
+    min: 1
+    max: 5
+    desired: 3
+
+tasks:
+  - name: helloworld
+    version: 1
+    provide_port: true
+    checks:
+      - http: http://127.0.0.1
+        interval: 10s
+
+    containers:
+      - name: helloworld
+        executor: docker
+        docker:
+          name: helloworld
+          image: tutum/hello-world

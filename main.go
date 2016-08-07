@@ -24,6 +24,7 @@ func main() {
 	RegisterTaskCommands(api, app)
 	RegisterTaskDefinitionCommands(api, app)
 	RegisterServiceCommands(api, app)
+	RegisterConfigCommands(api, app)
 
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "combined",

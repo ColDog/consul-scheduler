@@ -43,6 +43,69 @@ func printOk() {
 	fmt.Println("OK")
 }
 
+
+
+func RegisterConfigCommands(api *SchedulerApi, app *cli.App)  {
+	app.Commands = append(app.Commands, cli.Command{
+		Name: "schedule",
+		Usage: "trigger the scheduler",
+		Action: func(c *cli.Context) error {
+			api.TriggerScheduler()
+			printOk()
+			return nil
+		},
+	})
+
+	app.Commands = append(app.Commands, cli.Command{
+		Name: "apply",
+		Usage: "apply a configuration file to the cluster",
+		Action: func(c *cli.Context) error {
+			obj := struct {
+				Clusters []Cluster `json:"clusters"`
+				Services []Service `json:"services"`
+				Tasks []TaskDefinition `json:"tasks"`
+			}{}
+
+			err := readYml(c.Args().First(), &obj)
+			if err != nil {
+				return err
+			}
+
+			for _, task := range obj.Tasks {
+				err = valid(task.Validate(api))
+				if err == nil {
+					api.PutTaskDefinition(task)
+					fmt.Printf("task: OK %s\n", task.Name)
+				} else {
+					fmt.Printf("task: FAIL %s\n", task.Name)
+				}
+			}
+
+			for _, service := range obj.Services {
+				err = valid(service.Validate(api))
+				if err == nil {
+					api.PutService(service)
+					fmt.Printf("service: OK %s\n", service.Name)
+				} else {
+					fmt.Printf("service: FAIL %s\n", service.Name)
+				}
+			}
+
+			for _, cluster := range obj.Clusters {
+				err = valid(cluster.Validate(api))
+				if err == nil {
+					api.PutCluster(cluster)
+					fmt.Printf("cluster: OK %s\n", cluster.Name)
+				} else {
+					fmt.Printf("cluster: FAIL %s\n", cluster.Name)
+				}
+			}
+
+			return nil
+		},
+	})
+}
+
 func RegisterTaskDefinitionCommands(api *SchedulerApi, app *cli.App)  {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "task-definition",
@@ -120,6 +183,19 @@ func RegisterTaskCommands(api *SchedulerApi, app *cli.App)  {
 					}
 
 					return err
+				},
+			},
+			{
+				Name: "list",
+				Usage: "list running tasks",
+				Action: func(c *cli.Context) error {
+					tasks := api.RunningTasksOnHost(c.Args().First())
+
+					for _, t := range tasks {
+						fmt.Printf("%s => ok: %v, host: %s\n", t.ServiceID, t.Passing, t.Task.Host)
+					}
+
+					return nil
 				},
 			},
 			{

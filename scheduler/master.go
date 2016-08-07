@@ -9,7 +9,7 @@ import (
 type Scheduler func(cluster Cluster, api *SchedulerApi)
 
 func NewMaster(a *SchedulerApi) *Master {
-	log.Info("starting shceduler master process")
+	log.Info("[master] starting master process")
 
 	return &Master{
 		api: a,
@@ -25,28 +25,29 @@ type Master struct {
 }
 
 func (master *Master) Register(name string, sched Scheduler) {
-	log.WithField("scheduler", name).Info("registering scheduler")
+	log.WithField("scheduler", name).Info("[master] registering scheduler")
 	master.Schedulers[name] = sched
 }
 
 func (master *Master) Run() {
-	log.Info("beginning to wait for trigger")
+	log.Info("[master] wait for trigger")
 
 	for {
 		master.api.WaitForScheduler()
 
 		lock := master.api.LockScheduler()
-		log.Info("acquired scheduler lock")
+		log.Info("[master] acquired scheduler lock")
 
 		master.schedule()
 
 		master.api.FinishedScheduling()
 		lock.Unlock()
+		log.Info("[master] unlocked scheduler lock")
 	}
 }
 
 func (master *Master) schedule() {
-	log.Info("beginning scheduler")
+	log.Info("[master] beginning scheduler")
 	t1 := time.Now().UnixNano()
 
 	for _, cluster := range master.api.ListClusters() {
@@ -59,5 +60,5 @@ func (master *Master) schedule() {
 	}
 
 	t2 := time.Now().UnixNano()
-	log.WithField("time", t2 - t1).Info("finished scheduling")
+	log.WithField("time", t2 - t1).Info("[master] finished scheduling")
 }

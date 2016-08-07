@@ -173,9 +173,26 @@ func (a *SchedulerApi) ListClusters() (clusters []Cluster) {
 }
 
 func (a *SchedulerApi) Register(t Task) {
+	servs, err := a.agent.Services()
+	if err != nil {
+		panic(err)
+	}
+
+	for id, _ := range servs {
+		if id == t.Id() {
+			return
+		}
+	}
+
 	checks := api.AgentServiceChecks{}
 
 	for _, check := range t.TaskDef.Checks {
+
+		// todo: provide a nicer way of specifying this
+		if t.TaskDef.ProvidePort && check.Http != "" {
+			check.Http = fmt.Sprintf("http://127.0.0.1:%d", t.Port)
+		}
+
 		checks = append(checks, &api.AgentServiceCheck{
 			Interval: check.Interval,
 			Script: check.Script,
@@ -186,8 +203,11 @@ func (a *SchedulerApi) Register(t Task) {
 	}
 
 	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("host", t.Host).Debug("registering task")
+	for _, check := range checks {
+		fmt.Printf("checks: %s %s\n", check.HTTP, check.Interval)
+	}
 
-	err := a.agent.ServiceRegister(&api.AgentServiceRegistration{
+	err = a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID: t.Id(),
 		Name: t.Name(),
 		Tags: []string{t.Cluster.Name, t.Service},
@@ -198,11 +218,6 @@ func (a *SchedulerApi) Register(t Task) {
 
 	if err != nil {
 		panic(err)
-	}
-
-	err = a.agent.CheckRegister(&api.AgentCheckRegistration{Name: t.Name()})
-	if err != nil {
-		log.Error(err)
 	}
 }
 

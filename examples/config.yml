@@ -20,7 +20,7 @@ services:
   # services take a list of task and version combinations
   - name: api-service
     task_name: api
-    task_version: 1
+    task_version: 6
     desired: 3
     min: 1
     max: 5
@@ -28,29 +28,28 @@ services:
   # services take a list of task and version combinations
   - name: redis-service
     count: 3
-    task_name: api
-    task_version: 1
+    task_name: redis
+    task_version: 3
 
 tasks:
   # task names should be globally unique and are
   - name: api
-    version: 1
+    version: 6
     containers:
       - name: my-thing-container
         executor: bash
         bash:
-          artifact: my-url
           cmd: start-my-thing
           env:
             - stuff=stuff
 
   - name: redis
-    version: 1
+    version: 4
 
     # passed on to consul
     checks:
-      script: stuff
-      interval: 30s
+      - http: 127.0.0.1
+        interval: 10s
 
     containers:
       - name: redis
@@ -80,4 +79,4 @@ tasks:
           volumes:
             - stuff
           env:
-            name: stuff
+            - stuff=stuff

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 )
 
 type Validatable interface {
@@ -190,8 +191,9 @@ func (host Host) IsPortAvailable(port uint) bool {
 
 func (host Host) AvailablePort() uint {
 	for i := 0; i < len(host.PortSelection); i++ {
-		if host.IsPortAvailable(host.PortSelection[i]) {
-			return host.PortSelection[i]
+		r := rand.Intn(len(host.PortSelection) - 1)
+		if host.IsPortAvailable(host.PortSelection[r]) {
+			return host.PortSelection[r]
 		}
 	}
 	return 0

@@ -39,6 +39,7 @@ func (docker DockerExecutor) Commands() (cmds [][]string) {
 
 	// add the command
 	cmds = append(cmds, []string{"docker", "pull", docker.Image})
+	cmds = append(cmds, []string{"docker", "rm", "-f", docker.Name})
 
 	main := []string{"docker", "run"}
 
@@ -70,7 +71,7 @@ func (docker DockerExecutor) Commands() (cmds [][]string) {
 		main = append(main, "-p", p)
 	}
 
-	main = append(main, docker.Image)
+	main = append(main, "-d", docker.Image)
 
 	cmds = append(cmds, main)
 	return cmds

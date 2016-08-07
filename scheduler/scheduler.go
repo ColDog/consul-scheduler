@@ -33,6 +33,8 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 		}
 	}
 
+	newlyAllocatedPorts := make(map[string] []uint)
+
 	hosts := api.ListHosts()
 	for _, task := range needScheduling {
 		scheduled := false
@@ -46,14 +48,28 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 
 				isPortAvailable := cand.IsPortAvailable(task.Port)
 
-				if isPortAvailable && cand.CpuUnits - task.TaskDef.CpuUnits > 0 && cand.Memory - task.TaskDef.Memory > 0 {
+				portAlreadyAlloc := false
+				if val, ok := newlyAllocatedPorts[cand.Name]; ok {
+					for _, p := range val {
+						if p == task.Port {
+							portAlreadyAlloc = true
+							break
+						}
+					}
+				}
+
+				if isPortAvailable && !portAlreadyAlloc && cand.CpuUnits - task.TaskDef.CpuUnits > 0 && cand.Memory - task.TaskDef.Memory > 0 {
 					// everything looks good!
 
 					task.Host = cand.Name
 					if task.TaskDef.ProvidePort {
 						task.Port = cand.AvailablePort()
+						println("providing port", task.Port)
 					}
 
+					if task.Port != 0 {
+						newlyAllocatedPorts[cand.Name] = append(newlyAllocatedPorts[cand.Name], task.Port)
+					}
 					api.PutTask(task)
 					scheduled = true
 					break
@@ -62,7 +78,7 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 			}
 
 			if !scheduled {
-				log.WithField("task", task.Id()).Error("could not schedule task, no suitable host found")
+				log.WithField("task", task.Id()).Error("[scheduler] no hosts found")
 			}
 		}
 	}

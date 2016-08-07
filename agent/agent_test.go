@@ -56,3 +56,7 @@ func TestPublishAgent(t *testing.T) {
 	ag := NewAgent(NewSchedulerApi())
 	ag.publishState()
 }
+
+//func TestStart(t *testing.T) {
+//	ag := NewAgent(NewSchedulerApi())
+//}
