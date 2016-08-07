@@ -23,6 +23,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.provision "shell", inline: $script
 
+  config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: ".git/"
+
   config.vm.define "n1" do |n1|
     n1.vm.hostname = "n1"
     n1.vm.network "private_network", ip: "172.20.20.10"

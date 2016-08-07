@@ -19,6 +19,7 @@ type action struct {
 }
 
 func NewAgent(a *SchedulerApi) *Agent {
+	log.Info("starting agent")
 	return &Agent{
 		api: a,
 		Host: a.Host(),
@@ -42,10 +43,10 @@ func (agent *Agent) runner() {
 
 		case act := <- agent.queue:
 			if act.start {
-				log.WithField("task", act.task.Id()).Info("starting task")
+				log.WithField("task", act.task.Id()).Info("[agent]	starting task")
 				agent.start(act.task)
 			} else if act.stop {
-				log.WithField("task", act.task.Id()).Info("stopping task")
+				log.WithField("task", act.task.Id()).Info("[agent]	stopping task")
 				agent.stop(act.task)
 			}
 
@@ -56,7 +57,7 @@ func (agent *Agent) runner() {
 }
 
 func (agent *Agent) exec(env []string, main string, cmds ...string) error {
-	log.WithField("cmd", cmds).Info("executing")
+	log.WithField("cmd", cmds).Info("[agent]	executing")
 
 	done := make(chan bool, 1)
 	cmd := exec.Command(main, cmds...)
@@ -109,7 +110,7 @@ func (agent *Agent) start(t Task) {
 	agent.api.Register(t)
 
 	for _, cont := range t.TaskDef.Containers {
-		log.Println("starting", cont.Executor)
+		log.Println("[agent]	starting", cont.Executor)
 		switch cont.Executor {
 		case "docker":
 			for _, cmd := range cont.Docker.Commands() {
@@ -146,6 +147,8 @@ func (agent *Agent) watcher() {
 }
 
 func (agent *Agent) Run() {
+	log.Info("[agent]	publishing initial state")
+
 	agent.publishState()
 	go agent.runner()
 	go agent.watcher()
@@ -178,7 +181,8 @@ func (agent *Agent) publishState() {
 }
 
 func (agent *Agent) sync() {
-	log.Println("executing sync")
+	log.Println("[agent] 	executing sync")
+
 	desired := agent.api.DesiredTasksByHost(agent.Host)
 	running := agent.api.RunningTasksOnHost(agent.Host)
 
@@ -189,7 +193,7 @@ func (agent *Agent) sync() {
 			continue // continue if task is ok
 		}
 
-		log.WithField("task", task.Id()).WithField("passing", runTask.Passing).WithField("exists", runTask.Exists).WithField("ok", ok).Debug("enqueue")
+		log.WithField("task", task.Id()).WithField("passing", runTask.Passing).WithField("exists", runTask.Exists).WithField("ok", ok).Debug("[agent]	enqueue")
 
 		agent.queue <- action{
 			start: true,
@@ -201,7 +205,7 @@ func (agent *Agent) sync() {
 
 		if !runTask.Exists {
 
-			log.WithField("task", runTask.Task.Id()).Debug("task doesn't exist")
+			log.WithField("task", runTask.Task.Id()).Debug("[agent] 	task doesn't exist")
 
 			// parse the service id and try and keep everything above the minimum
 			spl := strings.Split(runTask.ServiceID, "_")

@@ -39,14 +39,19 @@ func printYaml(obj interface{}) {
 	fmt.Printf("\n%s\n", data)
 }
 
+func printOk() {
+	fmt.Println("OK")
+}
+
 func RegisterTaskDefinitionCommands(api *SchedulerApi, app *cli.App)  {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "task-definition",
-		Usage: "create and update task definitions",
+		Usage: "create, update and view task definitions",
 		Subcommands: []cli.Command{
 			{
 				Name: "apply",
 				ArgsUsage: "file",
+				Usage: "add or update a task definition",
 				Action: func(c *cli.Context)  error {
 					t := TaskDefinition{}
 					err := readYml(c.Args().First(), &t)
@@ -57,14 +62,25 @@ func RegisterTaskDefinitionCommands(api *SchedulerApi, app *cli.App)  {
 					err = valid(t.Validate(api))
 					if err == nil {
 						api.PutTaskDefinition(t)
+						printOk()
 					}
 
 					return err
 				},
 			},
 			{
+				Name: "list",
+				Usage: "list names of currently available task definitions",
+				Action: func(c *cli.Context)  error {
+					list := api.ListTaskDefinitionNames()
+					printYaml(list)
+					return nil
+				},
+			},
+			{
 				Name: "show",
 				ArgsUsage: "name",
+				Usage: "show a task definition by version and name",
 				Flags: []cli.Flag{
 					cli.IntFlag{Name: "version, v", Value: 1},
 				},
@@ -86,6 +102,7 @@ func RegisterTaskDefinitionCommands(api *SchedulerApi, app *cli.App)  {
 func RegisterTaskCommands(api *SchedulerApi, app *cli.App)  {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "tasks",
+		Usage: "create, update and view tasks",
 		Subcommands: []cli.Command{
 			{
 				Name: "create",
@@ -125,6 +142,7 @@ func RegisterTaskCommands(api *SchedulerApi, app *cli.App)  {
 func RegisterServiceCommands(api *SchedulerApi, app *cli.App) {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "services",
+		Usage: "create, update and view services",
 		Subcommands: []cli.Command{
 			{
 				Name: "apply",
@@ -140,6 +158,7 @@ func RegisterServiceCommands(api *SchedulerApi, app *cli.App) {
 					err = valid(t.Validate(api))
 					if err == nil {
 						api.PutService(t)
+						printOk()
 					}
 
 					return err
@@ -148,6 +167,7 @@ func RegisterServiceCommands(api *SchedulerApi, app *cli.App) {
 			{
 				Name: "show",
 				ArgsUsage: "name",
+				Usage: "describe a service",
 				Action: func(c *cli.Context) error {
 					name := c.Args().First()
 					if name == "" {
@@ -164,8 +184,18 @@ func RegisterServiceCommands(api *SchedulerApi, app *cli.App) {
 				},
 			},
 			{
+				Name: "list",
+				Usage: "list all services currently registered",
+				Action: func(c *cli.Context) error {
+					services := api.ListServiceNames()
+					printYaml(services)
+					return nil
+				},
+			},
+			{
 				Name: "remove",
 				ArgsUsage: "name",
+				Usage: "remove a specific service",
 				Action: func(c *cli.Context) error {
 					name := c.Args().First()
 					if name == "" {
@@ -173,6 +203,7 @@ func RegisterServiceCommands(api *SchedulerApi, app *cli.App) {
 					}
 
 					api.DelService(name)
+					printOk()
 					return nil
 				},
 			},
@@ -183,6 +214,7 @@ func RegisterServiceCommands(api *SchedulerApi, app *cli.App) {
 func RegisterClusterCommands(api *SchedulerApi, app *cli.App) {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "clusters",
+		Usage: "create, update and view clusters",
 		Subcommands: []cli.Command{
 			{
 				Name: "create",

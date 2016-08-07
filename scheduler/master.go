@@ -9,6 +9,8 @@ import (
 type Scheduler func(cluster Cluster, api *SchedulerApi)
 
 func NewMaster(a *SchedulerApi) *Master {
+	log.Info("starting shceduler master process")
+
 	return &Master{
 		api: a,
 		Schedulers: make(map[string] Scheduler),
@@ -22,11 +24,14 @@ type Master struct {
 	Default			Scheduler
 }
 
-func (master *Master) AddScheduler(name string, sched Scheduler) {
+func (master *Master) Register(name string, sched Scheduler) {
+	log.WithField("scheduler", name).Info("registering scheduler")
 	master.Schedulers[name] = sched
 }
 
 func (master *Master) Run() {
+	log.Info("beginning to wait for trigger")
+
 	for {
 		master.api.WaitForScheduler()
 

@@ -286,6 +286,15 @@ func (a *SchedulerApi) GetService(name string) (s Service, ok bool) {
 	return s, true
 }
 
+func (a *SchedulerApi) ListServiceNames() []string {
+	list, _, err := a.kv.Keys("service/", "", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	return list
+}
+
 func (a *SchedulerApi) ListHosts() (hosts []Host) {
 	list, _, err := a.kv.List("host/", nil)
 	if err != nil {
@@ -351,6 +360,15 @@ func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (a *SchedulerApi) ListTaskDefinitionNames() []string {
+	list, _, err := a.kv.Keys("task/", "", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	return list
 }
 
 func (a *SchedulerApi) PutCluster(c Cluster) {

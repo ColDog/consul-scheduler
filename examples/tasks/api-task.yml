@@ -1,0 +1,10 @@
+name: api
+version: 4
+containers:
+  - name: my-thing-container
+    executor: bash
+    bash:
+      artifact: my-url
+      cmd: start-my-thing
+      env:
+        - stuff=stuff

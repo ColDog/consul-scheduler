@@ -62,18 +62,18 @@ func (t TaskDefinition) Key() string {
 //	- min must be less than or equal to desired
 //
 type Service struct {
-	Name 		string
-	TaskName 	string
-	TaskVersion 	uint
-	Desired 	int
-	Min 		int
-	Max 		int
+	Name 		string		`json:"name"`
+	TaskName 	string		`json:"task_name"`
+	TaskVersion 	uint		`json:"task_version"`
+	Desired 	int		`json:"desired"`
+	Min 		int		`json:"min"`
+	Max 		int		`json:"max"`
 }
 
 func (service Service) Validate(api *SchedulerApi) (errors []string) {
 	_, ok := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if !ok {
-		errors = append(errors, "task does not exist")
+		errors = append(errors, "task (" + service.TaskName + ") does not exist")
 	}
 
 	if service.Name == "" {

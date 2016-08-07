@@ -1,0 +1,6 @@
+name: api-service
+task_version: 4
+task_name: api
+min: 1
+desired: 5
+max: 10
