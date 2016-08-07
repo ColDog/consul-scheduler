@@ -132,8 +132,8 @@ func (a *SchedulerApi) WaitForScheduler() {
 func (a *SchedulerApi) WaitOnKey(key string) {
 	lastIdx := uint64(0)
 	for {
-		keys, meta, err := a.kv.Keys("schedule", "", &api.QueryOptions{
-			AllowStale: true,
+		keys, _, err := a.kv.List(key, &api.QueryOptions{
+			AllowStale: false,
 			WaitTime: 10 * time.Minute,
 			WaitIndex: lastIdx,
 		})
@@ -141,9 +141,18 @@ func (a *SchedulerApi) WaitOnKey(key string) {
 			panic(err)
 		}
 
-		lastIdx = meta.LastIndex
-		if len(keys) > 0 {
-			return
+		if lastIdx != 0 {
+			for _, kv := range keys {
+				if kv.ModifyIndex > lastIdx {
+					return
+				}
+			}
+		} else {
+			for _, kv := range keys {
+				if kv.ModifyIndex > lastIdx {
+					lastIdx = kv.ModifyIndex
+				}
+			}
 		}
 	}
 }
@@ -188,9 +197,14 @@ func (a *SchedulerApi) Register(t Task) {
 
 	for _, check := range t.TaskDef.Checks {
 
-		// todo: provide a nicer way of specifying this
-		if t.TaskDef.ProvidePort && check.Http != "" {
-			check.Http = fmt.Sprintf("http://127.0.0.1:%d", t.Port)
+		if check.AddProvidedPort {
+			if t.TaskDef.ProvidePort && check.Http != "" {
+				check.Http = fmt.Sprintf("%s:%d", check.Http, t.Port)
+			}
+
+			if t.TaskDef.ProvidePort && check.Tcp != "" {
+				check.Http = fmt.Sprintf("%s:%d", check.Tcp, t.Port)
+			}
 		}
 
 		checks = append(checks, &api.AgentServiceCheck{
@@ -221,8 +235,8 @@ func (a *SchedulerApi) Register(t Task) {
 	}
 }
 
-func (a *SchedulerApi) DeRegister(task Task) {
-	err := a.agent.ServiceDeregister(task.Id())
+func (a *SchedulerApi) DeRegister(taskId string) {
+	err := a.agent.ServiceDeregister(taskId)
 	if err != nil {
 		panic(err)
 	}
@@ -242,6 +256,7 @@ func (a *SchedulerApi) PutTask(t Task) {
 	p = &api.KVPair{
 		Key: "state/" + t.Id(),
 		Value: encode(t),
+		Flags: uint64(0),
 	}
 
 	_, err = a.kv.Put(p, nil)
@@ -249,7 +264,7 @@ func (a *SchedulerApi) PutTask(t Task) {
 		panic(err)
 	}
 
-	log.WithField("task", t.Id()).WithField("host", t.Host).Info("scheduled task")
+	log.WithField("task", t.Id()).WithField("host", t.Host).WithField("port", t.Port).Info("scheduled task")
 }
 
 func (a *SchedulerApi) IsTaskScheduled(taskId string) bool {
@@ -258,11 +273,22 @@ func (a *SchedulerApi) IsTaskScheduled(taskId string) bool {
 		panic(err)
 	}
 
-	return res != nil
+	return res != nil && res.Flags == uint64(0)
 }
 
 func (a *SchedulerApi) DelTask(t Task) {
 	_, err := a.kv.Delete("state/" + t.Host + "/" + t.Id(), nil)
+	if err != nil {
+		panic(err)
+	}
+
+	p := &api.KVPair{
+		Key: "state/" + t.Id(),
+		Value: encode(t),
+		Flags: uint64(1),
+	}
+
+	_, err = a.kv.Put(p, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -351,6 +377,13 @@ func (a *SchedulerApi) PutHost(host Host) {
 	}
 }
 
+func (a *SchedulerApi) DelHost(hostId string) {
+	_, err := a.kv.Delete("host/" + hostId, nil)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (a *SchedulerApi) GetTaskDefinition(name string, ver uint) (s TaskDefinition, ok bool) {
 	p, _, err := a.kv.Get(fmt.Sprintf("task/%s/%v", name, ver), nil)
 	if err != nil {
@@ -434,6 +467,7 @@ func (a *SchedulerApi) GetTask(taskId string) (t Task, ok bool) {
 	if res.Value != nil {
 		ok = true
 		decode(res.Value, &t)
+		t.Stopped = res.Flags == uint64(1)
 	}
 
 	return t, ok
@@ -501,6 +535,22 @@ func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task) {
 		tasks = append(tasks, t)
 	}
 	return tasks
+}
+
+func (a *SchedulerApi) TaskCount(prefix string) int {
+	list, _, err := a.kv.List("state/" + prefix, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	count := 0
+	for _, kv := range list {
+		if kv.Flags == uint64(0) {
+			count++
+		}
+	}
+
+	return count
 }
 
 func (a *SchedulerApi) HealthyTaskCount(taskName string) int {

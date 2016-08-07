@@ -5,6 +5,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"math/rand"
+	"fmt"
 )
 
 /**
@@ -27,6 +28,20 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 			if ok {
 				for i := 0; i < service.Desired; i++ {
 					needScheduling = append(needScheduling, NewTask(cluster, taskDef, service, i))
+				}
+			}
+
+		}
+
+		count := api.TaskCount(cluster.Name + "_" + service.TaskName)
+		if service.Desired < count {
+			for i := count - 1; i > service.Desired - 1; i-- {
+				id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
+				t, _ := api.GetTask(id)
+
+				if t.Service != "" {
+					log.WithField("task", id).Info("[scheduler] removing")
+					api.DelTask(t)
 				}
 			}
 
@@ -63,13 +78,23 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 
 					task.Host = cand.Name
 					if task.TaskDef.ProvidePort {
-						task.Port = cand.AvailablePort()
-						println("providing port", task.Port)
+						if val, ok := newlyAllocatedPorts[cand.Name]; ok {
+							fmt.Printf("new alog: %v\n", val)
+							task.Port = cand.AvailablePort(val...)
+						} else {
+							task.Port = cand.AvailablePort()
+						}
+
+						if task.Port == 0 {
+							log.WithField("task", task.Id()).Error("[scheduler] could not provide a port")
+							break
+						}
 					}
 
 					if task.Port != 0 {
 						newlyAllocatedPorts[cand.Name] = append(newlyAllocatedPorts[cand.Name], task.Port)
 					}
+
 					api.PutTask(task)
 					scheduled = true
 					break

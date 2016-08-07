@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"fmt"
 	"bufio"
-	"strings"
 	"runtime"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/mem"
 	. "github.com/coldog/scheduler/api"
@@ -16,6 +16,7 @@ type action struct {
 	start		bool
 	stop 		bool
 	task 		Task
+	taskId		string
 }
 
 func NewAgent(a *SchedulerApi) *Agent {
@@ -23,6 +24,7 @@ func NewAgent(a *SchedulerApi) *Agent {
 	return &Agent{
 		api: a,
 		Host: a.Host(),
+		run: make(chan struct{}, 1),
 		queue: make(chan action, 100),
 		quit: make(chan struct{}, 1),
 	}
@@ -38,7 +40,7 @@ type Agent struct {
 }
 
 func (agent *Agent) availablePortList() []uint {
-	ports := make([]uint, 0, 20)
+	ports := make([]uint, 0, 60)
 	for i := 0; i < 20; i++ {
 		ports = append(ports, uint(RandomTCPPort()))
 	}
@@ -126,9 +128,12 @@ func (agent *Agent) start(t Task) {
 		case "docker":
 			cont.Docker.Name = t.Id()
 
-			// todo: allow custom container ports
 			if t.TaskDef.ProvidePort {
-				cont.Docker.Ports = append(cont.Docker.Ports, fmt.Sprintf("%d:80", t.Port))
+				p := cont.Docker.ContainerPort
+				if p == uint(0) {
+					p = t.Port
+				}
+				cont.Docker.Ports = append(cont.Docker.Ports, fmt.Sprintf("%d:%d", t.Port, p))
 			}
 
 			for _, cmd := range cont.Docker.Commands() {
@@ -159,7 +164,7 @@ func (agent *Agent) start(t Task) {
 }
 
 func (agent *Agent) stop(t Task) {
-	agent.api.DeRegister(t)
+	agent.api.DeRegister(t.Id())
 
 	for _, cont := range t.TaskDef.Containers {
 		switch cont.Executor {
@@ -175,16 +180,21 @@ func (agent *Agent) stop(t Task) {
 
 func (agent *Agent) watcher() {
 	for {
-		agent.api.WaitOnKey("state/" + agent.Host + "/")
+		agent.api.WaitOnKey("state")
 		agent.run <- struct {}{}
 	}
 }
 
 func (agent *Agent) Run() {
 	log.Info("[agent] publishing initial state")
+	defer agent.api.DelHost(agent.Host)
 
 	agent.publishState()
-	go agent.runner()
+
+	for i := 0; i < 3; i++ {
+		go agent.runner()
+	}
+
 	go agent.watcher()
 
 	agent.api.TriggerScheduler()
@@ -196,6 +206,7 @@ func (agent *Agent) Run() {
 		select {
 
 		case <- agent.run:
+			log.Info("[agent] sync triggered by watcher")
 			agent.sync()
 
 		case <- time.After(45 * time.Second):
@@ -253,26 +264,23 @@ func (agent *Agent) sync() {
 
 	for _, runTask := range running {
 
-		if !runTask.Exists {
+		if runTask.Task.Stopped {
+			log.WithField("task", runTask.Task.Id()).Debug("[agent] task stopped")
 
-			log.WithField("task", runTask.Task.Id()).Debug("[agent] task doesn't exist")
+			c := agent.api.HealthyTaskCount(runTask.Task.Name())
 
-			// parse the service id and try and keep everything above the minimum
-			spl := strings.Split(runTask.ServiceID, "_")
-			if len(spl) >= 2 {
-				serv, ok := agent.api.GetService(spl[1])
-				if ok {
-					c := agent.api.HealthyTaskCount(spl[1])
-
-					if c > serv.Min {
-						agent.queue <- action{
-							stop: true,
-							task: runTask.Task,
-						}
-					}
+			if c > runTask.Service.Min {
+				agent.queue <- action{
+					stop: true,
+					task: runTask.Task,
 				}
 			}
+		}
 
+		// no way to stop the task since we cannot find it, instead we deregister in consul
+		if !runTask.Exists {
+			log.WithField("task", runTask.ServiceID).Debug("[agent] task doesn't exist")
+			agent.api.DeRegister(runTask.ServiceID)
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 type Validatable interface {
@@ -17,6 +18,7 @@ type Check struct  {
 	Http 		string			`json:"http"`
 	Tcp 		string			`json:"tcp"`
 	Script 		string			`json:"script"`
+	AddProvidedPort	bool			`json:"add_provided_port"`
 	Interval 	string			`json:"interval"`
 	Timeout 	string			`json:"timeout"`
 	Ttl 		string			`json:"ttl"`
@@ -146,6 +148,7 @@ type Task struct {
 	Instance 	int
 	Port 		uint
 	Host 		string
+	Stopped 	bool
 }
 
 func (task Task) Validate(api *SchedulerApi) (errors []string) {
@@ -189,11 +192,24 @@ func (host Host) IsPortAvailable(port uint) bool {
 	return true
 }
 
-func (host Host) AvailablePort() uint {
+func (host Host) AvailablePort(additional ...uint) uint {
+	rand.Seed(time.Now().UnixNano())
+
 	for i := 0; i < len(host.PortSelection); i++ {
 		r := rand.Intn(len(host.PortSelection) - 1)
-		if host.IsPortAvailable(host.PortSelection[r]) {
-			return host.PortSelection[r]
+		candidate := host.PortSelection[r]
+
+		if host.IsPortAvailable(candidate) {
+			if len(additional) > 0 {
+				for _, p := range additional {
+					println(candidate, p)
+					if candidate != p {
+						return candidate
+					}
+				}
+			} else {
+				return candidate
+			}
 		}
 	}
 	return 0

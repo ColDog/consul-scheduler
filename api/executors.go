@@ -28,6 +28,7 @@ type DockerExecutor struct {
 	Name 		string
 	Cmd 		string
 	Entry 		string
+	ContainerPort 	uint
 	Ports 		[]string
 	Env 		[]string
 	WorkDir 	string
