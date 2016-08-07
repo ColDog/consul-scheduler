@@ -1,0 +1,83 @@
+clusters:
+  - name: default
+    services:
+      # inside the default cluster, the api service will be scheduled, this will bring up 1 service in consul:
+      #     default.api-service
+      #
+      # the api service will have ids of:
+      #     default.api-service.1-1
+      #     default.api-service.1-2
+      #     default.api-service.1-3
+      #
+
+      - api-service
+
+    nodes:
+      - node name
+
+services:
+
+  # services take a list of task and version combinations
+  - name: api-service
+    task_name: api
+    task_version: 1
+    desired: 3
+    min: 1
+    max: 5
+
+  # services take a list of task and version combinations
+  - name: redis-service
+    count: 3
+    task_name: api
+    task_version: 1
+
+tasks:
+  # task names should be globally unique and are
+  - name: api
+    version: 1
+    containers:
+      - name: my-thing-container
+        executor: bash
+        bash:
+          artifact: my-url
+          cmd: start-my-thing
+          env:
+            - stuff=stuff
+
+  - name: redis
+    version: 1
+
+    # passed on to consul
+    checks:
+      script: stuff
+      interval: 30s
+
+    containers:
+      - name: redis
+        # consul name:  <cluster_name>.<service_name>.<task_name>
+        # consul id:    <name>.<task_version>-<instance>
+
+        # if not set is chosen dynamically and provided as an env variable available to the executor as PORT
+        port: 3000
+
+        # passed on to consul
+        tags:
+          - master
+
+        # one of docker, bash
+        executor: docker
+
+        # simply runs a command
+        bash:
+          artifact: some-url
+          cmd: some stuff
+          env:
+            - stuff=stuff
+
+        # docker configuration, same as docker-compose config
+        docker:
+          image: stuff
+          volumes:
+            - stuff
+          env:
+            name: stuff
