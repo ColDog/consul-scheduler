@@ -112,11 +112,11 @@ func (agent *Agent) start(t Task) {
 		log.Println("starting", cont.Executor)
 		switch cont.Executor {
 		case "docker":
-			for _, cmd := range cont.Docker.commands() {
+			for _, cmd := range cont.Docker.Commands() {
 				agent.exec(cont.Docker.Env, cmd[0], cmd[1:]...)
 			}
 		case "bash":
-			for _, cmd := range cont.Bash.commands() {
+			for _, cmd := range cont.Bash.Commands() {
 				agent.exec(cont.Bash.Env, cmd[0], cmd[1:]...)
 			}
 		}

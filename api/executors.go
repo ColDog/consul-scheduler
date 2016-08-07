@@ -10,7 +10,7 @@ type BashExecutor struct {
 	DownloadDir 	string
 }
 
-func (bash BashExecutor) commands() (cmds [][]string) {
+func (bash BashExecutor) Commands() (cmds [][]string) {
 	if bash.Artifact != "" {
 		cmds = append(cmds, []string{"curl", "-o", bash.DownloadDir, bash.Artifact})
 	}
@@ -35,7 +35,7 @@ type DockerExecutor struct {
 	Flags 		[]string
 }
 
-func (docker DockerExecutor) commands() (cmds [][]string) {
+func (docker DockerExecutor) Commands() (cmds [][]string) {
 
 	// add the command
 	cmds = append(cmds, []string{"docker", "pull", docker.Image})
