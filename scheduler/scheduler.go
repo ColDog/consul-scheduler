@@ -17,54 +17,6 @@ that does not have a port conflict and has enough memory / cpu.
 
 */
 
-type Scheduler func(cluster Cluster, api *SchedulerApi)
-
-func NewMaster(a *SchedulerApi) *Master {
-	return &Master{
-		api: a,
-		Schedulers: make(map[string] Scheduler),
-		Default: DefaultScheduler,
-	}
-}
-
-type Master struct {
-	api 			*SchedulerApi
-	Schedulers 		map[string] Scheduler
-	Default			Scheduler
-}
-
-func (master *Master) AddScheduler(name string, sched Scheduler) {
-	master.Schedulers[name] = sched
-}
-
-func (master *Master) Run() {
-	for {
-		master.api.WaitForScheduler()
-
-		lock := master.api.LockScheduler()
-		log.Info("acquired scheduler lock")
-
-		master.schedule()
-
-		log.Info("finished scheduling")
-		master.api.FinishedScheduling()
-		lock.Unlock()
-	}
-}
-
-func (master *Master) schedule() {
-	log.Info("beginning scheduler")
-
-	for _, cluster := range master.api.ListClusters() {
-		scheduler, ok := master.Schedulers[cluster.Scheduler]
-		if !ok {
-			scheduler = master.Default
-		}
-
-		scheduler(cluster, master.api)
-	}
-}
-
 func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 	needScheduling := make([]Task, 0)
 
