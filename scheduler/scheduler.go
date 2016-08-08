@@ -35,6 +35,9 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 
 		count := api.TaskCount(cluster.Name + "_" + service.TaskName)
 		if service.Desired < count {
+
+			// find suitable tasks to remove
+
 			for i := count - 1; i > service.Desired - 1; i-- {
 				id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
 				t, _ := api.GetTask(id)

@@ -3,13 +3,12 @@ package agent
 import (
 	"time"
 	"os/exec"
-	"fmt"
-	"bufio"
 	"runtime"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/mem"
 	. "github.com/coldog/scheduler/api"
+	"os"
 )
 
 type action struct {
@@ -48,26 +47,26 @@ func (agent *Agent) availablePortList() []uint {
 	return ports
 }
 
-func (agent *Agent) runner() {
+func (agent *Agent) runner(id int) {
 	for {
 		select {
 		case act := <- agent.queue:
 			if act.start {
 
-				//if t, ok := agent.startedAt[act.task.Id()]; ok {
-				//	// if we add 3 minutes to the started at time, and it's after the current
-				//	// time we skip this loop
-				//	if t.Add(3 * time.Minute).After(time.Now()) {
-				//		log.Debug("[agent] debouncing task start request")
-				//		continue
-				//	}
-				//}
+				if t, ok := agent.startedAt[act.task.Id()]; ok {
+					// if we add 3 minutes to the started at time, and it's after the current
+					// time we skip this loop
+					if t.Add(30 * time.Second).After(time.Now()) {
+						log.Infof("[agent-r%d] passing on start request", id)
+						continue
+					}
+				}
 
-				log.WithField("task", act.task.Id()).Info("[agent] starting task")
+				log.WithField("task", act.task.Id()).Infof("[agent-r%d] starting task", id)
 				agent.startedAt[act.task.Id()] = time.Now()
 				agent.start(act.task)
 			} else if act.stop {
-				log.WithField("task", act.task.Id()).Info("[agent] stopping task")
+				log.WithField("task", act.task.Id()).Infof("[agent-r%d] stopping task", id)
 				agent.stop(act.task)
 			}
 
@@ -96,31 +95,13 @@ func (agent *Agent) exec(env []string, main string, cmds ...string) error {
 
 	}()
 
-	// capture the output and error pipes
-	stdout, err := cmd.StdoutPipe()
-	stderr, err := cmd.StderrPipe()
-	err = cmd.Start()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Start()
 	if err != nil {
-		fmt.Printf("	> err: %v\n", err.Error())
 		done <- struct{}{}
 		return err
 	}
-
-	go func() {
-		buff := bufio.NewScanner(stderr)
-
-		for buff.Scan() {
-			fmt.Printf("	> %s\n", buff.Text())
-		}
-	}()
-
-	go func() {
-		buff := bufio.NewScanner(stdout)
-
-		for buff.Scan() {
-			fmt.Printf("	> %s\n", buff.Text())
-		}
-	}()
 
 
 	err = cmd.Wait()
@@ -137,7 +118,7 @@ func (agent *Agent) start(t Task) {
 			env := executor.GetEnv(t)
 			cmds := executor.StartCmds(t)
 			for _, cmd := range cmds {
-				err = agent.exec(env, cmd[0], cmd[1:])
+				err = agent.exec(env, cmd[0], cmd[1:]...)
 			}
 
 			if err != nil {
@@ -162,7 +143,7 @@ func (agent *Agent) stop(t Task) {
 		if executor != nil {
 			env := executor.GetEnv(t)
 			for _, cmd := range executor.StopCmds(t) {
-				agent.exec(env, cmd[0], cmd[1:])
+				agent.exec(env, cmd[0], cmd[1:]...)
 			}
 		}
 	}
@@ -170,7 +151,7 @@ func (agent *Agent) stop(t Task) {
 
 func (agent *Agent) watcher() {
 	for {
-		agent.api.WaitOnKey("state")
+		agent.api.WaitOnKey("state/" + agent.Host)
 		agent.run <- struct {}{}
 	}
 }
@@ -185,7 +166,7 @@ func (agent *Agent) Run() {
 	agent.publishState()
 
 	for i := 0; i < 1; i++ {
-		go agent.runner()
+		go agent.runner(i)
 	}
 
 	go agent.watcher()

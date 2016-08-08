@@ -3,26 +3,26 @@ clusters:
     scheduler: default
     services:
       - helloworld
-#      - lb
+      - lb
 
 services:
   - name: helloworld
     task_name: helloworld
-    task_version: 1
+    task_version: 2
     min: 2
-    max: 8
-    desired: 2
+    max: 3
+    desired: 3
 
   - name: lb
     task_name: lb
-    task_version: 2
+    task_version: 1
     min: 1
     max: 1
     desired: 1
 
 tasks:
   - name: lb
-    version: 2
+    version: 1
     port: 9999
     checks:
       - http: http://127.0.0.1:9999
@@ -32,15 +32,15 @@ tasks:
       - name: lb
         executor: bash
         bash:
-          cmd: daemonize
-          args:
-            - /usr/local/bin/fabio
-          kill: kill $(lsof -t -i:9999)
+          start:
+            - daemonize /usr/local/bin/fabio
+          stop:
+            - kill $(lsof -t -i:9999)
 
   - name: helloworld
-    version: 1
+    version: 2
     tags:
-      - urlprefix-/
+      - urlprefix-/helloworld
 
     provide_port: true
     checks:
