@@ -1,28 +1,47 @@
 package api
 
-// a type of executor
-type BashExecutor struct {
-	Cmd 		string
-	Args 		[]string
-	Env 		[]string
-	Kill 		string
-	Artifact 	string
-	DownloadDir 	string
+import "fmt"
+
+// the executor is a stop and startable executable that can be passed to an agent to run.
+// all commands should have at least one string in the array or else a panic will be thrown
+// by the agent.
+type Executor interface {
+	StartCmds(t Task) [][]string
+	StopCmds(t Task) [][]string
+	GetEnv(t Task) []string
 }
 
-func (bash BashExecutor) Commands() (cmds [][]string) {
+// a type of executor
+type BashExecutor struct {
+	Start 		[]string	`json:"start"`
+	Stop 		[]string	`json:"stop"`
+	Env 		[]string	`json:"env"`
+	Artifact 	string		`json:"artifact"`
+	DownloadDir 	string		`json:"download_dir"`
+}
+
+func (bash BashExecutor) StartCmds(t Task) (cmds [][]string) {
 	if bash.Artifact != "" {
 		cmds = append(cmds, []string{"curl", "-o", bash.DownloadDir, bash.Artifact})
 	}
 
-	main := make([]string, 0)
-	main = append(main, bash.Cmd)
-	main = append(main, bash.Args...)
-	cmds = append(cmds, main)
+	for _, cmd := range bash.Start {
+		cmds = append(cmds, []string{"/bin/bash", "-c", cmd})
+	}
 	return cmds
 }
 
-// a type of executor
+func (bash BashExecutor) StopCmds(t Task) (cmds [][]string) {
+	for _, cmd := range bash.Stop {
+		cmds = append(cmds, []string{"/bin/bash", "-c", cmd})
+	}
+	return cmds
+}
+
+func (bash BashExecutor) GetEnv(t Task) []string {
+	return bash.Env
+}
+
 type DockerExecutor struct {
 	Image 		string		`json:"image"`
 	Name 		string		`json:"name"`
@@ -36,7 +55,16 @@ type DockerExecutor struct {
 	Flags 		[]string	`json:"flags"`
 }
 
-func (docker DockerExecutor) Commands() (cmds [][]string) {
+func (docker DockerExecutor) StartCmds(t Task) (cmds [][]string) {
+	docker.Name = t.Id()
+
+	if t.TaskDef.ProvidePort {
+		p := docker.ContainerPort
+		if p == uint(0) {
+			p = t.Port
+		}
+		docker.Ports = append(docker.Ports, fmt.Sprintf("%d:%d", t.Port, p))
+	}
 
 	// add the command
 	cmds = append(cmds, []string{"docker", "pull", docker.Image})
@@ -74,4 +102,12 @@ func (docker DockerExecutor) Commands() (cmds [][]string) {
 
 	cmds = append(cmds, main)
 	return cmds
+}
+
+func (docker DockerExecutor) StopCmds(t Task) [][]string {
+	return [][]string{[]string{"docker", "stop", t.Id()}}
+}
+
+func (docker DockerExecutor) GetEnv(t Task) []string {
+	return docker.Env
 }

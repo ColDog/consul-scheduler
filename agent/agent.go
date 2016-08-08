@@ -129,62 +129,41 @@ func (agent *Agent) exec(env []string, main string, cmds ...string) error {
 }
 
 func (agent *Agent) start(t Task) {
-	var taskFailErr error
-
 	for _, cont := range t.TaskDef.Containers {
-		log.Debug("[agent] starting container", cont.Name)
 		var err error
+		executor := cont.GetExecutor()
 
-		switch cont.Executor {
-		case "docker":
-			cont.Docker.Name = t.Id()
-
-			if t.TaskDef.ProvidePort {
-				p := cont.Docker.ContainerPort
-				if p == uint(0) {
-					p = t.Port
-				}
-				cont.Docker.Ports = append(cont.Docker.Ports, fmt.Sprintf("%d:%d", t.Port, p))
+		if executor != nil {
+			env := executor.GetEnv(t)
+			cmds := executor.StartCmds(t)
+			for _, cmd := range cmds {
+				err = agent.exec(env, cmd[0], cmd[1:])
 			}
 
-			for _, cmd := range cont.Docker.Commands() {
-				err = agent.exec(cont.Docker.Env, cmd[0], cmd[1:]...)
+			if err != nil {
+				// task has failed to start if the final command returns and error, we will exit
+				// the loop and not register the service
+				log.WithField("error", err).Error("[agent] failed to start task")
+				return
 			}
-		case "bash":
-			for _, cmd := range cont.Bash.Commands() {
-				agent.exec(cont.Bash.Env, cmd[0], cmd[1:]...)
-				if err != nil {
-					break
-				}
-			}
-		}
-
-		if err != nil {
-			log.WithField("error", err).WithField("container", cont.Name).Error("[agent] failed to start container")
-			taskFailErr = err
-			break
 		}
 	}
 
-	if taskFailErr == nil {
-		log.WithField("task", t.Id()).Info("[agent] started task")
-		agent.api.Register(t)
-	} else {
-		log.WithField("error", taskFailErr).Error("[agent] failed to start task")
-	}
+	log.WithField("task", t.Id()).Info("[agent] started task")
+	agent.api.Register(t)
 }
 
 func (agent *Agent) stop(t Task) {
 	agent.api.DeRegister(t.Id())
 
 	for _, cont := range t.TaskDef.Containers {
-		switch cont.Executor {
-		case "docker":
-			agent.exec([]string{}, "docker", "stop", t.Id())
+		executor := cont.GetExecutor()
 
-		case "bash":
-			agent.exec([]string{}, cont.Bash.Kill)
-
+		if executor != nil {
+			env := executor.GetEnv(t)
+			for _, cmd := range executor.StopCmds(t) {
+				agent.exec(env, cmd[0], cmd[1:])
+			}
 		}
 	}
 }
@@ -205,7 +184,7 @@ func (agent *Agent) Run() {
 
 	agent.publishState()
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		go agent.runner()
 	}
 
@@ -249,8 +228,6 @@ func (agent *Agent) publishState() {
 		ReservedPorts: ports,
 		PortSelection: agent.availablePortList(),
 	}
-
-	//fmt.Printf("host: %+v\n", h)
 
 	agent.api.PutHost(h)
 }

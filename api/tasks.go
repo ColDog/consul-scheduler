@@ -55,6 +55,16 @@ type Container struct {
 	Docker		DockerExecutor		`json:"docker"`
 }
 
+func (cont Container) GetExecutor() Executor {
+	if cont.Executor == "docker" {
+		return cont.Docker
+	} else if cont.Executor == "bash" {
+		return cont.Bash
+	} else {
+		return nil
+	}
+}
+
 func (t TaskDefinition) Key() string {
 	return "config/task/" + t.Name
 }

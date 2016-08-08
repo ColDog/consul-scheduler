@@ -30,14 +30,12 @@ tasks:
 
     containers:
       - name: lb
-        executor: docker
-        docker:
-          name: lb
-          image: magiconair/fabio
-          ports:
-            - 9999:9999
-          flags:
-            - --net=host
+        executor: bash
+        bash:
+          cmd: daemonize
+          args:
+            - /usr/local/bin/fabio
+          kill: kill $(lsof -t -i:9999)
 
   - name: helloworld
     version: 1
