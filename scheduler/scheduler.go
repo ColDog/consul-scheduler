@@ -79,7 +79,6 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 					task.Host = cand.Name
 					if task.TaskDef.ProvidePort {
 						if val, ok := newlyAllocatedPorts[cand.Name]; ok {
-							fmt.Printf("new alog: %v\n", val)
 							task.Port = cand.AvailablePort(val...)
 						} else {
 							task.Port = cand.AvailablePort()

@@ -27,13 +27,14 @@ func NewAgent(a *SchedulerApi) *Agent {
 		run: make(chan struct{}, 1),
 		queue: make(chan action, 100),
 		quit: make(chan struct{}, 1),
+		startedAt: make(map[string] time.Time),
 	}
 }
 
 type Agent struct {
 	api 		*SchedulerApi
 	Host 		string
-	startedAt 	map[string] uint64
+	startedAt 	map[string] time.Time
 	queue 		chan action
 	quit 		chan struct{}
 	run 		chan struct{}
@@ -50,10 +51,20 @@ func (agent *Agent) availablePortList() []uint {
 func (agent *Agent) runner() {
 	for {
 		select {
-
 		case act := <- agent.queue:
 			if act.start {
+
+				//if t, ok := agent.startedAt[act.task.Id()]; ok {
+				//	// if we add 3 minutes to the started at time, and it's after the current
+				//	// time we skip this loop
+				//	if t.Add(3 * time.Minute).After(time.Now()) {
+				//		log.Debug("[agent] debouncing task start request")
+				//		continue
+				//	}
+				//}
+
 				log.WithField("task", act.task.Id()).Info("[agent] starting task")
+				agent.startedAt[act.task.Id()] = time.Now()
 				agent.start(act.task)
 			} else if act.stop {
 				log.WithField("task", act.task.Id()).Info("[agent] stopping task")
@@ -187,7 +198,10 @@ func (agent *Agent) watcher() {
 
 func (agent *Agent) Run() {
 	log.Info("[agent] publishing initial state")
+	agent.api.RegisterAgent(agent.Host)
 	defer agent.api.DelHost(agent.Host)
+
+	go Serve()
 
 	agent.publishState()
 

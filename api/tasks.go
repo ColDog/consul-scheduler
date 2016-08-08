@@ -33,6 +33,7 @@ type TaskDefinition struct {
 	Version 	uint			`json:"version"`
 	ProvidePort 	bool			`json:"provide_port"`
 	Port 		uint			`json:"port"`
+	Tags 		[]string 		`json:"tags"`
 	Memory 		uint64			`json:"memory"`
 	CpuUnits 	uint64			`json:"cpu_units"`
 	Containers 	[]Container		`json:"containers"`

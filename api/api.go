@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/hashicorp/consul/api"
 	log "github.com/Sirupsen/logrus"
+
 	"fmt"
 	"time"
 )
@@ -181,6 +182,19 @@ func (a *SchedulerApi) ListClusters() (clusters []Cluster) {
 	return clusters
 }
 
+func (a *SchedulerApi) RegisterAgent(id string) {
+	a.agent.ServiceRegister(&api.AgentServiceRegistration{
+		ID: "consul-scheduler-" + id,
+		Name: "consul-scheduler",
+		Checks: api.AgentServiceChecks{
+			&api.AgentServiceCheck{
+				HTTP: "http://127.0.0.1:8231",
+				Interval: "60s",
+			},
+		},
+	})
+}
+
 func (a *SchedulerApi) Register(t Task) {
 	servs, err := a.agent.Services()
 	if err != nil {
@@ -224,7 +238,7 @@ func (a *SchedulerApi) Register(t Task) {
 	err = a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID: t.Id(),
 		Name: t.Name(),
-		Tags: []string{t.Cluster.Name, t.Service},
+		Tags: append(t.TaskDef.Tags, t.Cluster.Name, t.Service),
 		Port: int(t.Port),
 		Address: t.Host,
 		Checks: checks,
@@ -292,6 +306,20 @@ func (a *SchedulerApi) DelTask(t Task) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (a *SchedulerApi) ListTasks(prefix string) (tasks []Task) {
+	list, _, err := a.kv.List("state/" + prefix, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, kv := range list {
+		t := Task{}
+		decode(kv.Value, &t)
+		tasks = append(tasks, t)
+	}
+	return tasks
 }
 
 func (a *SchedulerApi) PutService(s Service) {
@@ -501,10 +529,8 @@ func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string] Runnin
 	}
 
 	for _, ser := range s {
-		if ser.ID != "consul" {
-
-			t, ok := a.GetTask(ser.ID)
-
+		t, ok := a.GetTask(ser.ID)
+		if ok {
 			var serv Service
 			if ok {
 				serv, _ = a.GetService(t.Service)

@@ -24,16 +24,16 @@ func (bash BashExecutor) Commands() (cmds [][]string) {
 
 // a type of executor
 type DockerExecutor struct {
-	Image 		string
-	Name 		string
-	Cmd 		string
-	Entry 		string
-	ContainerPort 	uint
-	Ports 		[]string
-	Env 		[]string
-	WorkDir 	string
-	Volumes 	[]string
-	Flags 		[]string
+	Image 		string		`json:"image"`
+	Name 		string		`json:"name"`
+	Cmd 		string		`json:"cmd"`
+	Entry 		string		`json:"entry"`
+	ContainerPort 	uint		`json:"container_port"`
+	Ports 		[]string	`json:"ports"`
+	Env 		[]string	`json:"env"`
+	WorkDir 	string		`json:"work_dir"`
+	Volumes 	[]string	`json:"volumes"`
+	Flags 		[]string	`json:"flags"`
 }
 
 func (docker DockerExecutor) Commands() (cmds [][]string) {
@@ -56,9 +56,7 @@ func (docker DockerExecutor) Commands() (cmds [][]string) {
 		main = append(main, "-w", docker.WorkDir)
 	}
 
-	for _, f := range docker.Flags {
-		main = append(main, f)
-	}
+	main = append(main, docker.Flags...)
 
 	for _, v := range docker.Volumes {
 		main = append(main, "-v", v)
