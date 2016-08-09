@@ -41,8 +41,8 @@ type TaskDefinition struct {
 }
 
 func (task TaskDefinition) Validate(api *SchedulerApi) (errors []string) {
-	_, ok := api.GetTaskDefinition(task.Name, task.Version)
-	if ok {
+	_, err := api.GetTaskDefinition(task.Name, task.Version)
+	if err == nil {
 		errors = append(errors, "version already provisioned")
 	}
 	return errors
@@ -85,8 +85,8 @@ type Service struct {
 }
 
 func (service Service) Validate(api *SchedulerApi) (errors []string) {
-	_, ok := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
-	if !ok {
+	_, err := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
+	if err != nil {
 		errors = append(errors, "task (" + service.TaskName + ") does not exist")
 	}
 
@@ -167,8 +167,8 @@ func (task Task) Validate(api *SchedulerApi) (errors []string) {
 		errors = append(errors, "service name is blank")
 	}
 
-	_, ok := api.GetService(task.Service)
-	if !ok {
+	_, err := api.GetService(task.Service)
+	if err != nil {
 		errors = append(errors, "service does not exist")
 	}
 

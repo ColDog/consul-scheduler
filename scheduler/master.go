@@ -30,17 +30,16 @@ func (master *Master) Register(name string, sched Scheduler) {
 }
 
 func (master *Master) Run() {
-	log.Info("[master] wait for trigger")
+	log.Info("[master] running")
 
 	for {
-		master.api.WaitForScheduler()
+		master.api.WaitOnKey("")
 
 		lock := master.api.LockScheduler()
 		log.Info("[master] acquired scheduler lock")
 
 		master.schedule()
 
-		master.api.FinishedScheduling()
 		lock.Unlock()
 		log.Info("[master] unlocked scheduler lock")
 	}
@@ -50,7 +49,14 @@ func (master *Master) schedule() {
 	log.Info("[master] beginning scheduler")
 	t1 := time.Now().UnixNano()
 
-	for _, cluster := range master.api.ListClusters() {
+
+	clusters, err := master.api.ListClusters()
+	if err != nil {
+		log.WithField("error", err).Error("[master] failed to get clusters")
+
+	}
+
+	for _, cluster := range clusters {
 		scheduler, ok := master.Schedulers[cluster.Scheduler]
 		if !ok {
 			scheduler = master.Default

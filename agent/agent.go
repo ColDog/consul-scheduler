@@ -171,8 +171,6 @@ func (agent *Agent) Run() {
 
 	go agent.watcher()
 
-	agent.api.TriggerScheduler()
-
 	time.Sleep(5 * time.Second)
 	agent.sync()
 
@@ -195,7 +193,7 @@ func (agent *Agent) Run() {
 func (agent *Agent) publishState() {
 	m, _ := mem.VirtualMemory()
 
-	desired := agent.api.DesiredTasksByHost(agent.Host)
+	desired, _ := agent.api.DesiredTasksByHost(agent.Host)
 	ports := make([]uint, 0)
 
 	for _, task := range desired {
@@ -216,8 +214,18 @@ func (agent *Agent) publishState() {
 func (agent *Agent) sync() {
 	t1 := time.Now().UnixNano()
 
-	desired := agent.api.DesiredTasksByHost(agent.Host)
-	running := agent.api.RunningTasksOnHost(agent.Host)
+	desired, err := agent.api.DesiredTasksByHost(agent.Host)
+	if err != nil {
+		log.WithField("error", err).Error("failed to sync")
+		return
+	}
+
+	running, err := agent.api.RunningTasksOnHost(agent.Host)
+	if err != nil {
+		log.WithField("error", err).Error("failed to sync")
+		return
+	}
+
 
 	for _, task := range desired {
 		runTask, ok := running[task.Id()]
@@ -239,7 +247,11 @@ func (agent *Agent) sync() {
 		if runTask.Task.Stopped {
 			log.WithField("task", runTask.Task.Id()).Debug("[agent] task stopped")
 
-			c := agent.api.HealthyTaskCount(runTask.Task.Name())
+			c, err := agent.api.HealthyTaskCount(runTask.Task.Name())
+			if err != nil {
+				log.WithField("error", err).Error("failed to sync")
+				return
+			}
 
 			if c > runTask.Service.Min {
 				agent.queue <- action{

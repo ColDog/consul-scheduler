@@ -49,16 +49,6 @@ func main() {
 	app.Usage = "schedule tasks across a consul cluster."
 
 	app.Commands = append(app.Commands, cli.Command{
-		Name: "schedule",
-		Usage: "trigger the scheduler",
-		Action: func(c *cli.Context) error {
-			api.TriggerScheduler()
-			printOk()
-			return nil
-		},
-	})
-
-	app.Commands = append(app.Commands, cli.Command{
 		Name: "apply",
 		Usage: "apply a configuration file to the cluster",
 		Action: func(c *cli.Context) error {

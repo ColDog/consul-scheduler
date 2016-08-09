@@ -6,7 +6,10 @@ import (
 
 	"fmt"
 	"time"
+	"errors"
 )
+
+var NotFoundErr error = errors.New("NotFound")
 
 type Config struct {
 	ConsulApiAddress 	string
@@ -87,50 +90,44 @@ func (a *SchedulerApi) LockScheduler() *api.Lock {
 	return lock
 }
 
-func (a *SchedulerApi) TriggerScheduler() {
-	p := &api.KVPair{
-		Key: "schedule",
-		Value: []byte{byte(1)},
+func (a *SchedulerApi) put(key string, value []byte, flags ...uint64) error {
+	flag := uint64(0)
+	if len(flags) >= 1 {
+		flag = flags[0]
 	}
 
-	_, err := a.kv.Put(p, nil)
+	_, err := a.kv.Put(&api.KVPair{Key: key, Value: value, Flags: flag}, nil)
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
+	return err
 }
 
-func (a *SchedulerApi) FinishedScheduling() {
-	p := &api.KVPair{
-		Key: "schedule",
-		Value: []byte{byte(0)},
-	}
-
-	_, err := a.kv.Put(p, nil)
+func (a *SchedulerApi) del(key string) error {
+	_, err := a.kv.Delete(key, nil)
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
+	return err
 }
 
-func (a *SchedulerApi) WaitForScheduler() {
-	lastIdx := uint64(0)
-	for {
-		kv, meta, err := a.kv.Get("schedule", &api.QueryOptions{
-			AllowStale: true,
-			WaitTime: 10 * time.Minute,
-			WaitIndex: lastIdx,
-		})
-		if err != nil {
-			panic(err)
-		}
-
-		lastIdx = meta.LastIndex
-		if kv != nil && len(kv.Value) > 0 && kv.Value[0] == byte(1) {
-			return
-		}
+func (a *SchedulerApi) get(key string) (*api.KVPair, error) {
+	res, _, err := a.kv.Get(key, nil)
+	if err != nil {
+		log.Error(err)
 	}
+	return res, err
 }
 
-func (a *SchedulerApi) WaitOnKey(key string) {
+func (a *SchedulerApi) list(prefix string) (api.KVPairs, error) {
+	res, _, err := a.kv.List(prefix, nil)
+	if err != nil {
+		log.Error(err)
+	}
+	return res, err
+}
+
+func (a *SchedulerApi) WaitOnKey(key string) error {
 	lastIdx := uint64(0)
 	for {
 		keys, _, err := a.kv.List(key, &api.QueryOptions{
@@ -145,7 +142,7 @@ func (a *SchedulerApi) WaitOnKey(key string) {
 		if lastIdx != 0 {
 			for _, kv := range keys {
 				if kv.ModifyIndex > lastIdx {
-					return
+					return nil
 				}
 			}
 		} else {
@@ -153,6 +150,10 @@ func (a *SchedulerApi) WaitOnKey(key string) {
 				if kv.ModifyIndex > lastIdx {
 					lastIdx = kv.ModifyIndex
 				}
+			}
+
+			if lastIdx == 0 {
+				lastIdx = uint64(10)
 			}
 		}
 	}
@@ -167,10 +168,10 @@ func (a *SchedulerApi) Host() string {
 	return n
 }
 
-func (a *SchedulerApi) ListClusters() (clusters []Cluster) {
-	list, _, err := a.kv.List("cluster/", nil)
+func (a *SchedulerApi) ListClusters() (clusters []Cluster, err error) {
+	list, err := a.list("cluster/")
 	if err != nil {
-		panic(err)
+		return clusters, err
 	}
 
 	for _, res := range list {
@@ -179,11 +180,11 @@ func (a *SchedulerApi) ListClusters() (clusters []Cluster) {
 		clusters = append(clusters, cluster)
 	}
 
-	return clusters
+	return clusters, nil
 }
 
-func (a *SchedulerApi) RegisterAgent(id string) {
-	a.agent.ServiceRegister(&api.AgentServiceRegistration{
+func (a *SchedulerApi) RegisterAgent(id string) error {
+	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID: "consul-scheduler-" + id,
 		Name: "consul-scheduler",
 		Checks: api.AgentServiceChecks{
@@ -195,15 +196,15 @@ func (a *SchedulerApi) RegisterAgent(id string) {
 	})
 }
 
-func (a *SchedulerApi) Register(t Task) {
+func (a *SchedulerApi) Register(t Task) error {
 	servs, err := a.agent.Services()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	for id, _ := range servs {
 		if id == t.Id() {
-			return
+			return nil
 		}
 	}
 
@@ -231,9 +232,6 @@ func (a *SchedulerApi) Register(t Task) {
 	}
 
 	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("host", t.Host).Debug("registering task")
-	for _, check := range checks {
-		fmt.Printf("checks: %s %s\n", check.HTTP, check.Interval)
-	}
 
 	err = a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID: t.Id(),
@@ -244,130 +242,78 @@ func (a *SchedulerApi) Register(t Task) {
 		Checks: checks,
 	})
 
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
 
-func (a *SchedulerApi) DeRegister(taskId string) {
-	err := a.agent.ServiceDeregister(taskId)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) DeRegister(taskId string) error {
+	return a.agent.ServiceDeregister(taskId)
 }
 
-func (a *SchedulerApi) PutTask(t Task) {
-	p := &api.KVPair{
-		Key: "state/" + t.Host + "/" + t.Id(),
-		Value: encode(t),
-	}
+func (a *SchedulerApi) PutTask(t Task) error {
+	// todo: wrap in transaction
 
-	_, err := a.kv.Put(p, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	p = &api.KVPair{
-		Key: "state/" + t.Id(),
-		Value: encode(t),
-		Flags: uint64(0),
-	}
-
-	_, err = a.kv.Put(p, nil)
-	if err != nil {
-		panic(err)
-	}
+	data := encode(t)
+	err := a.put("state/" + t.Host + "/" + t.Id(), data)
+	err = a.put("state/" + t.Id(), data)
 
 	log.WithField("task", t.Id()).WithField("host", t.Host).WithField("port", t.Port).Info("scheduled task")
+	return err
 }
 
 func (a *SchedulerApi) IsTaskScheduled(taskId string) bool {
-	res, _, err := a.kv.Get("state/" + taskId, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	return res != nil && res.Flags == uint64(0)
+	res, err := a.get("state/" + taskId)
+	return err == nil && res != nil && res.Flags == uint64(0)
 }
 
-func (a *SchedulerApi) DelTask(t Task) {
-	_, err := a.kv.Delete("state/" + t.Host + "/" + t.Id(), nil)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) DelTask(t Task) error {
+	// todo: wrap in a transaction
 
-	p := &api.KVPair{
-		Key: "state/" + t.Id(),
-		Value: encode(t),
-		Flags: uint64(1),
-	}
-
-	_, err = a.kv.Put(p, nil)
-	if err != nil {
-		panic(err)
-	}
+	err := a.del("state/" + t.Host + "/" + t.Id())
+	err = a.put("state/" + t.Id(), encode(t), uint64(1))
+	return err
 }
 
-func (a *SchedulerApi) ListTasks(prefix string) (tasks []Task) {
-	list, _, err := a.kv.List("state/" + prefix, nil)
+func (a *SchedulerApi) ListTasks(prefix string) (tasks []Task, err error) {
+	list, err := a.list("state/" + prefix)
 	if err != nil {
-		panic(err)
+		return tasks, err
 	}
 
 	for _, kv := range list {
 		t := Task{}
 		decode(kv.Value, &t)
+		t.Stopped = kv.Flags == uint64(1)
 		tasks = append(tasks, t)
 	}
-	return tasks
+	return tasks, nil
 }
 
-func (a *SchedulerApi) PutService(s Service) {
-	p := &api.KVPair{
-		Key: "service/" + s.Name,
-		Value: encode(s),
-	}
-
-	_, err := a.kv.Put(p, nil)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) PutService(s Service) error {
+	return a.put("service/" + s.Name, encode(s))
 }
 
-func (a *SchedulerApi) DelService(name string) {
-	_, err := a.kv.Delete("service/" + name, nil)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) DelService(name string) error {
+	return a.del("service/" + name)
 }
 
-func (a *SchedulerApi) GetService(name string) (s Service, ok bool) {
-	p, _, err := a.kv.Get("service/" + name, nil)
+func (a *SchedulerApi) GetService(name string) (s Service, err error) {
+	res, err := a.get("service/" + name)
 	if err != nil {
-		panic(err)
+		return s, err
 	}
 
-	if p == nil {
-		return s, false
+	if res == nil {
+		return s, NotFoundErr
 	}
 
-	decode(p.Value, &s)
-	return s, true
+	decode(res.Value, &s)
+	return s, nil
 }
 
-func (a *SchedulerApi) ListServiceNames() []string {
-	list, _, err := a.kv.Keys("service/", "", nil)
+func (a *SchedulerApi) ListHosts() (hosts []Host, err error) {
+	list, err := a.list("host/")
 	if err != nil {
-		panic(err)
-	}
-
-	return list
-}
-
-func (a *SchedulerApi) ListHosts() (hosts []Host) {
-	list, _, err := a.kv.List("host/", nil)
-	if err != nil {
-		panic(err)
+		return hosts, err
 	}
 
 	for _, res := range list {
@@ -376,87 +322,54 @@ func (a *SchedulerApi) ListHosts() (hosts []Host) {
 		hosts = append(hosts, host)
 	}
 
-	return hosts
+	return hosts, nil
 }
 
-func (a *SchedulerApi) GetHost(name string) (h Host, ok bool) {
-	p, _, err := a.kv.Get("host/" + name, nil)
+func (a *SchedulerApi) GetHost(name string) (h Host, err error) {
+	res, err := a.get("service/" + name)
 	if err != nil {
-		panic(err)
+		return h, err
 	}
 
-	if p == nil {
-		return h, false
+	if res == nil {
+		return h, NotFoundErr
 	}
 
-	decode(p.Value, &h)
-	return h, true
+	decode(res.Value, &h)
+	return h, nil
 }
 
-func (a *SchedulerApi) PutHost(host Host) {
-	p := &api.KVPair{
-		Key: "host/" + host.Name,
-		Value: encode(host),
-	}
-
-	_, err := a.kv.Put(p, nil)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) PutHost(host Host) error {
+	return a.put("host/" + host.Name, encode(host))
 }
 
-func (a *SchedulerApi) DelHost(hostId string) {
-	_, err := a.kv.Delete("host/" + hostId, nil)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) DelHost(hostId string) error {
+	return a.del("host/" + hostId)
 }
 
-func (a *SchedulerApi) GetTaskDefinition(name string, ver uint) (s TaskDefinition, ok bool) {
-	p, _, err := a.kv.Get(fmt.Sprintf("task/%s/%v", name, ver), nil)
+func (a *SchedulerApi) GetTaskDefinition(name string, ver uint) (s TaskDefinition, err error) {
+	key := fmt.Sprintf("task/%s/%v", name, ver)
+
+	res, err := a.get(key)
 	if err != nil {
-		panic(err)
+		return s, err
 	}
 
-	if p == nil {
-		return s, false
+	if res == nil {
+		return s, NotFoundErr
 	}
 
-	decode(p.Value, &s)
-	return s, true
+	decode(res.Value, &s)
+	return s, nil
 }
 
-func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) {
-	p := &api.KVPair{
-		Key: fmt.Sprintf("task/%s/%v", s.Name, s.Version),
-		Value: encode(s),
-	}
-
-	_, err := a.kv.Put(p, nil)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) error {
+	key := fmt.Sprintf("task/%s/%v", s.Name, s.Version)
+	return a.put(key, encode(s))
 }
 
-func (a *SchedulerApi) ListTaskDefinitionNames() []string {
-	list, _, err := a.kv.Keys("task/", "", nil)
-	if err != nil {
-		panic(err)
-	}
-
-	return list
-}
-
-func (a *SchedulerApi) PutCluster(c Cluster) {
-	p := &api.KVPair{
-		Key: "cluster/" + c.Name,
-		Value: encode(c),
-	}
-
-	_, err := a.kv.Put(p, nil)
-	if err != nil {
-		panic(err)
-	}
+func (a *SchedulerApi) PutCluster(c Cluster) error {
+	return a.put("cluster/" + c.Name, encode(c))
 }
 
 func (a *SchedulerApi) DebugKeys() {
@@ -470,35 +383,19 @@ func (a *SchedulerApi) DebugKeys() {
 	}
 }
 
-func (a *SchedulerApi) DebugState(host string) {
-	list, _, err := a.kv.List("state/" + host, nil)
+func (a *SchedulerApi) GetTask(taskId string) (t Task, err error) {
+	res, err := a.get("state/" + taskId)
 	if err != nil {
-		panic(err)
-	}
-
-	for _, res := range list {
-		fmt.Printf("state: %s\n", res.Key)
-	}
-
-}
-
-func (a *SchedulerApi) GetTask(taskId string) (t Task, ok bool) {
-	res, _, err := a.kv.Get("state/" + taskId, nil)
-	if err != nil {
-		panic(err)
+		return t, err
 	}
 
 	if res == nil {
-		return t, false
+		return t, NotFoundErr
 	}
 
-	if res.Value != nil {
-		ok = true
-		decode(res.Value, &t)
-		t.Stopped = res.Flags == uint64(1)
-	}
-
-	return t, ok
+	decode(res.Value, &t)
+	t.Stopped = res.Flags == uint64(1)
+	return t, nil
 }
 
 func (a *SchedulerApi) TaskPassing(task Task) (ok bool) {
@@ -520,39 +417,36 @@ func (a *SchedulerApi) TaskPassing(task Task) (ok bool) {
 	return ok
 }
 
-func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string] RunningTask) {
+func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string] RunningTask, err error) {
 	tasks = make(map[string] RunningTask)
 
 	s, err := a.agent.Services()
 	if err != nil {
-		panic(err)
+		return tasks, err
 	}
 
 	for _, ser := range s {
-		t, ok := a.GetTask(ser.ID)
-		if ok {
-			var serv Service
-			if ok {
-				serv, _ = a.GetService(t.Service)
-			}
+		t, err := a.GetTask(ser.ID)
+		if err == nil {
+			serv, _ := a.GetService(t.Service)
 
 			tasks[ser.ID] = RunningTask{
 				ServiceID: ser.ID,
 				Task: t,
-				Exists: ok,
+				Exists: err == nil,
 				Service: serv,
 				Passing: a.TaskPassing(t),
 			}
 		}
 	}
 
-	return tasks
+	return tasks, nil
 }
 
-func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task) {
+func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task, err error) {
 	list, _, err := a.kv.List("state/" + host + "/", nil)
 	if err != nil {
-		panic(err)
+		return tasks, err
 	}
 
 	for _, res := range list {
@@ -560,13 +454,13 @@ func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task) {
 		decode(res.Value, &t)
 		tasks = append(tasks, t)
 	}
-	return tasks
+	return tasks, nil
 }
 
-func (a *SchedulerApi) TaskCount(prefix string) int {
+func (a *SchedulerApi) TaskCount(prefix string) (int, error) {
 	list, _, err := a.kv.List("state/" + prefix, nil)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	count := 0
@@ -576,15 +470,15 @@ func (a *SchedulerApi) TaskCount(prefix string) int {
 		}
 	}
 
-	return count
+	return count, nil
 }
 
-func (a *SchedulerApi) HealthyTaskCount(taskName string) int {
+func (a *SchedulerApi) HealthyTaskCount(taskName string) (int, error) {
 	count := 0
 
 	e, _, err := a.health.Service(taskName, "", false, nil)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	for _, entry := range e {
@@ -603,5 +497,5 @@ func (a *SchedulerApi) HealthyTaskCount(taskName string) int {
 		}
 	}
 
-	return count
+	return count, err
 }

@@ -19,58 +19,76 @@ that does not have a port conflict and has enough memory / cpu.
 */
 
 func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
+	var failureErr error
 	needScheduling := make([]Task, 0)
+	newlyAllocatedPorts := make(map[string] []uint)
+
+	hosts, err := api.ListHosts()
+	if err != nil {
+		failureErr = err
+		goto FINISH
+	}
 
 	for _, serviceName := range cluster.Services {
-		service, ok := api.GetService(serviceName)
-		if !ok {
-			log.Warn("could not find a service specified by a the cluster ", cluster.Name)
-			continue
+		service, err := api.GetService(serviceName)
+		if err != nil {
+			failureErr = err
+			goto FINISH
 		}
 
-		taskDef, ok := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
-		if ok {
+		taskDef, err := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
+		if err == nil {
 			for i := 0; i < service.Desired; i++ {
 				needScheduling = append(needScheduling, NewTask(cluster, taskDef, service, i))
 			}
 		}
 
 
-		count := api.TaskCount(cluster.Name + "_" + service.TaskName)
-		if service.Desired < count {
-			removed := 0
+		count, err := api.TaskCount(cluster.Name + "_" + service.TaskName)
+		if err != nil {
+			failureErr = err
+			goto FINISH
+		}
 
-			tasks := api.ListTasks(cluster.Name + "_" + service.TaskName)
-			for _, remCand := range tasks {
-				if (count - removed) <= service.Desired {
-					break
-				}
+		removed := 0
 
-				if remCand.TaskDef.Version != service.TaskVersion {
-					removed++
-					api.DelTask(remCand)
-				}
+
+		tasks, err := api.ListTasks(cluster.Name + "_" + service.TaskName)
+		if err != nil {
+			failureErr = err
+			goto FINISH
+		}
+
+		for _, remCand := range tasks {
+			if remCand.Stopped {
+				continue
 			}
 
-
-			if (count - removed) > service.Desired {
-				for i := (count - removed) - 1; i > service.Desired - 1; i-- {
-					id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
-					t, _ := api.GetTask(id)
-
-					if t.Service != "" {
-						log.WithField("task", id).Info("[scheduler] removing")
-						api.DelTask(t)
-					}
-				}
+			if (count - removed) <= service.Min {
+				break
 			}
 
+			if remCand.TaskDef.Version != service.TaskVersion {
+				removed++
+				log.WithField("task", remCand.Id()).Warn("[scheduler] removing")
+				api.DelTask(remCand)
+			}
+		}
+
+
+		if (count - removed) > service.Desired {
+			for i := (count - removed) - 1; i > service.Desired - 1; i-- {
+				id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
+				t, _ := api.GetTask(id)
+
+				if t.Service != "" && !t.Stopped {
+					log.WithField("task", id).Warn("[scheduler] removing")
+					api.DelTask(t)
+				}
+			}
 		}
 	}
 
-	newlyAllocatedPorts := make(map[string] []uint)
-
-	hosts := api.ListHosts()
 	for _, task := range needScheduling {
 		scheduled := false
 
@@ -125,5 +143,13 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 				log.WithField("task", task.Id()).Error("[scheduler] no hosts found")
 			}
 		}
+	}
+
+	FINISH:
+	if failureErr != nil {
+		log.WithField("error", failureErr).Error("[scheduler] failed")
+
+	} else {
+		log.Info("[scheduler] success")
 	}
 }
