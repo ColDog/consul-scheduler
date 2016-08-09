@@ -23,28 +23,45 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 
 	for _, serviceName := range cluster.Services {
 		service, ok := api.GetService(serviceName)
-		if ok {
-			taskDef, ok := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
-			if ok {
-				for i := 0; i < service.Desired; i++ {
-					needScheduling = append(needScheduling, NewTask(cluster, taskDef, service, i))
-				}
-			}
-
+		if !ok {
+			log.Warn("could not find a service specified by a the cluster ", cluster.Name)
+			continue
 		}
+
+		taskDef, ok := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
+		if ok {
+			for i := 0; i < service.Desired; i++ {
+				needScheduling = append(needScheduling, NewTask(cluster, taskDef, service, i))
+			}
+		}
+
 
 		count := api.TaskCount(cluster.Name + "_" + service.TaskName)
 		if service.Desired < count {
+			removed := 0
 
-			// find suitable tasks to remove
+			tasks := api.ListTasks(cluster.Name + "_" + service.TaskName)
+			for _, remCand := range tasks {
+				if (count - removed) <= service.Desired {
+					break
+				}
 
-			for i := count - 1; i > service.Desired - 1; i-- {
-				id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
-				t, _ := api.GetTask(id)
+				if remCand.TaskDef.Version != service.TaskVersion {
+					removed++
+					api.DelTask(remCand)
+				}
+			}
 
-				if t.Service != "" {
-					log.WithField("task", id).Info("[scheduler] removing")
-					api.DelTask(t)
+
+			if (count - removed) > service.Desired {
+				for i := (count - removed) - 1; i > service.Desired - 1; i-- {
+					id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
+					t, _ := api.GetTask(id)
+
+					if t.Service != "" {
+						log.WithField("task", id).Info("[scheduler] removing")
+						api.DelTask(t)
+					}
 				}
 			}
 
