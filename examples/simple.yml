@@ -6,12 +6,21 @@ clusters:
       - lb
 
 services:
-  - name: helloworld
-    task_name: helloworld
-    task_version: 2
-    min: 2
-    max: 3
-    desired: 3
+
+  # Services are identified by a name, task name and task version. Services are what
+  # execute the tasks. They take a basic configuration to let the scheduler know the
+  # leniency and priorities for scheduling a specific task. Services can be frequently
+  # updated, and their configuration takes place immediately.
+  #
+  # An instance of a running service will be registered in consul with the name: <cluster>-<service>,
+  # and the id: <cluster>-<service>-<task_version>-<instance>
+
+  - name: helloworld        # unique service name, for dns registry as well
+    task_name: helloworld   # task to run
+    task_version: 2         # the task version to use, allows for incremental deployments
+    min: 2                  # the minimum amount of the task to run
+    max: 3                  # the maximum amount of the task to run
+    desired: 3              # the desired amount to run
 
   - name: lb
     task_name: lb

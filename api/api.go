@@ -9,6 +9,14 @@ import (
 	"errors"
 )
 
+var (
+	ClustersPrefix string = "config/clusters/"
+	ServicesPrefix string = "config/services/"
+	HostsPrefix string = "config/hosts/"
+	TasksPrefix string = "config/tasks/"
+	SchedulersPrefix string = "schedulers/"
+)
+
 var NotFoundErr error = errors.New("NotFound")
 
 type Config struct {
@@ -33,7 +41,7 @@ func NewSchedulerApiWithConfig(conf *Config) *SchedulerApi {
 		apiConfig.Token = conf.ConsulApiToken
 	}
 
-	apiConfig.WaitTime = conf.ConsulApiWaitTime
+	// apiConfig.WaitTime = conf.ConsulApiWaitTime
 
 	client, err := api.NewClient(apiConfig)
 	if err != nil {
@@ -76,18 +84,20 @@ type SchedulerApi struct {
 	client 		*api.Client
 }
 
-func (a *SchedulerApi) LockScheduler() *api.Lock {
-	lock, err := a.client.LockKey("scheduler")
+func (a *SchedulerApi) LockScheduler(cluster string) (*api.Lock, error) {
+	lock, err := a.client.LockKey(SchedulersPrefix + cluster)
 	if err != nil {
-		panic(err)
+		log.Error(err)
+		return lock, err
 	}
 
 	_, err = lock.Lock(nil)
 	if err != nil {
-		panic(err)
+		log.Error(err)
+		return lock, err
 	}
 
-	return lock
+	return lock, nil
 }
 
 func (a *SchedulerApi) put(key string, value []byte, flags ...uint64) error {
@@ -130,14 +140,17 @@ func (a *SchedulerApi) list(prefix string) (api.KVPairs, error) {
 func (a *SchedulerApi) WaitOnKey(key string) error {
 	lastIdx := uint64(0)
 	for {
-		keys, _, err := a.kv.List(key, &api.QueryOptions{
+		keys, meta, err := a.kv.List(key, &api.QueryOptions{
 			AllowStale: false,
 			WaitTime: 10 * time.Minute,
 			WaitIndex: lastIdx,
 		})
+
 		if err != nil {
-			panic(err)
+			log.Error(err)
+			return err
 		}
+
 
 		if lastIdx != 0 {
 			for _, kv := range keys {
@@ -150,10 +163,14 @@ func (a *SchedulerApi) WaitOnKey(key string) error {
 				if kv.ModifyIndex > lastIdx {
 					lastIdx = kv.ModifyIndex
 				}
+
+				if kv.CreateIndex > lastIdx {
+					lastIdx = kv.CreateIndex
+				}
 			}
 
 			if lastIdx == 0 {
-				lastIdx = uint64(10)
+				lastIdx = meta.LastIndex
 			}
 		}
 	}
@@ -169,7 +186,7 @@ func (a *SchedulerApi) Host() string {
 }
 
 func (a *SchedulerApi) ListClusters() (clusters []Cluster, err error) {
-	list, err := a.list("cluster/")
+	list, err := a.list(ClustersPrefix)
 	if err != nil {
 		return clusters, err
 	}
@@ -289,15 +306,15 @@ func (a *SchedulerApi) ListTasks(prefix string) (tasks []Task, err error) {
 }
 
 func (a *SchedulerApi) PutService(s Service) error {
-	return a.put("service/" + s.Name, encode(s))
+	return a.put(ServicesPrefix + s.Name, encode(s))
 }
 
 func (a *SchedulerApi) DelService(name string) error {
-	return a.del("service/" + name)
+	return a.del(ServicesPrefix + name)
 }
 
 func (a *SchedulerApi) GetService(name string) (s Service, err error) {
-	res, err := a.get("service/" + name)
+	res, err := a.get(ServicesPrefix + name)
 	if err != nil {
 		return s, err
 	}
@@ -311,7 +328,7 @@ func (a *SchedulerApi) GetService(name string) (s Service, err error) {
 }
 
 func (a *SchedulerApi) ListHosts() (hosts []Host, err error) {
-	list, err := a.list("host/")
+	list, err := a.list(HostsPrefix)
 	if err != nil {
 		return hosts, err
 	}
@@ -326,7 +343,7 @@ func (a *SchedulerApi) ListHosts() (hosts []Host, err error) {
 }
 
 func (a *SchedulerApi) GetHost(name string) (h Host, err error) {
-	res, err := a.get("service/" + name)
+	res, err := a.get(ServicesPrefix + name)
 	if err != nil {
 		return h, err
 	}
@@ -340,15 +357,15 @@ func (a *SchedulerApi) GetHost(name string) (h Host, err error) {
 }
 
 func (a *SchedulerApi) PutHost(host Host) error {
-	return a.put("host/" + host.Name, encode(host))
+	return a.put(HostsPrefix + host.Name, encode(host))
 }
 
 func (a *SchedulerApi) DelHost(hostId string) error {
-	return a.del("host/" + hostId)
+	return a.del(HostsPrefix + hostId)
 }
 
 func (a *SchedulerApi) GetTaskDefinition(name string, ver uint) (s TaskDefinition, err error) {
-	key := fmt.Sprintf("task/%s/%v", name, ver)
+	key := fmt.Sprintf("%s%s/%v", TasksPrefix, name, ver)
 
 	res, err := a.get(key)
 	if err != nil {
@@ -364,12 +381,12 @@ func (a *SchedulerApi) GetTaskDefinition(name string, ver uint) (s TaskDefinitio
 }
 
 func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) error {
-	key := fmt.Sprintf("task/%s/%v", s.Name, s.Version)
+	key := fmt.Sprintf("%s%s/%v", TasksPrefix, s.Name, s.Version)
 	return a.put(key, encode(s))
 }
 
 func (a *SchedulerApi) PutCluster(c Cluster) error {
-	return a.put("cluster/" + c.Name, encode(c))
+	return a.put(ClustersPrefix + c.Name, encode(c))
 }
 
 func (a *SchedulerApi) DebugKeys() {
