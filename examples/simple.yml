@@ -1,4 +1,9 @@
 clusters:
+
+  # Clusters are a logical grouping of services that are scheduled together. You must provide
+  # an array of services to run and a scheduler to use. Setting default as the scheduler is
+  # good for getting started. You can implement your own schedulers on a per cluster basis by
+  # changing this parameter.
   - name: default
     scheduler: default
     services:
@@ -25,21 +30,36 @@ services:
   - name: lb
     task_name: lb
     task_version: 2
-    min: 0
+    min: 0                  # min 0 allows us to run on a single host with a fixed port since the
+                            # scheduler must stop the task before restarting it.
     max: 1
     desired: 1
 
 tasks:
+
+  # Tasks are definitions for a running task. They must have a name and version. The
+  # scheduler can optionally provide a port to the task if the `provide_port` parameter
+  # is set on the task. You can also hardcode the port using the the port parameter.
+  # updating the task requires that the version be updated. Task definitions cannot be
+  # edited, only a new one is created.
   - name: lb
     version: 2
     port: 9999
+
+    # Checks is an array of checks that are passed along to consul when the service is
+    # registered. The same configuration for consul is used here.
     checks:
       - http: http://127.0.0.1:9999/helloworld
         interval: 10s
 
+    # This is a list of containers to run. Required fields are an executor, name and the
+    # parameters for the given executor. Currently `bash` and `docker` are supported.
     containers:
       - name: lb
         executor: bash
+
+        # The bash executor takes an array of bash commands to run on startup and an array
+        # of commands to run to stop the script.
         bash:
           start:
             - daemonize /usr/local/bin/fabio
@@ -55,11 +75,17 @@ tasks:
     checks:
       - http: http://127.0.0.1
         interval: 10s
+
+        # Since the port for this task is provided, the check needs to have the port present, the
+        # add provided port parameter will resolve the check to: `http://127.0.0.1:<port>`
         add_provided_port: true
 
     containers:
       - name: helloworld
         executor: docker
+
+        # The docker executor takes a similar set of parameters to docker-compose, if additional
+        # parameters are needed, `flags` is an array of strings added to the docker run command.
         docker:
           name: helloworld
           image: tutum/hello-world

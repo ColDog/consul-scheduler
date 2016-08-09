@@ -19,21 +19,20 @@ that does not have a port conflict and has enough memory / cpu.
 */
 
 func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
-	var failureErr error
 	needScheduling := make([]Task, 0)
 	newlyAllocatedPorts := make(map[string] []uint)
 
 	hosts, err := api.ListHosts()
 	if err != nil {
-		failureErr = err
-		goto FINISH
+		log.WithField("error", err).Error("[scheduler] failed")
+		return
 	}
 
 	for _, serviceName := range cluster.Services {
 		service, err := api.GetService(serviceName)
 		if err != nil {
-			failureErr = err
-			goto FINISH
+			log.WithField("error", err).Error("[scheduler] failed")
+			return
 		}
 
 		taskDef, err := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
@@ -46,8 +45,8 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 
 		count, err := api.TaskCount(cluster.Name + "_" + service.TaskName)
 		if err != nil {
-			failureErr = err
-			goto FINISH
+			log.WithField("error", err).Error("[scheduler] failed")
+			return
 		}
 
 		removed := 0
@@ -55,8 +54,8 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 
 		tasks, err := api.ListTasks(cluster.Name + "_" + service.TaskName)
 		if err != nil {
-			failureErr = err
-			goto FINISH
+			log.WithField("error", err).Error("[scheduler] failed")
+			return
 		}
 
 		for _, remCand := range tasks {
@@ -145,11 +144,5 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 		}
 	}
 
-	FINISH:
-	if failureErr != nil {
-		log.WithField("error", failureErr).Error("[scheduler] failed")
-
-	} else {
-		log.Info("[scheduler] success")
-	}
+	log.Info("[scheduler] success")
 }

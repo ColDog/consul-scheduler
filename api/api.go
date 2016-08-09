@@ -15,6 +15,7 @@ var (
 	HostsPrefix string = "config/hosts/"
 	TasksPrefix string = "config/tasks/"
 	SchedulersPrefix string = "schedulers/"
+	StatePrefix string = "state/"
 )
 
 var NotFoundErr error = errors.New("NotFound")
@@ -270,8 +271,8 @@ func (a *SchedulerApi) PutTask(t Task) error {
 	// todo: wrap in transaction
 
 	data := encode(t)
-	err := a.put("state/" + t.Host + "/" + t.Id(), data)
-	err = a.put("state/" + t.Id(), data)
+	err := a.put(StatePrefix + t.Host + "/" + t.Id(), data)
+	err = a.put(StatePrefix + t.Id(), data)
 
 	log.WithField("task", t.Id()).WithField("host", t.Host).WithField("port", t.Port).Info("scheduled task")
 	return err
@@ -285,13 +286,13 @@ func (a *SchedulerApi) IsTaskScheduled(taskId string) bool {
 func (a *SchedulerApi) DelTask(t Task) error {
 	// todo: wrap in a transaction
 
-	err := a.del("state/" + t.Host + "/" + t.Id())
-	err = a.put("state/" + t.Id(), encode(t), uint64(1))
+	err := a.del(StatePrefix + t.Host + "/" + t.Id())
+	err = a.put(StatePrefix + t.Id(), encode(t), uint64(1))
 	return err
 }
 
 func (a *SchedulerApi) ListTasks(prefix string) (tasks []Task, err error) {
-	list, err := a.list("state/" + prefix)
+	list, err := a.list(StatePrefix + prefix)
 	if err != nil {
 		return tasks, err
 	}
@@ -401,7 +402,7 @@ func (a *SchedulerApi) DebugKeys() {
 }
 
 func (a *SchedulerApi) GetTask(taskId string) (t Task, err error) {
-	res, err := a.get("state/" + taskId)
+	res, err := a.get(StatePrefix + taskId)
 	if err != nil {
 		return t, err
 	}
@@ -461,7 +462,7 @@ func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string] Runnin
 }
 
 func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task, err error) {
-	list, _, err := a.kv.List("state/" + host + "/", nil)
+	list, _, err := a.kv.List(StatePrefix + host + "/", nil)
 	if err != nil {
 		return tasks, err
 	}
@@ -475,7 +476,7 @@ func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task, err error)
 }
 
 func (a *SchedulerApi) TaskCount(prefix string) (int, error) {
-	list, _, err := a.kv.List("state/" + prefix, nil)
+	list, _, err := a.kv.List(StatePrefix + prefix, nil)
 	if err != nil {
 		return 0, err
 	}

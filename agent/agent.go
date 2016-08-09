@@ -158,10 +158,21 @@ func (agent *Agent) watcher() {
 
 func (agent *Agent) Run() {
 	log.Info("[agent] publishing initial state")
-	agent.api.RegisterAgent(agent.Host)
-	defer agent.api.DelHost(agent.Host)
 
 	go Serve()
+	defer agent.api.DelHost(agent.Host)
+
+	for {
+		err := agent.api.RegisterAgent(agent.Host)
+		if err == nil {
+			break
+		}
+
+		log.WithField("error", err).Error("[agent] could not register")
+		time.Sleep(3 * time.Second)
+	}
+
+
 
 	agent.publishState()
 
