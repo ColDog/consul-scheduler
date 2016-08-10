@@ -10,7 +10,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"os"
-	"fmt"
 )
 
 func NewApp() *App {

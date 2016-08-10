@@ -17,25 +17,54 @@ if git tag -l | grep -Fxq ${version}; then
     exit 1
 fi
 
+> version.go && printf "package main\nconst VERSION = \"${version}\"\n" >> version.go
+
 # handle git stuff
 git add -A && git commit -m "${message}"
 git tag ${version} -m "${message}"
 git push origin --all
 git push origin --tags
 
-body=$(curl --data '{"tag_name": "'${version}'","target_commitish": "master","name": "'${version}'","body": "'${message}'"}' https://api.github.com/repos/coldog/consul-scheduler/releases?access_token=${GITHUB_TOKEN})
+# create release through github api
+payload='{"tag_name": "'${version}'","target_commitish": "master","name": "'${version}'","body": "'${message}'"}'
+body=$( curl --data "${payload}" https://api.github.com/repos/coldog/consul-scheduler/releases?access_token=${GITHUB_TOKEN} )
+id=$( echo ${body} | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["id"]' )
 
-echo ${body}
+echo ${id}
 
 # create compilations
-#echo "beginning compilations"
-#env GOOS=linux GOARCH=amd64     go build -o dist/consul-scheduler_linux-amd64 github.com/coldog/scheduler
-#env GOOS=linux GOARCH=arm       go build -o dist/consul-scheduler_linux-arm github.com/coldog/scheduler
-#env GOOS=darwin GOARCH=amd64    go build -o dist/consul-scheduler_darwin-amd64 github.com/coldog/scheduler
-#env GOOS=windows GOARCH=386     go build -o dist/consul-scheduler_windows-386 github.com/coldog/scheduler
-#env GOOS=windows GOARCH=amd64   go build -o dist/consul-scheduler_windows-amd64 github.com/coldog/scheduler
+echo "begin compiling"
 
+go install github.com/coldog/scheduler
+$GOPATH/bin/scheduler -v
 
-#docker build -t coldog/consul-scheduler:${version} .
-#docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
-#docker push coldog/consul-scheduler:${version}
+# future versions to release: linux
+for d in linux-amd64 linux-arm darwin-amd64 windows-amd64
+do
+    echo "building: "${d}
+
+    arch=$( echo $x | cut -d'-' -f 2 )
+    os=$( echo $x | cut -d'-' -f 1 )
+    name=consul-scheduler_${d}-${version}
+
+    mkdir -p dist/${name}
+    env GOOS=${os} GOARCH=${arch} go build -o dist/${name}/consul-scheduler github.com/coldog/scheduler
+    cp -r examples dist/${name}/
+    cp Vagrantfile dist/${name}/
+    cp readme.md dist/${name}/
+
+    cd dist
+    zip -r ${name}.zip ${name}
+
+    curl -XPOST \
+            --data-binary @${name}.zip \
+            -H "Content-Type:application/octet-stream" \
+            "https://uploads.github.com/repos/coldog/consul-scheduler/releases/${id}/assets?access_token=${GITHUB_TOKEN}&name=${name}.zip"
+
+    cd ../
+done
+
+echo "begin docker pushing"
+docker build -t coldog/consul-scheduler:${version} .
+docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
+docker push coldog/consul-scheduler:${version}
