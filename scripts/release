@@ -17,7 +17,8 @@ fi
 # handle git stuff
 git tag ${version}
 git add -A && git commit -am "release version ${version}"
-git push origin --all --tags
+git push origin --all
+git push origin --tags
 
 # create compilations
 env GOOS=linux GOARCH=amd64     go build -o dist/consul-scheduler_linux-amd64 github.com/coldog/scheduler
