@@ -23,6 +23,8 @@ git push origin --tags
 
 body=$(curl --data '{"tag_name": "'${version}'","target_commitish": "master","name": "'${version}'","body": "'${message}'"}' https://api.github.com/repos/coldog/consul-scheduler/releases?access_token=${GITHUB_TOKEN})
 
+echo ${body}
+
 # create compilations
 #echo "beginning compilations"
 #env GOOS=linux GOARCH=amd64     go build -o dist/consul-scheduler_linux-amd64 github.com/coldog/scheduler
