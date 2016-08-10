@@ -3,6 +3,8 @@
 version=v${1}
 message="Release of version "${1}
 
+echo releasing ${version} with ${message}
+
 set -e
 
 if [ ${version} = "" ]; then
