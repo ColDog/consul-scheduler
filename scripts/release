@@ -1,5 +1,31 @@
 #!/usr/bin/env bash
 
-env GOOS=linux GOARCH=amd64 go build -o consul-scheduler github.com/coldog/scheduler
-docker build -t coldog/consul-scheduler:latest .
-docker push coldog/consul-scheduler:latest
+version=v${1}
+
+set -e
+
+if [ ${version} = "" ]; then
+    echo "version must be given"
+    exit 1
+fi
+
+if git tag -l | grep -Fxq ${version}; then
+    echo "version already exists"
+    exit 1
+fi
+
+# handle git stuff
+git tag ${version}
+git add -A && git commit -am "release version ${version}"
+git push origin --all --tags
+
+# create compilations
+env GOOS=linux GOARCH=amd64     go build -o dist/consul-scheduler_linux-amd64 github.com/coldog/scheduler
+env GOOS=linux GOARCH=arm       go build -o dist/consul-scheduler_linux-arm github.com/coldog/scheduler
+env GOOS=darwin GOARCH=amd64    go build -o dist/consul-scheduler_darwin-amd64 github.com/coldog/scheduler
+env GOOS=windows GOARCH=386     go build -o dist/consul-scheduler_windows-386 github.com/coldog/scheduler
+env GOOS=windows GOARCH=amd64   go build -o dist/consul-scheduler_windows-amd64 github.com/coldog/scheduler
+
+docker build -t coldog/consul-scheduler:${version} .
+docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
+docker push coldog/consul-scheduler:${version}

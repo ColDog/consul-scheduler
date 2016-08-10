@@ -34,7 +34,7 @@ type App struct {
 
 func (app *App) setup() {
 	app.cli.Name = "consul-scheduler"
-	app.cli.Version = "0.1.0"
+	app.cli.Version = VERSION
 	app.cli.Author = "Colin Walker"
 	app.cli.Usage = "schedule tasks across a consul cluster."
 
@@ -90,8 +90,6 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Name = "agent"
 	cmd.Usage = "start the agent service"
 	cmd.Action = func(c *cli.Context) error {
-		fmt.Println("==> starting...")
-
 		app.RegisterAgent()
 		app.Agent.Run()
 		return nil
@@ -103,8 +101,6 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Name = "scheduler"
 	cmd.Usage = "start the scheduler service"
 	cmd.Action = func(c *cli.Context) error {
-		fmt.Println("==> starting...")
-
 		app.RegisterMaster()
 		app.Master.Run()
 		return nil
@@ -116,12 +112,22 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 	cmd.Name = "combined"
 	cmd.Usage = "start the scheduler and agent service"
 	cmd.Action = func(c *cli.Context) error {
-		fmt.Println("==> starting...")
-
 		app.RegisterMaster()
 		app.RegisterAgent()
-		app.Master.Run()
-		go app.Agent.Run()
+
+		done := make(chan struct{})
+
+		go func() {
+			app.Agent.Run()
+			done <- struct {}{}
+		}()
+
+		go func() {
+			app.Master.Run()
+			done <- struct {}{}
+		}()
+
+		<- done
 		return nil
 	}
 	return cmd

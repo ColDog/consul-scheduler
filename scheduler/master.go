@@ -44,7 +44,12 @@ func (master *Master) Run() {
 
 	for {
 		log.Debug("[master] waiting")
-		master.api.WaitOnKey("config/")
+		err := master.api.WaitOnKey("config/")
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
 		log.Debug("[master] starting")
 
 		clusters, err := master.api.ListClusters()

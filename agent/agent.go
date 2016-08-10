@@ -149,7 +149,11 @@ func (agent *Agent) stop(t Task) {
 
 func (agent *Agent) watcher() {
 	for {
-		agent.api.WaitOnKey("state/" + agent.Host)
+		err := agent.api.WaitOnKey("state/" + agent.Host)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
 		agent.run <- struct {}{}
 	}
 }
