@@ -42,8 +42,6 @@ func NewSchedulerApiWithConfig(conf *Config) *SchedulerApi {
 		apiConfig.Token = conf.ConsulApiToken
 	}
 
-	// apiConfig.WaitTime = conf.ConsulApiWaitTime
-
 	client, err := api.NewClient(apiConfig)
 	if err != nil {
 		log.Fatal(err)

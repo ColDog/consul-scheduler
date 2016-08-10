@@ -5,141 +5,150 @@ import (
 	. "github.com/coldog/scheduler/api"
 	. "github.com/coldog/scheduler/agent"
 	. "github.com/coldog/scheduler/scheduler"
+	"github.com/coldog/scheduler/actions"
+
 	log "github.com/Sirupsen/logrus"
 
 	"os"
 	"fmt"
-	"io/ioutil"
-	"github.com/ghodss/yaml"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 )
 
-var ValidationErr error = errors.New("Validation Failed")
-
-func init()  {
-	log.SetLevel(log.DebugLevel)
+func NewApp() *App {
+	app := &App{
+		cli: cli.NewApp(),
+		Config: &Config{},
+	}
+	app.setup()
+	return app
 }
 
-func valid(errs []string) error {
-	if len(errs) > 0 {
-		for _, err := range errs {
-			fmt.Printf("err: %s\n", err)
+type AppCmd func(app *App) cli.Command
+
+type App struct {
+	cli 		*cli.App
+	Api 		*SchedulerApi
+	Agent 		*Agent
+	Master 		*Master
+	Config 		*Config
+}
+
+func (app *App) setup() {
+	app.cli.Name = "consul-scheduler"
+	app.cli.Version = "0.1.0"
+	app.cli.Author = "Colin Walker"
+	app.cli.Usage = "schedule tasks across a consul cluster."
+
+	app.cli.Flags = []cli.Flag{
+		cli.StringFlag{Name: "log, l", Value: "debug", Usage: "log level [debug, info, warn, error]"},
+		cli.StringFlag{Name: "consul-api", Value: "", Usage: "consul api"},
+		cli.StringFlag{Name: "consul-dc", Value: "", Usage: "consul dc"},
+		cli.StringFlag{Name: "consul-token", Value: "", Usage: "consul token"},
+	}
+	app.cli.Before = func(c *cli.Context) error {
+		app.Config.ConsulApiAddress = c.GlobalString("consul-api")
+		app.Config.ConsulApiDc = c.GlobalString("consul-dc")
+		app.Config.ConsulApiToken = c.GlobalString("consul-token")
+		app.Api = NewSchedulerApiWithConfig(app.Config)
+
+		switch c.GlobalString("log-level") {
+		case "debug":
+			log.SetLevel(log.DebugLevel)
+			break
+		case "info":
+			log.SetLevel(log.InfoLevel)
+			break
+		case "warn":
+			log.SetLevel(log.WarnLevel)
+			break
+		case "error":
+			log.SetLevel(log.ErrorLevel)
+			break
+		default:
+			log.SetLevel(log.DebugLevel)
 		}
-		return ValidationErr
-	}
-	return nil
-}
 
-func readYml(file string, res interface{}) error {
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		return err
+		return nil
 	}
 
-	err = yaml.Unmarshal([]byte(data), res)
-	return err
+	app.cli.Commands = []cli.Command{
+		app.AgentCmd(),
+		app.SchedulerCmd(),
+		app.CombinedCmd(),
+		app.ApplyCmd(),
+	}
 }
 
-func printOk() {
-	fmt.Println("OK")
+func (app *App) RegisterAgent() {
+	app.Agent = NewAgent(app.Api)
 }
+
+func (app *App) RegisterMaster() {
+	app.Master = NewMaster(app.Api)
+}
+
+func (app *App) AgentCmd() (cmd cli.Command) {
+	cmd.Name = "agent"
+	cmd.Usage = "start the agent service"
+	cmd.Action = func(c *cli.Context) error {
+		fmt.Println("==> starting...")
+
+		app.RegisterAgent()
+		app.Agent.Run()
+		return nil
+	}
+	return cmd
+}
+
+func (app *App) SchedulerCmd() (cmd cli.Command) {
+	cmd.Name = "scheduler"
+	cmd.Usage = "start the scheduler service"
+	cmd.Action = func(c *cli.Context) error {
+		fmt.Println("==> starting...")
+
+		app.RegisterMaster()
+		app.Master.Run()
+		return nil
+	}
+	return cmd
+}
+
+func (app *App) CombinedCmd() (cmd cli.Command) {
+	cmd.Name = "combined"
+	cmd.Usage = "start the scheduler and agent service"
+	cmd.Action = func(c *cli.Context) error {
+		fmt.Println("==> starting...")
+
+		app.RegisterMaster()
+		app.RegisterAgent()
+		app.Master.Run()
+		go app.Agent.Run()
+		return nil
+	}
+	return cmd
+}
+
+func (app *App) ApplyCmd() (cmd cli.Command) {
+	cmd.Name = "apply"
+	cmd.Usage = "apply the provided configuration file to consul"
+	cmd.Flags = []cli.Flag{
+		cli.StringFlag{Name: "file, f", Value: "consul-scheduler.yml", Usage: "configuration file to read"},
+	}
+	cmd.Action = func(c *cli.Context) error {
+		file := c.String("file")
+		return actions.ApplyConfig(file, app.Api)
+	}
+	return cmd
+}
+
+func (app *App) AddCmd(cmd AppCmd) {
+	app.cli.Commands = append(app.cli.Commands, cmd(app))
+}
+
+func (app *App) Run() {
+	app.cli.Run(os.Args)
+}
+
 
 func main() {
-	api := NewSchedulerApi()
-	app := cli.NewApp()
-
-	app.Name = "consul-scheduler"
-	app.Version = "0.1.0"
-	app.Author = "Colin Walker"
-	app.Usage = "schedule tasks across a consul cluster."
-
-	app.Commands = append(app.Commands, cli.Command{
-		Name: "apply",
-		Usage: "apply a configuration file to the cluster",
-		Action: func(c *cli.Context) error {
-			obj := struct {
-				Clusters []Cluster `json:"clusters"`
-				Services []Service `json:"services"`
-				Tasks []TaskDefinition `json:"tasks"`
-			}{}
-
-			err := readYml(c.Args().First(), &obj)
-			if err != nil {
-				return err
-			}
-
-			for _, task := range obj.Tasks {
-				err = valid(task.Validate(api))
-				if err == nil {
-					api.PutTaskDefinition(task)
-					fmt.Printf("task: OK %s\n", task.Name)
-				} else {
-					fmt.Printf("task: FAIL %s\n", task.Name)
-				}
-			}
-
-			for _, service := range obj.Services {
-				err = valid(service.Validate(api))
-				if err == nil {
-					api.PutService(service)
-					fmt.Printf("service: OK %s\n", service.Name)
-				} else {
-					fmt.Printf("service: FAIL %s\n", service.Name)
-				}
-			}
-
-			for _, cluster := range obj.Clusters {
-				err = valid(cluster.Validate(api))
-				if err == nil {
-					api.PutCluster(cluster)
-					fmt.Printf("cluster: OK %s\n", cluster.Name)
-				} else {
-					fmt.Printf("cluster: FAIL %s\n", cluster.Name)
-				}
-			}
-
-			return nil
-		},
-	})
-
-	app.Commands = append(app.Commands, cli.Command{
-		Name: "combined",
-		Usage: "start the scheduler and agent services together (recommended for quickstart)",
-		Action: func(c *cli.Context) error {
-			fmt.Println("==> starting...")
-
-			m := NewMaster(api)
-			ag := NewAgent(api)
-
-			go m.Run()
-			ag.Run()
-			return nil
-		},
-	})
-
-	app.Commands = append(app.Commands, cli.Command{
-		Name: "scheduler",
-		Usage: "start the scheduler service",
-		Action: func(c *cli.Context) error {
-			fmt.Println("==> starting...")
-
-			m := NewMaster(api)
-			m.Run()
-			return nil
-		},
-	})
-
-	app.Commands = append(app.Commands, cli.Command{
-		Name: "agent",
-		Usage: "start the agent service",
-		Action: func(c *cli.Context) error {
-			fmt.Println("==> starting...")
-
-			ag := NewAgent(api)
-			ag.Run()
-			return nil
-		},
-	})
-
-	app.Run(os.Args)
+	NewApp().Run()
 }
