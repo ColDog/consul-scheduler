@@ -43,6 +43,7 @@ $GOPATH/bin/scheduler -v
 # future versions to release: linux
 for d in linux-amd64 linux-arm darwin-amd64 windows-amd64
 do
+    echo " "
     echo "building: "${d}
 
     arch=$( echo $x | cut -d'-' -f 2 )
@@ -67,6 +68,7 @@ do
 done
 
 echo "begin docker pushing"
+env GOOS=linux GOARCH=amd64 go build -o consul-scheduler github.com/coldog/scheduler
 docker build -t coldog/consul-scheduler:${version} .
 docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
 docker push coldog/consul-scheduler:${version}
