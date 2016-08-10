@@ -3,3 +3,4 @@
 consul-scheduler
 tmp
 dist/
+.env
