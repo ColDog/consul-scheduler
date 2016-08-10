@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 version=v${1}
+message="Release of version "${1}
 
 set -e
 
@@ -15,18 +16,22 @@ if git tag -l | grep -Fxq ${version}; then
 fi
 
 # handle git stuff
-git tag ${version}
-git add -A && git commit -am "release version ${version}"
+git add -A && git commit -m "${message}"
+git tag ${version} -m "${message}"
 git push origin --all
 git push origin --tags
 
-# create compilations
-env GOOS=linux GOARCH=amd64     go build -o dist/consul-scheduler_linux-amd64 github.com/coldog/scheduler
-env GOOS=linux GOARCH=arm       go build -o dist/consul-scheduler_linux-arm github.com/coldog/scheduler
-env GOOS=darwin GOARCH=amd64    go build -o dist/consul-scheduler_darwin-amd64 github.com/coldog/scheduler
-env GOOS=windows GOARCH=386     go build -o dist/consul-scheduler_windows-386 github.com/coldog/scheduler
-env GOOS=windows GOARCH=amd64   go build -o dist/consul-scheduler_windows-amd64 github.com/coldog/scheduler
+body=$(curl --data '{"tag_name": "'${version}'","target_commitish": "master","name": "'${version}'","body": "'${message}'"}' https://api.github.com/repos/coldog/consul-scheduler/releases?access_token=${GITHUB_TOKEN})
 
-docker build -t coldog/consul-scheduler:${version} .
-docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
-docker push coldog/consul-scheduler:${version}
+# create compilations
+#echo "beginning compilations"
+#env GOOS=linux GOARCH=amd64     go build -o dist/consul-scheduler_linux-amd64 github.com/coldog/scheduler
+#env GOOS=linux GOARCH=arm       go build -o dist/consul-scheduler_linux-arm github.com/coldog/scheduler
+#env GOOS=darwin GOARCH=amd64    go build -o dist/consul-scheduler_darwin-amd64 github.com/coldog/scheduler
+#env GOOS=windows GOARCH=386     go build -o dist/consul-scheduler_windows-386 github.com/coldog/scheduler
+#env GOOS=windows GOARCH=amd64   go build -o dist/consul-scheduler_windows-amd64 github.com/coldog/scheduler
+
+
+#docker build -t coldog/consul-scheduler:${version} .
+#docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
+#docker push coldog/consul-scheduler:${version}
