@@ -7,7 +7,7 @@ echo releasing ${version} with ${message}
 
 set -e
 
-if [ ${version} = "" ]; then
+if [ ${version} = "v" ]; then
     echo "version must be given"
     exit 1
 fi
