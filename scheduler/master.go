@@ -9,8 +9,6 @@ import (
 type Scheduler func(cluster Cluster, api *SchedulerApi)
 
 func NewMaster(a *SchedulerApi) *Master {
-	log.Info("[master] starting master process")
-
 	m := &Master{
 		api: a,
 		Schedulers: make(map[string] Scheduler),
@@ -32,13 +30,22 @@ func (master *Master) Use(name string, sched Scheduler) {
 }
 
 func (master *Master) Run() {
-	log.Info("[master] running")
+	log.Info("[master] starting")
 
 	for {
-		log.Info("[master] waiting")
-		master.api.WaitOnKey("config/")
+		_, err := master.api.Host()
+		if err == nil {
+			break
+		}
 
-		log.Info("[master] starting schedulers")
+		log.WithField("error", err).Error("[master] could not find host name")
+		time.Sleep(5 * time.Second)
+	}
+
+	for {
+		log.Debug("[master] waiting")
+		master.api.WaitOnKey("config/")
+		log.Debug("[master] starting")
 
 		clusters, err := master.api.ListClusters()
 		if err != nil {
@@ -63,8 +70,6 @@ func (master *Master) Run() {
 }
 
 func (master *Master) schedule(cluster Cluster, scheduler Scheduler) {
-	t1 := time.Now().UnixNano()
-
 	log.WithField("cluster", cluster.Name).Info("[master] locking scheduler")
 	lock, err := master.api.LockScheduler(cluster.Name)
 	if err != nil {
@@ -74,7 +79,4 @@ func (master *Master) schedule(cluster Cluster, scheduler Scheduler) {
 
 	scheduler(cluster, master.api)
 	lock.Unlock()
-
-	t2 := time.Now().UnixNano()
-	log.WithField("cluster", cluster.Name).WithField("time", t2 - t1).Info("[master] finished scheduling")
 }

@@ -109,7 +109,7 @@ func (a *SchedulerApi) put(key string, value []byte, flags ...uint64) error {
 
 	_, err := a.kv.Put(&api.KVPair{Key: key, Value: value, Flags: flag}, nil)
 	if err != nil {
-		log.Error(err)
+		log.WithField("consul-api", "put").WithField("key", key).Error(err)
 	}
 	return err
 }
@@ -117,7 +117,7 @@ func (a *SchedulerApi) put(key string, value []byte, flags ...uint64) error {
 func (a *SchedulerApi) del(key string) error {
 	_, err := a.kv.Delete(key, nil)
 	if err != nil {
-		log.Error(err)
+		log.WithField("consul-api", "del").WithField("key", key).Error(err)
 	}
 	return err
 }
@@ -125,7 +125,7 @@ func (a *SchedulerApi) del(key string) error {
 func (a *SchedulerApi) get(key string) (*api.KVPair, error) {
 	res, _, err := a.kv.Get(key, nil)
 	if err != nil {
-		log.Error(err)
+		log.WithField("consul-api", "get").WithField("key", key).Error(err)
 	}
 	return res, err
 }
@@ -133,7 +133,7 @@ func (a *SchedulerApi) get(key string) (*api.KVPair, error) {
 func (a *SchedulerApi) list(prefix string) (api.KVPairs, error) {
 	res, _, err := a.kv.List(prefix, nil)
 	if err != nil {
-		log.Error(err)
+		log.WithField("consul-api", "put").WithField("key", prefix).Error(err)
 	}
 	return res, err
 }
@@ -177,13 +177,13 @@ func (a *SchedulerApi) WaitOnKey(key string) error {
 	}
 }
 
-func (a *SchedulerApi) Host() string {
+func (a *SchedulerApi) Host() (string, error) {
 	n, err := a.agent.NodeName()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	return n
+	return n, nil
 }
 
 func (a *SchedulerApi) ListClusters() (clusters []Cluster, err error) {
@@ -274,7 +274,6 @@ func (a *SchedulerApi) PutTask(t Task) error {
 	err := a.put(StatePrefix + t.Host + "/" + t.Id(), data)
 	err = a.put(StatePrefix + t.Id(), data)
 
-	log.WithField("task", t.Id()).WithField("host", t.Host).WithField("port", t.Port).Info("scheduled task")
 	return err
 }
 

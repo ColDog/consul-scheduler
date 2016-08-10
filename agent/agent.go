@@ -19,10 +19,8 @@ type action struct {
 }
 
 func NewAgent(a *SchedulerApi) *Agent {
-	log.Info("[agent] starting agent")
 	return &Agent{
 		api: a,
-		Host: a.Host(),
 		run: make(chan struct{}, 1),
 		queue: make(chan action, 100),
 		quit: make(chan struct{}, 1),
@@ -157,10 +155,23 @@ func (agent *Agent) watcher() {
 }
 
 func (agent *Agent) Run() {
-	log.Info("[agent] publishing initial state")
+	log.Info("[agent] starting")
 
 	go Serve()
 	defer agent.api.DelHost(agent.Host)
+
+
+	for {
+		host, err := agent.api.Host()
+		if err == nil {
+			agent.Host = host
+			break
+		}
+
+		log.WithField("error", err).Error("[agent] could not find host name")
+		time.Sleep(5 * time.Second)
+	}
+
 
 	for {
 		err := agent.api.RegisterAgent(agent.Host)
@@ -169,11 +180,10 @@ func (agent *Agent) Run() {
 		}
 
 		log.WithField("error", err).Error("[agent] could not register")
-		time.Sleep(3 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
-
-
+	log.Info("[agent] publishing initial state")
 	agent.publishState()
 
 	for i := 0; i < 1; i++ {

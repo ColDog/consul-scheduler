@@ -5,6 +5,7 @@ import (
 	. "github.com/coldog/scheduler/api"
 	. "github.com/coldog/scheduler/agent"
 	. "github.com/coldog/scheduler/scheduler"
+	log "github.com/Sirupsen/logrus"
 
 	"os"
 	"fmt"
@@ -14,6 +15,10 @@ import (
 )
 
 var ValidationErr error = errors.New("Validation Failed")
+
+func init()  {
+	log.SetLevel(log.DebugLevel)
+}
 
 func valid(errs []string) error {
 	if len(errs) > 0 {

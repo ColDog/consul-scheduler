@@ -12,6 +12,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.provision :shell, inline: 'docker rm -f consul || true'
   config.vm.provision :shell, inline: 'docker rm -f consul-scheduler || true'
+  config.vm.provision :shell, inline: 'docker pull coldog/consul-scheduler'
 
   config.vm.define "n1" do |n1|
     n1.vm.hostname = "n1"

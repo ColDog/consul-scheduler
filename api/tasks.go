@@ -3,8 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"time"
 )
 
 type Validatable interface {
@@ -194,37 +192,6 @@ type Host struct {
 	PortSelection 	[]uint
 }
 
-func (host Host) IsPortAvailable(port uint) bool {
-	for _, resPort := range host.ReservedPorts {
-		if port == resPort {
-			return false
-		}
-	}
-	return true
-}
-
-func (host Host) AvailablePort(additional ...uint) uint {
-	rand.Seed(time.Now().UnixNano())
-
-	for i := 0; i < len(host.PortSelection); i++ {
-		r := rand.Intn(len(host.PortSelection) - 1)
-		candidate := host.PortSelection[r]
-
-		if host.IsPortAvailable(candidate) {
-			if len(additional) > 0 {
-				for _, p := range additional {
-					println(candidate, p)
-					if candidate != p {
-						return candidate
-					}
-				}
-			} else {
-				return candidate
-			}
-		}
-	}
-	return 0
-}
 
 func encode(item interface{}) []byte {
 	res, err := json.Marshal(item)
