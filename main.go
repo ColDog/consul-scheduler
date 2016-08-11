@@ -10,6 +10,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"os"
+	"fmt"
 )
 
 func NewApp() *App {
@@ -29,6 +30,16 @@ type App struct {
 	Agent 		*Agent
 	Master 		*Master
 	Config 		*Config
+}
+
+func (app *App) printWelcome(mode string) {
+	fmt.Printf("\nconsul-scheduler starting...\n\n")
+	fmt.Printf("          version  %s\n", VERSION)
+	fmt.Printf("        log-level  %s\n", log.GetLevel())
+	fmt.Printf("       consul-api  %s\n", app.Api.ConsulConf.Address)
+	fmt.Printf("        consul-dc  %s\n", app.Api.ConsulConf.Datacenter)
+	fmt.Printf("             mode  %s\n", mode)
+	fmt.Print("\nlog output will now begin streaming....\n")
 }
 
 func (app *App) setup() {
@@ -89,6 +100,7 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Name = "agent"
 	cmd.Usage = "start the agent service"
 	cmd.Action = func(c *cli.Context) error {
+		app.printWelcome("agent")
 		app.RegisterAgent()
 		app.Agent.Run()
 		return nil
@@ -100,6 +112,7 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Name = "scheduler"
 	cmd.Usage = "start the scheduler service"
 	cmd.Action = func(c *cli.Context) error {
+		app.printWelcome("scheduler")
 		app.RegisterMaster()
 		app.Master.Run()
 		return nil
@@ -111,6 +124,7 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 	cmd.Name = "combined"
 	cmd.Usage = "start the scheduler and agent service"
 	cmd.Action = func(c *cli.Context) error {
+		app.printWelcome("combined")
 		app.RegisterMaster()
 		app.RegisterAgent()
 

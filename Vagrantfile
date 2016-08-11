@@ -10,9 +10,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provision "docker"
   config.vm.synced_folder ".", "/vagrant", type: "nfs"
 
+  config.vm.provision :shell, inline: 'docker pull coldog/consul-scheduler'
+  config.vm.provision :shell, inline: 'docker pull consul'
   config.vm.provision :shell, inline: 'docker rm -f consul || true'
   config.vm.provision :shell, inline: 'docker rm -f consul-scheduler || true'
-  config.vm.provision :shell, inline: 'docker pull coldog/consul-scheduler'
 
   config.vm.define "n1" do |n1|
     n1.vm.hostname = "n1"
@@ -28,4 +29,5 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     n2.vm.provision :shell, inline: 'docker run -d --net=host --name=consul-scheduler coldog/consul-scheduler'
     n2.vm.provision :shell, inline: 'consul join 172.20.20.10'
   end
+
 end

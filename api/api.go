@@ -53,7 +53,9 @@ func NewSchedulerApiWithConfig(conf *Config) *SchedulerApi {
 		catalog: client.Catalog(),
 		health: client.Health(),
 		client: client,
+		ConsulConf: apiConfig,
 	}
+
 
 	return a
 }
@@ -81,6 +83,7 @@ type SchedulerApi struct {
 	catalog 	*api.Catalog
 	health 		*api.Health
 	client 		*api.Client
+	ConsulConf	*api.Config
 }
 
 func (a *SchedulerApi) LockScheduler(cluster string) (*api.Lock, error) {
