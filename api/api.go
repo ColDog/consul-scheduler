@@ -102,6 +102,14 @@ func (a *SchedulerApi) LockScheduler(cluster string) (*api.Lock, error) {
 	return lock, nil
 }
 
+func (a *SchedulerApi) Lock(key string) (*api.Lock, error) {
+	lock, err := a.client.LockKey(key)
+	if err != nil {
+		log.Error(err)
+	}
+	return lock, err
+}
+
 func (a *SchedulerApi) put(key string, value []byte, flags ...uint64) error {
 	flag := uint64(0)
 	if len(flags) >= 1 {
@@ -388,6 +396,14 @@ func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) error {
 
 func (a *SchedulerApi) PutCluster(c Cluster) error {
 	return a.put(ClustersPrefix + c.Name, encode(c))
+}
+
+func (a *SchedulerApi) GetCluster(name string) (c Cluster, err error) {
+	kv, err := a.get(ClustersPrefix + name)
+	if err == nil {
+		decode(kv.Value, &c)
+	}
+	return c, err
 }
 
 func (a *SchedulerApi) DebugKeys() {

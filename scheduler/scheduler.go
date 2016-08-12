@@ -1,11 +1,11 @@
 package scheduler
 
 import (
-	. "github.com/coldog/scheduler/api"
 	log "github.com/Sirupsen/logrus"
+	. "github.com/coldog/scheduler/api"
 
-	"math/rand"
 	"fmt"
+	"math/rand"
 	"time"
 )
 
@@ -19,7 +19,7 @@ that does not have a port conflict and has enough memory / cpu.
 
 */
 
-func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
+func DefaultScheduler(cluster Cluster, api *SchedulerApi, stopCh chan struct{}) {
 	hosts, err := api.ListHosts()
 	if err != nil {
 		log.WithField("error", err).Error("[scheduler] failed")
@@ -29,6 +29,15 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 	log.WithField("hosts", len(hosts)).Debug("[scheduler] found hosts")
 
 	for _, serviceName := range cluster.Services {
+
+		// read periodically from the stop channel to see if we need to exit.
+		select {
+		case <-stopCh:
+			return
+		default:
+			log.Warn("[scheduler] exited prematurely from stop signal")
+		}
+
 		service, err := api.GetService(serviceName)
 		if err != nil {
 			log.WithField("error", err).Error("[scheduler] failed")
@@ -39,7 +48,7 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi) {
 	}
 }
 
-func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, service Service)  {
+func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, service Service) {
 	t1 := time.Now().UnixNano()
 
 	// retrieve the task definition for a given service that needs to be scheduled
@@ -62,11 +71,11 @@ func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, servic
 	added := 0
 
 	log.WithFields(log.Fields{
-		"name": runningName,
-		"count": count,
+		"name":    runningName,
+		"count":   count,
 		"desired": service.Desired,
-		"min": service.Min,
-		"max": service.Max,
+		"min":     service.Min,
+		"max":     service.Max,
 	}).Info("[scheduler] scheduling " + service.Name)
 
 	// the next section will remove all of the tasks that shouldn't be running while keeping those running
@@ -99,7 +108,7 @@ func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, servic
 	// now let's make sure that we aren't over the desired limit by working our way down the list of instances
 	// and removing any leftovers.
 	if (count - removed) > service.Desired {
-		for i := (count - removed) - 1; i > service.Desired - 1; i-- {
+		for i := (count - removed) - 1; i > service.Desired-1; i-- {
 
 			// calculate the id that would have been given to this instance
 			id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
@@ -127,7 +136,7 @@ func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, servic
 
 }
 
-func scheduleTask(api *SchedulerApi, hosts []Host, cluster Cluster, service Service, taskDef TaskDefinition, instance int)  {
+func scheduleTask(api *SchedulerApi, hosts []Host, cluster Cluster, service Service, taskDef TaskDefinition, instance int) {
 	rand.Seed(time.Now().UnixNano())
 	task := NewTask(cluster, taskDef, service, instance)
 	t1 := time.Now().UnixNano()
@@ -136,7 +145,7 @@ func scheduleTask(api *SchedulerApi, hosts []Host, cluster Cluster, service Serv
 		r := rand.Intn(len(hosts))
 		candidateHost := hosts[r]
 
-		if candidateHost.CpuUnits - task.TaskDef.CpuUnits <= 0  && candidateHost.Memory - task.TaskDef.Memory <= 0 {
+		if candidateHost.CpuUnits-task.TaskDef.CpuUnits <= 0 && candidateHost.Memory-task.TaskDef.Memory <= 0 {
 			log.WithField("host", candidateHost.Name).WithField("task", task.Id()).Debug("[scheduler] failed selection due to not enough cpu / memory")
 			continue
 		}

@@ -1,21 +1,21 @@
 package main
 
 import (
-	"github.com/urfave/cli"
-	. "github.com/coldog/scheduler/api"
-	. "github.com/coldog/scheduler/agent"
-	. "github.com/coldog/scheduler/scheduler"
 	"github.com/coldog/scheduler/actions"
+	. "github.com/coldog/scheduler/agent"
+	. "github.com/coldog/scheduler/api"
+	. "github.com/coldog/scheduler/scheduler"
+	"github.com/urfave/cli"
 
 	log "github.com/Sirupsen/logrus"
 
-	"os"
 	"fmt"
+	"os"
 )
 
 func NewApp() *App {
 	app := &App{
-		cli: cli.NewApp(),
+		cli:    cli.NewApp(),
 		Config: &Config{},
 	}
 	app.setup()
@@ -25,11 +25,11 @@ func NewApp() *App {
 type AppCmd func(app *App) cli.Command
 
 type App struct {
-	cli 		*cli.App
-	Api 		*SchedulerApi
-	Agent 		*Agent
-	Master 		*Master
-	Config 		*Config
+	cli    *cli.App
+	Api    *SchedulerApi
+	Agent  *Agent
+	Master *Master
+	Config *Config
 }
 
 func (app *App) printWelcome(mode string) {
@@ -132,15 +132,15 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 
 		go func() {
 			app.Agent.Run()
-			done <- struct {}{}
+			done <- struct{}{}
 		}()
 
 		go func() {
 			app.Master.Run()
-			done <- struct {}{}
+			done <- struct{}{}
 		}()
 
-		<- done
+		<-done
 		return nil
 	}
 	return cmd
@@ -166,7 +166,6 @@ func (app *App) AddCmd(cmd AppCmd) {
 func (app *App) Run() {
 	app.cli.Run(os.Args)
 }
-
 
 func main() {
 	NewApp().Run()

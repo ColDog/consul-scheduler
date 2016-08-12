@@ -4,49 +4,49 @@ import (
 	log "github.com/Sirupsen/logrus"
 	. "github.com/coldog/scheduler/api"
 
-	"testing"
 	"fmt"
+	"testing"
 	"time"
 )
 
-func init()  {
+func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
 func seed(api *SchedulerApi) Cluster {
 	c := Cluster{
-		Name: "default",
+		Name:      "default",
 		Scheduler: "default",
-		Services: []string{"test-service"},
+		Services:  []string{"test-service"},
 	}
 
 	s := Service{
-		Name: "test-service",
-		TaskName: "web-test2",
+		Name:        "test-service",
+		TaskName:    "web-test2",
 		TaskVersion: 5,
-		Desired: 5,
-		Min: 1,
-		Max: 7,
+		Desired:     5,
+		Min:         1,
+		Max:         7,
 	}
 
 	t1 := TaskDefinition{
-		Name: "test",
-		Version: 1,
-		Memory: 300,
+		Name:     "test",
+		Version:  1,
+		Memory:   300,
 		CpuUnits: 1,
 	}
 
 	t2 := TaskDefinition{
-		Name: "web-test2",
-		Version: 5,
-		Memory: 300,
+		Name:     "web-test2",
+		Version:  5,
+		Memory:   300,
 		CpuUnits: 1,
 		Containers: []Container{
 			{
-				Name: "web",
+				Name:     "web",
 				Executor: "bash",
 				Bash: BashExecutor{
-					Cmd: "echo",
+					Cmd:  "echo",
 					Args: []string{"hello"},
 				},
 			},
@@ -71,9 +71,9 @@ func TestScheduler(t *testing.T) {
 	c := seed(a)
 
 	a.PutHost(Host{
-		Name: a.Host(),
+		Name:     a.Host(),
 		CpuUnits: 1,
-		Memory: 1,
+		Memory:   1,
 	})
 
 	a.DebugKeys()
