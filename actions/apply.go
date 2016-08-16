@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io/ioutil"
 )
+
 var ValidationErr error = errors.New("Validation Failed")
 
 func valid(errs []string) error {

@@ -8,7 +8,11 @@ import (
 	. "github.com/coldog/scheduler/api"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/coldog/scheduler/tools"
+	"github.com/coldog/scheduler/executors"
+	"sync"
 )
+
+const RUNNERS = 3
 
 type action struct {
 	start  bool
@@ -20,10 +24,12 @@ type action struct {
 func NewAgent(a *SchedulerApi) *Agent {
 	return &Agent{
 		api:       a,
-		run:       make(chan struct{}, 1),
 		queue:     make(chan action, 100),
 		stopCh:    make(chan struct{}, 1),
 		startedAt: make(map[string]time.Time),
+		events:    tools.NewEvents(),
+		run:       make(chan struct{}, 100),
+		lock:      &sync.RWMutex{},
 	}
 }
 
@@ -32,6 +38,7 @@ type Agent struct {
 	Host      string
 	startedAt map[string]time.Time
 	events    *tools.Events
+	lock      *sync.RWMutex
 	queue     chan action
 	stopCh    chan struct{}
 	run       chan struct{}
@@ -42,6 +49,7 @@ func (agent *Agent) runner(id int) {
 		select {
 		case act := <-agent.queue:
 			if act.start {
+				agent.lock.RLock()
 
 				if t, ok := agent.startedAt[act.task.Id()]; ok {
 					// if we add 3 minutes to the started at time, and it's after the current
@@ -51,17 +59,36 @@ func (agent *Agent) runner(id int) {
 						continue
 					}
 				}
+				agent.lock.RUnlock()
 
 				log.WithField("task", act.task.Id()).Infof("[agent-r%d] starting task", id)
+
+				agent.lock.Lock()
 				agent.startedAt[act.task.Id()] = time.Now()
+				agent.lock.Unlock()
+
 				agent.start(act.task)
 			} else if act.stop {
 				log.WithField("task", act.task.Id()).Infof("[agent-r%d] stopping task", id)
 				agent.stop(act.task)
 			}
 
-		case <-agent.quit:
+		case <-agent.stopCh:
 			return
+		}
+	}
+}
+
+// the syncer responds to requests to sync a specific task
+func (agent *Agent) syncer() {
+	for {
+		select {
+		case <-agent.run:
+			agent.sync()
+
+		case <-agent.stopCh:
+			return
+
 		}
 	}
 }
@@ -69,17 +96,18 @@ func (agent *Agent) runner(id int) {
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
 func (agent *Agent) start(t Task) {
 	for _, cont := range t.TaskDef.Containers {
-		executor := cont.GetExecutor()
+		executor := executors.GetExecutor(cont)
 
 		if executor != nil {
-			err := executor.Start(t)
+			err := executor.StartTask(t)
 
 			if err != nil {
-				// task has failed to start if the final command returns and error, we will exit
-				// the loop and not register the service
+				agent.stop(t)
 				log.WithField("error", err).Error("[agent] failed to start task")
 				return
 			}
+		} else {
+			log.WithField("error", "no executor").Error("[agent] no executor found")
 		}
 	}
 
@@ -92,50 +120,54 @@ func (agent *Agent) stop(t Task) {
 	agent.api.DeRegister(t.Id())
 
 	for _, cont := range t.TaskDef.Containers {
-		executor := cont.GetExecutor()
+		executor := executors.GetExecutor(cont)
 
 		if executor != nil {
-			env := executor.GetEnv(t)
-			for _, cmd := range executor.StopCmds(t) {
-				Exec(env, cmd[0], cmd[1:]...)
+			err := executor.StopTask(t)
+			if err != nil {
+				log.WithField("error", err).Error("[agent] failed to stop task")
 			}
 		}
 	}
 }
 
-func (agent *Agent) watcher() {
+func (agent *Agent) watcher(prefix string) {
 	for {
-		err := agent.api.WaitOnKey("state/" + agent.Host)
+		err := agent.api.WaitOnKey(prefix)
 		if err != nil {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		agent.run <- struct{}{}
+
+		agent.events.Publish()
 	}
 }
 
 func (agent *Agent) Stop() {
-	agent.quit <- struct{}{}
+	agent.stopCh <- struct{}{}
 }
 
+// The main loop that the agent sits in
 func (agent *Agent) Run() {
 	log.Info("[agent] starting")
 
+	listener := make(chan struct{})
+	agent.events.Subscribe(agent.Host, listener)
+	defer agent.events.UnSubscribe(agent.Host)
+	defer close(listener)
+
+	// the server provides a basic health checking port to allow for the agent to provide consul with updates
 	go Serve()
 	defer agent.api.DelHost(agent.Host)
 
 	for {
-		host, err := agent.api.Host()
-		if err == nil {
-			agent.Host = host
-			break
+		select {
+		case <-agent.stopCh:
+			log.Warn("[agent] exiting")
+			return
+		default:
 		}
 
-		log.WithField("error", err).Error("[agent] could not find host name")
-		time.Sleep(5 * time.Second)
-	}
-
-	for {
 		err := agent.api.RegisterAgent(agent.Host)
 		if err == nil {
 			break
@@ -148,27 +180,27 @@ func (agent *Agent) Run() {
 	log.Info("[agent] publishing initial state")
 	agent.publishState()
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < RUNNERS; i++ {
 		go agent.runner(i)
 	}
 
-	go agent.watcher()
-
-	time.Sleep(5 * time.Second)
-	agent.sync()
+	go agent.watcher(StatePrefix+agent.Host)
+	go agent.syncer()
 
 	for {
+		log.Debug("[agent] waiting")
+
 		select {
 
-		case <-agent.run:
-			log.Info("[agent] sync triggered by watcher")
-			agent.sync()
+		case <-listener:
+			log.Debug("[agent] sync triggered by watcher")
+			agent.run <- struct {}{}
 
-		case <-time.After(45 * time.Second):
-			agent.sync()
+		case <-time.After(30 * time.Second):
+			agent.run <- struct {}{}
 
-		case <-agent.quit:
-			log.Info("[agent] exiting")
+		case <-agent.stopCh:
+			log.Warn("[agent] exiting")
 			return
 		}
 	}

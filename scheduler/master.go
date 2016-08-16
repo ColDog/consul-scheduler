@@ -4,9 +4,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 	. "github.com/coldog/scheduler/api"
 	"github.com/coldog/scheduler/tools"
+
 	"sync"
 	"time"
-	"github.com/syndtr/goleveldb/leveldb/errors"
+	"errors"
 )
 
 var (
@@ -221,34 +222,11 @@ func (master *Master) monitoring() {
 func (master *Master) Run() {
 	log.Info("[master] starting")
 
-	// Loops and checks various api calls to see if consul is initialized. Sometimes if the cluster of consul servers
-	// is just starting it will return 500 until a group and a leader is elected.
-	for {
-		select {
-		case <-master.stopCh:
-			return
-		default:
-		}
-
-		_, err := master.api.Host()
-		if err == nil {
-			break
-		}
-
-		_, err = master.api.ListClusters()
-		if err == nil {
-			break
-		}
-
-		log.WithField("error", err).Error("[master] could not find host name")
-		time.Sleep(15 * time.Second)
-	}
-
 	go master.monitoring()
 	go master.watcher()
 
 	<-master.stopCh
-	log.Info("[master] exiting")
+	log.Warn("[master] exiting")
 }
 
 func (master *Master) Stop() {

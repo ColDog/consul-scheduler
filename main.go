@@ -5,8 +5,8 @@ import (
 	. "github.com/coldog/scheduler/agent"
 	. "github.com/coldog/scheduler/api"
 	. "github.com/coldog/scheduler/scheduler"
-	"github.com/urfave/cli"
 
+	"github.com/urfave/cli"
 	log "github.com/Sirupsen/logrus"
 
 	"fmt"
@@ -127,10 +127,13 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Usage = "start the agent service"
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("agent")
+		app.Api.WaitForInitialize()
+
 		app.RegisterAgent()
 		app.AtExit(func() {
 			app.Agent.Stop()
 		})
+
 		app.Agent.Run()
 		return nil
 	}
@@ -142,10 +145,13 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Usage = "start the scheduler service"
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")
+		app.Api.WaitForInitialize()
+
 		app.RegisterMaster()
 		app.AtExit(func() {
 			app.Master.Stop()
 		})
+
 		app.Master.Run()
 		return nil
 	}
@@ -157,14 +163,23 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 	cmd.Usage = "start the scheduler and agent service"
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("combined")
+		app.Api.WaitForInitialize()
+
 		app.RegisterMaster()
 		app.RegisterAgent()
 
 		wg := &sync.WaitGroup{}
 
-		go app.Agent.Run()
-		go app.Master.Run()
 		wg.Add(2)
+		go func() {
+			app.Agent.Run()
+			wg.Done()
+		}()
+
+		go func() {
+			app.Master.Run()
+			wg.Done()
+		}()
 
 		app.AtExit(func() {
 			app.Agent.Stop()
@@ -172,35 +187,6 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 		})
 
 		wg.Wait()
-
-		done := make(chan struct{})
-
-		go func() {
-			app.Agent.Run()
-
-			fmt.Println("exiting agent")
-			done <- struct{}{}
-		}()
-
-		go func() {
-			app.Master.Run()
-
-			fmt.Println("exiting master")
-			done <- struct{}{}
-		}()
-
-		killCh := make(chan os.Signal, 2)
-		signal.Notify(killCh, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-killCh
-			fmt.Println("stopping")
-			app.Agent.Stop()
-			app.Master.Stop()
-		}()
-
-		<-done
-
-		fmt.Println("exiting")
 		return nil
 	}
 	return cmd

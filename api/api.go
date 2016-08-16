@@ -10,10 +10,11 @@ import (
 )
 
 var (
-	ClustersPrefix   string = "config/clusters/"
-	ServicesPrefix   string = "config/services/"
-	HostsPrefix      string = "config/hosts/"
-	TasksPrefix      string = "config/tasks/"
+	ConfigPrefix     string = "config/"
+	ClustersPrefix   string = ConfigPrefix + "clusters/"
+	ServicesPrefix   string = ConfigPrefix + "services/"
+	HostsPrefix      string = ConfigPrefix + "hosts/"
+	TasksPrefix      string = ConfigPrefix + "tasks/"
 	SchedulersPrefix string = "schedulers/"
 	StatePrefix      string = "state/"
 )
@@ -83,6 +84,25 @@ type SchedulerApi struct {
 	health     *api.Health
 	client     *api.Client
 	ConsulConf *api.Config
+}
+
+// Loops and checks various api calls to see if consul is initialized. Sometimes if the cluster of consul servers
+// is just starting it will return 500 until a group and a leader is elected.
+func (a *SchedulerApi) WaitForInitialize() {
+	for {
+		_, err := a.Host()
+		if err == nil {
+			return
+		}
+
+		_, err = a.ListClusters()
+		if err == nil {
+			return
+		}
+
+		log.WithField("error", err).Error("consul has not started...")
+		time.Sleep(15 * time.Second)
+	}
 }
 
 func (a *SchedulerApi) LockScheduler(cluster string) (*api.Lock, error) {

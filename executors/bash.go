@@ -7,7 +7,9 @@ import (
 	"fmt"
 )
 
-// a type of executor
+// The bash executor simply runs a list of commands to start the process, and then runs another
+// list of commands to stop the process. This is a very rough executor as it doesn't know much
+// about the underlying process and therefore cannot intelligently make many decisions about it.
 type BashExecutor struct {
 	Start       []string `json:"start"`
 	Stop        []string `json:"stop"`

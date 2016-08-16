@@ -32,6 +32,7 @@ func (events *Events) UnSubscribe(key string) {
 func (events *Events) Publish() {
 	events.lock.RLock()
 	defer events.lock.RUnlock()
+
 	for _, ch := range events.subscribers {
 		select {
 		case ch <- struct {}{}:

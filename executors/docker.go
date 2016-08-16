@@ -7,6 +7,7 @@ import (
 	"fmt"
 )
 
+// The docker executor will start a docker container.
 type DockerExecutor struct {
 	Image         string   `json:"image"`
 	Name          string   `json:"name"`
@@ -36,9 +37,9 @@ func (docker DockerExecutor) StartTask(t Task) error {
 		return err
 	}
 
-	tools.Exec(docker.Env, "docker", "rm", "-f", docker.Image)
+	tools.Exec(docker.Env, "docker", "rm", "-f", docker.Name)
 
-	main := make([]string, 0)
+	main := []string{"run"}
 
 	if docker.Name != "" {
 		main = append(main, "--name", docker.Name)
@@ -67,7 +68,7 @@ func (docker DockerExecutor) StartTask(t Task) error {
 	}
 
 	main = append(main, "-d", docker.Image)
-	return tools.Exec(docker.Env, "docker", "run", main...)
+	return tools.Exec(docker.Env, "docker", main...)
 }
 
 func (docker DockerExecutor) StopTask(t Task) error {

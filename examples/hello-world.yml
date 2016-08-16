@@ -26,8 +26,8 @@ tasks:
 
     containers:
       - name: helloworld
-        executor: docker
-        docker:
+        type: docker
+        executor:
           name: helloworld
           image: tutum/hello-world
           container_port: 80

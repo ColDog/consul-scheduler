@@ -1,16 +1,11 @@
 package agent
 
 import (
-	log "github.com/Sirupsen/logrus"
-	. "github.com/coldog/scheduler/api"
-
 	"fmt"
 	"math/rand"
 	"net"
 	"time"
-	"os/exec"
-	"os"
-	"github.com/syndtr/goleveldb/leveldb/errors"
+	"errors"
 )
 
 const (
