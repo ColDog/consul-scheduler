@@ -1,9 +1,9 @@
 package agent
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"io"
 	"net/http"
-	log "github.com/Sirupsen/logrus"
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {

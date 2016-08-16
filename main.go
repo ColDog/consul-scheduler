@@ -11,6 +11,10 @@ import (
 
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
+	"sync"
+	"time"
 )
 
 func NewApp() *App {
@@ -22,6 +26,7 @@ func NewApp() *App {
 	return app
 }
 
+type ExitHandler func()
 type AppCmd func(app *App) cli.Command
 
 type App struct {
@@ -30,6 +35,7 @@ type App struct {
 	Agent  *Agent
 	Master *Master
 	Config *Config
+	atExit ExitHandler
 }
 
 func (app *App) printWelcome(mode string) {
@@ -39,6 +45,7 @@ func (app *App) printWelcome(mode string) {
 	fmt.Printf("       consul-api  %s\n", app.Api.ConsulConf.Address)
 	fmt.Printf("        consul-dc  %s\n", app.Api.ConsulConf.Datacenter)
 	fmt.Printf("             mode  %s\n", mode)
+	fmt.Printf("             pid   %d\n", os.Getpid())
 	fmt.Print("\nlog output will now begin streaming....\n")
 }
 
@@ -88,6 +95,25 @@ func (app *App) setup() {
 	}
 }
 
+func (app *App) AtExit(e ExitHandler) {
+	app.atExit = e
+
+	killCh := make(chan os.Signal, 2)
+	signal.Notify(killCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-killCh
+
+		// ensure that we will actually quit within 10 seconds, but allow for some
+		// cleanup to happen by the code before we exit.
+		go func() {
+			time.Sleep(10 * time.Second)
+			log.Fatal("[main] failed to exit cleanly")
+		}()
+
+		app.atExit()
+	}()
+}
+
 func (app *App) RegisterAgent() {
 	app.Agent = NewAgent(app.Api)
 }
@@ -102,6 +128,9 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("agent")
 		app.RegisterAgent()
+		app.AtExit(func() {
+			app.Agent.Stop()
+		})
 		app.Agent.Run()
 		return nil
 	}
@@ -114,6 +143,9 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")
 		app.RegisterMaster()
+		app.AtExit(func() {
+			app.Master.Stop()
+		})
 		app.Master.Run()
 		return nil
 	}
@@ -128,19 +160,48 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 		app.RegisterMaster()
 		app.RegisterAgent()
 
+		wg := &sync.WaitGroup{}
+
+		go app.Agent.Run()
+		go app.Master.Run()
+		wg.Add(2)
+
+		app.AtExit(func() {
+			app.Agent.Stop()
+			app.Master.Stop()
+		})
+
+		wg.Wait()
+
+
 		done := make(chan struct{})
 
 		go func() {
 			app.Agent.Run()
+
+			fmt.Println("exiting agent")
 			done <- struct{}{}
 		}()
 
 		go func() {
 			app.Master.Run()
+
+			fmt.Println("exiting master")
 			done <- struct{}{}
 		}()
 
+		killCh := make(chan os.Signal, 2)
+		signal.Notify(killCh, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-killCh
+			fmt.Println("stopping")
+			app.Agent.Stop()
+			app.Master.Stop()
+		}()
+
 		<-done
+
+		fmt.Println("exiting")
 		return nil
 	}
 	return cmd
@@ -168,5 +229,6 @@ func (app *App) Run() {
 }
 
 func main() {
-	NewApp().Run()
+	app := NewApp()
+	app.Run()
 }

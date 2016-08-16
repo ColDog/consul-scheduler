@@ -10,16 +10,16 @@ type Validatable interface {
 }
 
 // a check passed along to consul
-type Check struct  {
-	Id 		string			`json:"id"`
-	Name 		string			`json:"name"`
-	Http 		string			`json:"http"`
-	Tcp 		string			`json:"tcp"`
-	Script 		string			`json:"script"`
-	AddProvidedPort	bool			`json:"add_provided_port"`
-	Interval 	string			`json:"interval"`
-	Timeout 	string			`json:"timeout"`
-	Ttl 		string			`json:"ttl"`
+type Check struct {
+	Id              string `json:"id"`
+	Name            string `json:"name"`
+	Http            string `json:"http"`
+	Tcp             string `json:"tcp"`
+	Script          string `json:"script"`
+	AddProvidedPort bool   `json:"add_provided_port"`
+	Interval        string `json:"interval"`
+	Timeout         string `json:"timeout"`
+	Ttl             string `json:"ttl"`
 }
 
 // a runnable task description
@@ -27,15 +27,15 @@ type Check struct  {
 // 	- version must be new
 //
 type TaskDefinition struct {
-	Name 		string			`json:"name"`
-	Version 	uint			`json:"version"`
-	ProvidePort 	bool			`json:"provide_port"`
-	Port 		uint			`json:"port"`
-	Tags 		[]string 		`json:"tags"`
-	Memory 		uint64			`json:"memory"`
-	CpuUnits 	uint64			`json:"cpu_units"`
-	Containers 	[]Container		`json:"containers"`
-	Checks 		[]Check                 `json:"checks"`
+	Name        string      `json:"name"`
+	Version     uint        `json:"version"`
+	ProvidePort bool        `json:"provide_port"`
+	Port        uint        `json:"port"`
+	Tags        []string    `json:"tags"`
+	Memory      uint64      `json:"memory"`
+	CpuUnits    uint64      `json:"cpu_units"`
+	Containers  []Container `json:"containers"`
+	Checks      []Check     `json:"checks"`
 }
 
 func (task TaskDefinition) Validate(api *SchedulerApi) (errors []string) {
@@ -47,10 +47,10 @@ func (task TaskDefinition) Validate(api *SchedulerApi) (errors []string) {
 }
 
 type Container struct {
-	Name 		string
-	Executor 	string			`json:"executor"`
-	Bash		BashExecutor		`json:"bash"`
-	Docker		DockerExecutor		`json:"docker"`
+	Name     string
+	Executor string         `json:"executor"`
+	Bash     BashExecutor   `json:"bash"`
+	Docker   DockerExecutor `json:"docker"`
 }
 
 func (cont Container) GetExecutor() Executor {
@@ -74,18 +74,18 @@ func (t TaskDefinition) Key() string {
 //	- min must be less than or equal to desired
 //
 type Service struct {
-	Name 		string		`json:"name"`
-	TaskName 	string		`json:"task_name"`
-	TaskVersion 	uint		`json:"task_version"`
-	Desired 	int		`json:"desired"`
-	Min 		int		`json:"min"`
-	Max 		int		`json:"max"`
+	Name        string `json:"name"`
+	TaskName    string `json:"task_name"`
+	TaskVersion uint   `json:"task_version"`
+	Desired     int    `json:"desired"`
+	Min         int    `json:"min"`
+	Max         int    `json:"max"`
 }
 
 func (service Service) Validate(api *SchedulerApi) (errors []string) {
 	_, err := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if err != nil {
-		errors = append(errors, "task (" + service.TaskName + ") does not exist")
+		errors = append(errors, "task ("+service.TaskName+") does not exist")
 	}
 
 	if service.Name == "" {
@@ -112,9 +112,9 @@ func (s Service) Key() string {
 }
 
 type Cluster struct {
-	Name 		string
-	Scheduler 	string
-	Services 	[]string
+	Name      string
+	Scheduler string
+	Services  []string
 }
 
 func (cluster Cluster) Validate(api *SchedulerApi) (errors []string) {
@@ -130,34 +130,33 @@ func (c Cluster) Key() string {
 
 // A running task compiled by the agents
 type RunningTask struct {
-	ServiceID 	string
-	Task		Task
-	Service 	Service
-	Passing 	bool
-	Exists 		bool
+	ServiceID string
+	Task      Task
+	Service   Service
+	Passing   bool
+	Exists    bool
 }
-
 
 func NewTask(cluster Cluster, taskDef TaskDefinition, service Service, instance int) Task {
 	return Task{
-		Cluster: cluster,
-		TaskDef: taskDef,
-		Service: service.Name,
+		Cluster:  cluster,
+		TaskDef:  taskDef,
+		Service:  service.Name,
 		Instance: instance,
-		Port: taskDef.Port,
+		Port:     taskDef.Port,
 	}
 }
 
 // a depiction of a running task definition
 type Task struct {
-	Cluster 	Cluster
-	TaskDef 	TaskDefinition
-	Service 	string
-	LocalPid 	string
-	Instance 	int
-	Port 		uint
-	Host 		string
-	Stopped 	bool
+	Cluster  Cluster
+	TaskDef  TaskDefinition
+	Service  string
+	LocalPid string
+	Instance int
+	Port     uint
+	Host     string
+	Stopped  bool
 }
 
 func (task Task) Validate(api *SchedulerApi) (errors []string) {
@@ -184,14 +183,13 @@ func (task Task) Name() string {
 }
 
 type Host struct {
-	Name 		string
-	Memory 		uint64
-	DiskSpace 	uint64
-	CpuUnits 	uint64
-	ReservedPorts 	[]uint
-	PortSelection 	[]uint
+	Name          string
+	Memory        uint64
+	DiskSpace     uint64
+	CpuUnits      uint64
+	ReservedPorts []uint
+	PortSelection []uint
 }
-
 
 func encode(item interface{}) []byte {
 	res, err := json.Marshal(item)

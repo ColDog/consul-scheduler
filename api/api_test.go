@@ -1,16 +1,16 @@
 package api
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 func TestGetDesiredHosts(t *testing.T) {
 	a := NewSchedulerApi()
 
 	a.PutTask(Task{
-		Host: "test",
+		Host:    "test",
 		Service: "test-service",
 		Cluster: Cluster{
 			Name: "test-cluster1",
@@ -28,7 +28,7 @@ func TestRegisterTask(t *testing.T) {
 	a := NewSchedulerApi()
 
 	task := Task{
-		Host: "test",
+		Host:    "test",
 		Service: "test-service",
 		Cluster: Cluster{
 			Name: "test-cluster",
@@ -45,7 +45,7 @@ func TestRegisterTask(t *testing.T) {
 			},
 			Checks: []Check{
 				Check{
-					Http: "http://127.0.0.1:80",
+					Http:     "http://127.0.0.1:80",
 					Interval: "30s",
 				},
 			},
@@ -64,7 +64,6 @@ func TestRegisterTask(t *testing.T) {
 	if _, ok := tasks[task.Id()]; !ok {
 		t.Fatal(task)
 	}
-
 
 }
 

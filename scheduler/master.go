@@ -1,14 +1,17 @@
 package scheduler
 
 import (
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	. "github.com/coldog/scheduler/api"
 	"github.com/coldog/scheduler/tools"
-	"github.com/hashicorp/consul/api"
-	"go/internal/gcimporter/testdata"
 	"sync"
 	"time"
+	"github.com/syndtr/goleveldb/leveldb/errors"
+)
+
+var (
+	NoSchedulerErr error = errors.New("No Scheduler Found")
+	ApiFailureErr error = errors.New("Api Failure")
 )
 
 /**
@@ -30,7 +33,7 @@ func NewMaster(a *SchedulerApi) *Master {
 		Schedulers: make(map[string]Scheduler),
 		events:     tools.NewEvents(),
 		lock:       &sync.RWMutex{},
-		monitors:   make(map[string] chan struct{}),
+		monitors:   make(map[string]chan struct{}),
 		stopCh:     make(chan struct{}),
 	}
 
@@ -43,11 +46,11 @@ func NewMaster(a *SchedulerApi) *Master {
 type Master struct {
 	api        *SchedulerApi
 	Schedulers map[string]Scheduler
-	lock       sync.RWMutex
+	lock       *sync.RWMutex
 	Default    Scheduler
 	events     *tools.Events
-	monitors   map[string] chan struct{}
-	stopCh 	   chan struct{}
+	monitors   map[string]chan struct{}
+	stopCh     chan struct{}
 }
 
 func (master *Master) Use(name string, sched Scheduler) {
@@ -57,74 +60,53 @@ func (master *Master) Use(name string, sched Scheduler) {
 	master.Schedulers[name] = sched
 }
 
-func (master *Master) monitorCluster(name string, stopCh <-chan struct{}) {
-	var err error
-	var lock *api.Lock
-	var lockFailCh chan struct{}
-	var stopLockingCh chan struct{} = make(chan struct{})
+func (master *Master) monitor(name string, stopCh chan struct{}) {
+	log.Infof("[monitor-%s] starting", name)
 
-	// register a listener with the master's events process. This will send us a message over the listener
-	// channel if the configuration is updated.
-	listener := make(chan struct{})
-	master.events.Subscribe(name, listener)
-
-	defer master.events.UnSubscribe(name)
-	defer close(listener)
-	defer close(stopLockingCh)
-	defer lock.Unlock()
-
-LOCK:
-	lock, err = master.api.Lock(SchedulersPrefix + name)
+	lock, err := master.api.Lock(SchedulersPrefix + name)
 	if err != nil {
 		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return
 	}
 
-	lockFailCh, err = lock.Lock(stopLockingCh)
+	lockFailCh, err := lock.Lock(master.stopCh)
 	if err != nil {
-		// this could be because a lock is already held or there are errors with the api, we just exit and let
-		// the parent process reschedule this process.
-		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s] failed to lock", name)
+		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return
 	}
 
-	log.WithField("cluster", name).Infof("[monitor-%s] acquired lock", name)
+	listener := make(chan struct{})
+	master.events.Subscribe(name, listener)
 
-WAIT:
+	defer close(listener)
+	defer lock.Unlock()
+	defer master.events.UnSubscribe(name)
+
+	err = master.schedule(name, stopCh)
+	if err != nil {
+		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s] err scheduling", name)
+		return
+	}
+
 	for {
 		select {
 		case <-stopCh:
-			// read from the stop channel and exit if we need to, note returning will take care of closing
-			// all the necessary processes.
-			log.Warnf("[monitor-%s] exiting early", name)
+			log.Warnf("[monitor-%s] exiting due to stoppage", name)
 			return
 
 		case <-lockFailCh:
-			// retry locking if we read from this channel and it fails
-			log.WithField("cluster", name).Warnf("[monitor-%s] lock failed", name)
-			goto LOCK
+			log.Warnf("[monitor-%s] lock failed", name)
+			return
 
 		case <-listener:
-			// retrieve the cluster, making sure to quick the process if the user has removed it from the
-			// configuration.
-			cluster, err := master.api.GetCluster(name)
+			log.Debugf("[monitor-%s] triggering scheduler", name)
+			err := master.schedule(name, stopCh)
 			if err != nil {
-				log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s] err getting cluster", name)
+				log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s] err scheduling", name)
 				return
 			}
 
-			scheduler := master.getScheduler(cluster.Scheduler)
-			if scheduler == nil {
-				log.WithField("cluster", cluster.Name).Warnf("[monitor-%s] no scheduler found", name)
-			} else {
-				// todo: this should not run in the same process
-				// the scheduler should run in its own observed process that debounces the schedule
-				// requests to regular times.
-				scheduler(cluster, master.api, lockFailCh)
-			}
-
 		case <-time.After(30 * time.Second):
-
 			// occasionally poll the api to see if the cluster still exists, sometimes a user may have removed the
 			// cluster from the configuration and accordingly this process should exit.
 			_, err := master.api.GetCluster(name)
@@ -132,7 +114,28 @@ WAIT:
 				log.WithField("cluster", name).WithField("error", err).Warnf("[monitor-%s] err getting cluster", name)
 				return
 			}
+
 		}
+	}
+
+}
+
+func (master *Master) schedule(name string, stopCh chan struct{}) error {
+	// retrieve the cluster, making sure to quick the process if the user has removed it from the
+	// configuration.
+	cluster, err := master.api.GetCluster(name)
+	if err != nil {
+		return ApiFailureErr
+	}
+
+	scheduler := master.getScheduler(cluster.Scheduler)
+	if scheduler == nil {
+		return NoSchedulerErr
+	} else {
+		// the scheduler should run in its own observed process that debounces the schedule
+		// requests to regular times.
+		go scheduler(cluster, master.api, stopCh)
+		return nil
 	}
 }
 
@@ -165,6 +168,8 @@ func (master *Master) watcher() {
 }
 
 func (master *Master) addMonitors() {
+	count := 0
+
 	clusters, err := master.api.ListClusters()
 	if err != nil {
 		log.WithField("error", err).Error("[master] failed to get clusters")
@@ -173,29 +178,33 @@ func (master *Master) addMonitors() {
 
 	for _, cluster := range clusters {
 		if _, ok := master.monitors[cluster.Name]; !ok {
+			count++
 			nextStopCh := make(chan struct{})
-			go master.monitorCluster(cluster.Name, nextStopCh)
+			go master.monitor(cluster.Name, nextStopCh)
 			master.monitors[cluster.Name] = nextStopCh
 		}
+	}
+
+	if count > 0 {
+		log.WithField("count", count).Info("[master] added monitors")
 	}
 }
 
 // This process monitors the individual scheduler locking processes. It will start a monitor process if a new cluster
 // is added to the configuration.
-func (master *Master) monitors() {
+func (master *Master) monitoring() {
 	listener := make(chan struct{})
 	master.events.Subscribe("main", listener)
 	defer master.events.UnSubscribe("main")
+
+	master.addMonitors()
 
 	for {
 		select {
 
 		case <-master.stopCh:
 			for _, monitorStopCh := range master.monitors {
-				select {
-				case monitorStopCh <- struct {}{}:
-				default:
-				}
+				close(monitorStopCh)
 			}
 			return
 
@@ -235,21 +244,13 @@ func (master *Master) Run() {
 		time.Sleep(15 * time.Second)
 	}
 
-	go master.monitors()
+	go master.monitoring()
 	go master.watcher()
 
 	<-master.stopCh
 	log.Info("[master] exiting")
 }
 
-func (master *Master) schedule(cluster Cluster, scheduler Scheduler) {
-	log.WithField("cluster", cluster.Name).Info("[master] locking scheduler")
-	lock, err := master.api.LockScheduler(cluster.Name)
-	if err != nil {
-		log.WithField("error", err).WithField("cluster", cluster.Name).Error("[master] failed to lock scheduler")
-		return
-	}
-
-	scheduler(cluster, master.api)
-	lock.Unlock()
+func (master *Master) Stop() {
+	master.stopCh <- struct{}{}
 }

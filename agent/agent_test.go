@@ -3,16 +3,16 @@ package agent
 import (
 	. "github.com/coldog/scheduler/api"
 
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 func TestAgentSync(t *testing.T) {
 	ag := NewAgent(NewSchedulerApi())
 
 	task := Task{
-		Host: ag.Host,
+		Host:    ag.Host,
 		Service: "test-service2",
 		Cluster: Cluster{
 			Name: "test-cluster2",
@@ -23,7 +23,7 @@ func TestAgentSync(t *testing.T) {
 				Container{
 					Executor: "bash",
 					Bash: BashExecutor{
-						Cmd: "echo",
+						Cmd:  "echo",
 						Args: []string{"hello there"},
 					},
 				},
@@ -42,11 +42,10 @@ func TestAgentSync(t *testing.T) {
 
 	go func() {
 		time.Sleep(3 * time.Second)
-		ag.quit <- struct {}{}
+		ag.quit <- struct{}{}
 	}()
 
 	ag.runner()
-
 
 	c := ag.api.HealthyTaskCount(task.Name())
 	fmt.Printf("count: %v\n", c)

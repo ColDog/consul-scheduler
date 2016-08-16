@@ -1,30 +1,30 @@
 package api
 
 import (
-	"github.com/hashicorp/consul/api"
 	log "github.com/Sirupsen/logrus"
+	"github.com/hashicorp/consul/api"
 
+	"errors"
 	"fmt"
 	"time"
-	"errors"
 )
 
 var (
-	ClustersPrefix string = "config/clusters/"
-	ServicesPrefix string = "config/services/"
-	HostsPrefix string = "config/hosts/"
-	TasksPrefix string = "config/tasks/"
+	ClustersPrefix   string = "config/clusters/"
+	ServicesPrefix   string = "config/services/"
+	HostsPrefix      string = "config/hosts/"
+	TasksPrefix      string = "config/tasks/"
 	SchedulersPrefix string = "schedulers/"
-	StatePrefix string = "state/"
+	StatePrefix      string = "state/"
 )
 
 var NotFoundErr error = errors.New("NotFound")
 
 type Config struct {
-	ConsulApiAddress 	string
-	ConsulApiDc 		string
-	ConsulApiToken 		string
-	ConsulApiWaitTime 	time.Duration
+	ConsulApiAddress  string
+	ConsulApiDc       string
+	ConsulApiToken    string
+	ConsulApiWaitTime time.Duration
 }
 
 func NewSchedulerApiWithConfig(conf *Config) *SchedulerApi {
@@ -48,14 +48,13 @@ func NewSchedulerApiWithConfig(conf *Config) *SchedulerApi {
 	}
 
 	a := &SchedulerApi{
-		kv: client.KV(),
-		agent: client.Agent(),
-		catalog: client.Catalog(),
-		health: client.Health(),
-		client: client,
+		kv:         client.KV(),
+		agent:      client.Agent(),
+		catalog:    client.Catalog(),
+		health:     client.Health(),
+		client:     client,
 		ConsulConf: apiConfig,
 	}
-
 
 	return a
 }
@@ -67,23 +66,23 @@ func NewSchedulerApi() *SchedulerApi {
 	}
 
 	a := &SchedulerApi{
-		kv: client.KV(),
-		agent: client.Agent(),
+		kv:      client.KV(),
+		agent:   client.Agent(),
 		catalog: client.Catalog(),
-		health: client.Health(),
-		client: client,
+		health:  client.Health(),
+		client:  client,
 	}
 
 	return a
 }
 
 type SchedulerApi struct {
-	kv 		*api.KV
-	agent 		*api.Agent
-	catalog 	*api.Catalog
-	health 		*api.Health
-	client 		*api.Client
-	ConsulConf	*api.Config
+	kv         *api.KV
+	agent      *api.Agent
+	catalog    *api.Catalog
+	health     *api.Health
+	client     *api.Client
+	ConsulConf *api.Config
 }
 
 func (a *SchedulerApi) LockScheduler(cluster string) (*api.Lock, error) {
@@ -152,15 +151,14 @@ func (a *SchedulerApi) WaitOnKey(key string) error {
 	for {
 		keys, meta, err := a.kv.List(key, &api.QueryOptions{
 			AllowStale: false,
-			WaitTime: 10 * time.Minute,
-			WaitIndex: lastIdx,
+			WaitTime:   10 * time.Minute,
+			WaitIndex:  lastIdx,
 		})
 
 		if err != nil {
 			log.Error(err)
 			return err
 		}
-
 
 		if lastIdx != 0 {
 			for _, kv := range keys {
@@ -212,11 +210,11 @@ func (a *SchedulerApi) ListClusters() (clusters []Cluster, err error) {
 
 func (a *SchedulerApi) RegisterAgent(id string) error {
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID: "consul-scheduler-" + id,
+		ID:   "consul-scheduler-" + id,
 		Name: "consul-scheduler",
 		Checks: api.AgentServiceChecks{
 			&api.AgentServiceCheck{
-				HTTP: "http://127.0.0.1:8231",
+				HTTP:     "http://127.0.0.1:8231",
 				Interval: "60s",
 			},
 		},
@@ -251,22 +249,22 @@ func (a *SchedulerApi) Register(t Task) error {
 
 		checks = append(checks, &api.AgentServiceCheck{
 			Interval: check.Interval,
-			Script: check.Script,
-			Timeout: check.Timeout,
-			TCP: check.Tcp,
-			HTTP: check.Http,
+			Script:   check.Script,
+			Timeout:  check.Timeout,
+			TCP:      check.Tcp,
+			HTTP:     check.Http,
 		})
 	}
 
 	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("host", t.Host).Debug("registering task")
 
 	err = a.agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID: t.Id(),
-		Name: t.Name(),
-		Tags: append(t.TaskDef.Tags, t.Cluster.Name, t.Service),
-		Port: int(t.Port),
+		ID:      t.Id(),
+		Name:    t.Name(),
+		Tags:    append(t.TaskDef.Tags, t.Cluster.Name, t.Service),
+		Port:    int(t.Port),
 		Address: t.Host,
-		Checks: checks,
+		Checks:  checks,
 	})
 
 	return err
@@ -280,8 +278,8 @@ func (a *SchedulerApi) PutTask(t Task) error {
 	// todo: wrap in transaction
 
 	data := encode(t)
-	err := a.put(StatePrefix + t.Host + "/" + t.Id(), data)
-	err = a.put(StatePrefix + t.Id(), data)
+	err := a.put(StatePrefix+t.Host+"/"+t.Id(), data)
+	err = a.put(StatePrefix+t.Id(), data)
 
 	return err
 }
@@ -295,7 +293,7 @@ func (a *SchedulerApi) DelTask(t Task) error {
 	// todo: wrap in a transaction
 
 	err := a.del(StatePrefix + t.Host + "/" + t.Id())
-	err = a.put(StatePrefix + t.Id(), encode(t), uint64(1))
+	err = a.put(StatePrefix+t.Id(), encode(t), uint64(1))
 	return err
 }
 
@@ -315,7 +313,7 @@ func (a *SchedulerApi) ListTasks(prefix string) (tasks []Task, err error) {
 }
 
 func (a *SchedulerApi) PutService(s Service) error {
-	return a.put(ServicesPrefix + s.Name, encode(s))
+	return a.put(ServicesPrefix+s.Name, encode(s))
 }
 
 func (a *SchedulerApi) DelService(name string) error {
@@ -366,7 +364,7 @@ func (a *SchedulerApi) GetHost(name string) (h Host, err error) {
 }
 
 func (a *SchedulerApi) PutHost(host Host) error {
-	return a.put(HostsPrefix + host.Name, encode(host))
+	return a.put(HostsPrefix+host.Name, encode(host))
 }
 
 func (a *SchedulerApi) DelHost(hostId string) error {
@@ -395,7 +393,7 @@ func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) error {
 }
 
 func (a *SchedulerApi) PutCluster(c Cluster) error {
-	return a.put(ClustersPrefix + c.Name, encode(c))
+	return a.put(ClustersPrefix+c.Name, encode(c))
 }
 
 func (a *SchedulerApi) GetCluster(name string) (c Cluster, err error) {
@@ -451,8 +449,8 @@ func (a *SchedulerApi) TaskPassing(task Task) (ok bool) {
 	return ok
 }
 
-func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string] RunningTask, err error) {
-	tasks = make(map[string] RunningTask)
+func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string]RunningTask, err error) {
+	tasks = make(map[string]RunningTask)
 
 	s, err := a.agent.Services()
 	if err != nil {
@@ -466,10 +464,10 @@ func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string] Runnin
 
 			tasks[ser.ID] = RunningTask{
 				ServiceID: ser.ID,
-				Task: t,
-				Exists: err == nil,
-				Service: serv,
-				Passing: a.TaskPassing(t),
+				Task:      t,
+				Exists:    err == nil,
+				Service:   serv,
+				Passing:   a.TaskPassing(t),
 			}
 		}
 	}
@@ -478,7 +476,7 @@ func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string] Runnin
 }
 
 func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task, err error) {
-	list, _, err := a.kv.List(StatePrefix + host + "/", nil)
+	list, _, err := a.kv.List(StatePrefix+host+"/", nil)
 	if err != nil {
 		return tasks, err
 	}
@@ -492,7 +490,7 @@ func (a *SchedulerApi) DesiredTasksByHost(host string) (tasks []Task, err error)
 }
 
 func (a *SchedulerApi) TaskCount(prefix string) (int, error) {
-	list, _, err := a.kv.List(StatePrefix + prefix, nil)
+	list, _, err := a.kv.List(StatePrefix+prefix, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -525,9 +523,8 @@ func (a *SchedulerApi) HealthyTaskCount(taskName string) (int, error) {
 			}
 		}
 
-
 		if passing {
-			count ++
+			count++
 		}
 	}
 

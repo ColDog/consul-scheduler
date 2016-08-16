@@ -5,7 +5,7 @@ import "sync"
 
 func NewEvents() *Events {
 	return &Events{
-		subscribers: make(map[string] chan interface{}),
+		subscribers: make(map[string] chan struct{}),
 		lock: &sync.RWMutex{},
 	}
 }

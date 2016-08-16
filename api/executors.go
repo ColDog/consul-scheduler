@@ -6,18 +6,17 @@ import "fmt"
 // all commands should have at least one string in the array or else a panic will be thrown
 // by the agent.
 type Executor interface {
-	StartCmds(t Task) [][]string
-	StopCmds(t Task) [][]string
-	GetEnv(t Task) []string
+	Start(t Task) error
+	Stop(t Task) error
 }
 
 // a type of executor
 type BashExecutor struct {
-	Start 		[]string	`json:"start"`
-	Stop 		[]string	`json:"stop"`
-	Env 		[]string	`json:"env"`
-	Artifact 	string		`json:"artifact"`
-	DownloadDir 	string		`json:"download_dir"`
+	Start       []string `json:"start"`
+	Stop        []string `json:"stop"`
+	Env         []string `json:"env"`
+	Artifact    string   `json:"artifact"`
+	DownloadDir string   `json:"download_dir"`
 }
 
 func (bash BashExecutor) StartCmds(t Task) (cmds [][]string) {
@@ -43,16 +42,16 @@ func (bash BashExecutor) GetEnv(t Task) []string {
 }
 
 type DockerExecutor struct {
-	Image 		string		`json:"image"`
-	Name 		string		`json:"name"`
-	Cmd 		string		`json:"cmd"`
-	Entry 		string		`json:"entry"`
-	ContainerPort 	uint		`json:"container_port"`
-	Ports 		[]string	`json:"ports"`
-	Env 		[]string	`json:"env"`
-	WorkDir 	string		`json:"work_dir"`
-	Volumes 	[]string	`json:"volumes"`
-	Flags 		[]string	`json:"flags"`
+	Image         string   `json:"image"`
+	Name          string   `json:"name"`
+	Cmd           string   `json:"cmd"`
+	Entry         string   `json:"entry"`
+	ContainerPort uint     `json:"container_port"`
+	Ports         []string `json:"ports"`
+	Env           []string `json:"env"`
+	WorkDir       string   `json:"work_dir"`
+	Volumes       []string `json:"volumes"`
+	Flags         []string `json:"flags"`
 }
 
 func (docker DockerExecutor) StartCmds(t Task) (cmds [][]string) {

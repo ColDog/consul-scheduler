@@ -20,6 +20,8 @@ that does not have a port conflict and has enough memory / cpu.
 */
 
 func DefaultScheduler(cluster Cluster, api *SchedulerApi, stopCh chan struct{}) {
+	log.WithField("cluster", cluster.Name).Debug("[scheduler] starting")
+
 	hosts, err := api.ListHosts()
 	if err != nil {
 		log.WithField("error", err).Error("[scheduler] failed")
@@ -33,9 +35,9 @@ func DefaultScheduler(cluster Cluster, api *SchedulerApi, stopCh chan struct{}) 
 		// read periodically from the stop channel to see if we need to exit.
 		select {
 		case <-stopCh:
+			log.Warn("[scheduler] exited prematurely from stop signal")
 			return
 		default:
-			log.Warn("[scheduler] exited prematurely from stop signal")
 		}
 
 		service, err := api.GetService(serviceName)

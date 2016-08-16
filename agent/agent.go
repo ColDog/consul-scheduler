@@ -1,54 +1,48 @@
 package agent
 
 import (
-	"time"
 	"os/exec"
 	"runtime"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/shirou/gopsutil/mem"
 	. "github.com/coldog/scheduler/api"
+	"github.com/shirou/gopsutil/mem"
 	"os"
+	"github.com/coldog/scheduler/tools"
 )
 
 type action struct {
-	start		bool
-	stop 		bool
-	task 		Task
-	taskId		string
+	start  bool
+	stop   bool
+	task   Task
+	taskId string
 }
 
 func NewAgent(a *SchedulerApi) *Agent {
 	return &Agent{
-		api: a,
-		run: make(chan struct{}, 1),
-		queue: make(chan action, 100),
-		quit: make(chan struct{}, 1),
-		startedAt: make(map[string] time.Time),
+		api:       a,
+		run:       make(chan struct{}, 1),
+		queue:     make(chan action, 100),
+		stopCh:    make(chan struct{}, 1),
+		startedAt: make(map[string]time.Time),
 	}
 }
 
 type Agent struct {
-	api 		*SchedulerApi
-	Host 		string
-	startedAt 	map[string] time.Time
-	queue 		chan action
-	quit 		chan struct{}
-	run 		chan struct{}
-}
-
-func (agent *Agent) availablePortList() []uint {
-	ports := make([]uint, 0, 60)
-	for i := 0; i < 20; i++ {
-		ports = append(ports, uint(RandomTCPPort()))
-	}
-	return ports
+	api       *SchedulerApi
+	Host      string
+	startedAt map[string]time.Time
+	events    *tools.Events
+	queue     chan action
+	stopCh    chan struct{}
+	run       chan struct{}
 }
 
 func (agent *Agent) runner(id int) {
 	for {
 		select {
-		case act := <- agent.queue:
+		case act := <-agent.queue:
 			if act.start {
 
 				if t, ok := agent.startedAt[act.task.Id()]; ok {
@@ -68,56 +62,19 @@ func (agent *Agent) runner(id int) {
 				agent.stop(act.task)
 			}
 
-		case <- agent.quit:
+		case <-agent.quit:
 			return
 		}
 	}
 }
 
-func (agent *Agent) exec(env []string, main string, cmds ...string) error {
-	log.WithField("cmd", main).WithField("args", cmds).WithField("env", env).Info("[agent] executing")
-
-	done := make(chan struct{}, 1)
-	cmd := exec.Command(main, cmds...)
-	cmd.Env = env
-
-	go func() {
-
-		select {
-		case <- done:
-			return
-		case <- time.After(30 * time.Second):
-			cmd.Process.Kill()
-			return
-		}
-
-	}()
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Start()
-	if err != nil {
-		done <- struct{}{}
-		return err
-	}
-
-
-	err = cmd.Wait()
-	done <- struct{}{}
-	return err
-}
-
+// starts a task and registers it into consul if the exec command returns a non-zero exit code
 func (agent *Agent) start(t Task) {
 	for _, cont := range t.TaskDef.Containers {
-		var err error
 		executor := cont.GetExecutor()
 
 		if executor != nil {
-			env := executor.GetEnv(t)
-			cmds := executor.StartCmds(t)
-			for _, cmd := range cmds {
-				err = agent.exec(env, cmd[0], cmd[1:]...)
-			}
+			err := executor.Start(t)
 
 			if err != nil {
 				// task has failed to start if the final command returns and error, we will exit
@@ -132,6 +89,7 @@ func (agent *Agent) start(t Task) {
 	agent.api.Register(t)
 }
 
+// deregisters a task from consul and attemps to stop the task from runnning
 func (agent *Agent) stop(t Task) {
 	agent.api.DeRegister(t.Id())
 
@@ -141,7 +99,7 @@ func (agent *Agent) stop(t Task) {
 		if executor != nil {
 			env := executor.GetEnv(t)
 			for _, cmd := range executor.StopCmds(t) {
-				agent.exec(env, cmd[0], cmd[1:]...)
+				Exec(env, cmd[0], cmd[1:]...)
 			}
 		}
 	}
@@ -154,8 +112,12 @@ func (agent *Agent) watcher() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		agent.run <- struct {}{}
+		agent.run <- struct{}{}
 	}
+}
+
+func (agent *Agent) Stop() {
+	agent.quit <- struct{}{}
 }
 
 func (agent *Agent) Run() {
@@ -163,7 +125,6 @@ func (agent *Agent) Run() {
 
 	go Serve()
 	defer agent.api.DelHost(agent.Host)
-
 
 	for {
 		host, err := agent.api.Host()
@@ -175,7 +136,6 @@ func (agent *Agent) Run() {
 		log.WithField("error", err).Error("[agent] could not find host name")
 		time.Sleep(5 * time.Second)
 	}
-
 
 	for {
 		err := agent.api.RegisterAgent(agent.Host)
@@ -202,19 +162,22 @@ func (agent *Agent) Run() {
 	for {
 		select {
 
-		case <- agent.run:
+		case <-agent.run:
 			log.Info("[agent] sync triggered by watcher")
 			agent.sync()
 
-		case <- time.After(45 * time.Second):
+		case <-time.After(45 * time.Second):
 			agent.sync()
 
-		case <- agent.quit:
+		case <-agent.quit:
+			log.Info("[agent] exiting")
 			return
 		}
 	}
 }
 
+// The agent periodically publishes it's state to consul so that the scheduler can use the latest information to
+// make scheduling decisions.
 func (agent *Agent) publishState() {
 	m, _ := mem.VirtualMemory()
 
@@ -226,16 +189,18 @@ func (agent *Agent) publishState() {
 	}
 
 	h := Host{
-		Name: agent.Host,
-		Memory: m.Available,
-		CpuUnits: uint64(runtime.NumCPU()),
+		Name:          agent.Host,
+		Memory:        m.Available,
+		CpuUnits:      uint64(runtime.NumCPU()),
 		ReservedPorts: ports,
-		PortSelection: agent.availablePortList(),
+		PortSelection: AvailablePortList(20),
 	}
 
 	agent.api.PutHost(h)
 }
 
+// This function syncs the agent with consul and the provided state from the scheduler it compares the desired tasks for
+// this host and the actual state from consul and adds to the queue new tasks to be started.
 func (agent *Agent) sync() {
 	t1 := time.Now().UnixNano()
 
@@ -251,7 +216,8 @@ func (agent *Agent) sync() {
 		return
 	}
 
-
+	// go through all of the desired tasks and check if they both and exist and are passing their health checks in
+	// consul. If they are not, we push the task onto the queue.
 	for _, task := range desired {
 		runTask, ok := running[task.Id()]
 
@@ -260,13 +226,14 @@ func (agent *Agent) sync() {
 		}
 
 		log.WithField("task", task.Id()).WithField("passing", runTask.Passing).WithField("exists", runTask.Exists).WithField("ok", ok).Debug("[agent] enqueue")
-
 		agent.queue <- action{
 			start: true,
-			task: task,
+			task:  task,
 		}
 	}
 
+	// go through all of the running tasks and check if they exist in the configuration. The agent is allowed to
+	// stop a task when the running count for the tasks service is greater than the minimum.
 	for _, runTask := range running {
 
 		if runTask.Task.Stopped {
@@ -294,6 +261,6 @@ func (agent *Agent) sync() {
 	}
 
 	t2 := time.Now().UnixNano()
-	log.WithField("time", t2 - t1).Info("[agent] finished sync")
+	log.WithField("time", t2-t1).Info("[agent] finished sync")
 	agent.publishState()
 }
