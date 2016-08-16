@@ -3,7 +3,17 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/coldog/scheduler/executors"
+	"log"
 )
+
+// the executor is a stop and startable executable that can be passed to an agent to run.
+// all commands should have at least one string in the array or else a panic will be thrown
+// by the agent.
+type Executor interface {
+	Start(t Task) error
+	Stop(t Task) error
+}
 
 type Validatable interface {
 	Validate(*SchedulerApi) []string
@@ -47,20 +57,28 @@ func (task TaskDefinition) Validate(api *SchedulerApi) (errors []string) {
 }
 
 type Container struct {
-	Name     string
-	Executor string         `json:"executor"`
-	Bash     BashExecutor   `json:"bash"`
-	Docker   DockerExecutor `json:"docker"`
+	Name     string	          `json:"name"`
+	Type     string           `json:"type"`
+	Executor json.RawMessage  `json:"executor"`
 }
 
-func (cont Container) GetExecutor() Executor {
-	if cont.Executor == "docker" {
-		return cont.Docker
-	} else if cont.Executor == "bash" {
-		return cont.Bash
-	} else {
-		return nil
+func (c Container) GetExecutor() (res Executor) {
+
+	if c.Type == "docker" {
+		res = executors.DockerExecutor{}
+	} else if c.Type == "bash" {
+		res = executors.BashExecutor{}
 	}
+
+	if res != nil {
+		err := json.Unmarshal(c.Executor, &res)
+		if err != nil {
+			fmt.Printf("json err: %v\n", err)
+			return nil
+		}
+	}
+
+	return res, nil
 }
 
 func (t TaskDefinition) Key() string {

@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func Exec(env []string, main string, cmds ...string)  {
+func Exec(env []string, main string, cmds ...string) error {
 	log.WithField("cmd", main).WithField("args", cmds).WithField("env", env).Debug("executing")
 
 	done := make(chan struct{}, 1)

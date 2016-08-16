@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -172,7 +172,6 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 		})
 
 		wg.Wait()
-
 
 		done := make(chan struct{})
 

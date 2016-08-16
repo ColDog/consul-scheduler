@@ -1,14 +1,12 @@
 package agent
 
 import (
-	"os/exec"
 	"runtime"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 	. "github.com/coldog/scheduler/api"
 	"github.com/shirou/gopsutil/mem"
-	"os"
 	"github.com/coldog/scheduler/tools"
 )
 
