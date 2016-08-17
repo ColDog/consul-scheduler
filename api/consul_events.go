@@ -1,7 +1,9 @@
 package api
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"github.com/hashicorp/consul/api"
+
 	"time"
 	"fmt"
 )
@@ -26,15 +28,28 @@ func (a *ConsulApi) monitorHealth() {
 			continue
 		}
 
-		lastId = meta.LastIndex
+		if meta.LastIndex > lastId {
+			log.WithField("lastId", lastId).Debug("[consul-api] sending health events")
+			for _, check := range checks {
 
-		for _, check := range checks {
-			a.emit(fmt.Sprintf("health::%s:%s", check.Status, check.ServiceID))
+				stat := "passing"
+				// simplify the statuses, we don't care about critical vs warning
+				if check.Status == "critical" || check.Status == "warning" {
+					stat = "failing"
+				}
+
+				a.emit(fmt.Sprintf("health::%s:%s", stat, check.ServiceID))
+			}
+		} else {
+			// have not found any new results
+			time.Sleep(10 * time.Second)
 		}
+
+		lastId = meta.LastIndex
 	}
 }
 
-// config:<key>
+// should emit events: config::<key>
 func (a *ConsulApi) monitorConfig() {
 	lastId := uint64(0)
 	for {
@@ -47,11 +62,18 @@ func (a *ConsulApi) monitorConfig() {
 			continue
 		}
 
-		lastId = meta.LastIndex
-
-		for _, kv := range list {
-			a.emit(fmt.Sprintf("config::%s", kv.Key))
+		if meta.LastIndex > lastId {
+			log.WithField("lastId", lastId).Debug("[consul-api] sending config events")
+			a.emit("config::change")
+			for _, kv := range list {
+				a.emit(fmt.Sprintf("config::%s", kv.Key))
+			}
+		} else {
+			// have not found any new results
+			time.Sleep(10 * time.Second)
 		}
+
+		lastId = meta.LastIndex
 	}
 }
 

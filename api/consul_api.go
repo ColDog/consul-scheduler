@@ -11,6 +11,7 @@ import (
 
 var (
 	ErrTxFailed = errors.New("consul transaction has failed")
+	ErrNotFound = errors.New("could not find the requested resource")
 )
 
 type ConsulApi struct {
@@ -43,6 +44,9 @@ func NewConsulApi(conf *StorageConfig) *ConsulApi {
 		conf:       conf,
 	}
 
+	go a.monitorConfig()
+	go a.monitorHealth()
+
 	return a
 }
 
@@ -72,6 +76,11 @@ func (a *ConsulApi) get(key string) (*api.KVPair, error) {
 	if err != nil {
 		log.WithField("consul-api", "get").WithField("key", key).Error(err)
 	}
+
+	if res == nil || res.Value == nil {
+		return ErrNotFound
+	}
+
 	return res, err
 }
 
