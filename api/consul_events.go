@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/hashicorp/consul/api"
 	"time"
+	"fmt"
 )
 
 func (a *ConsulApi) Listen(evt string, listener chan string) {
@@ -12,11 +13,11 @@ func (a *ConsulApi) Listen(evt string, listener chan string) {
 }
 
 
-// should emit events: <status (failing|passing)>:<task_id>
+// should emit events: health::<status (failing|passing)>:<task_id>
 func (a *ConsulApi) monitorHealth() {
 	lastId := uint64(0)
 	for {
-		_, meta, err := a.health.State("any", &api.QueryOptions{
+		checks, meta, err := a.health.State("any", &api.QueryOptions{
 			WaitIndex: lastId,
 		})
 
@@ -27,9 +28,30 @@ func (a *ConsulApi) monitorHealth() {
 
 		lastId = meta.LastIndex
 
-		//for _, check := range checks {
-		//	check
-		//}
+		for _, check := range checks {
+			a.emit(fmt.Sprintf("health::%s:%s", check.Status, check.ServiceID))
+		}
+	}
+}
+
+// config:<key>
+func (a *ConsulApi) monitorConfig() {
+	lastId := uint64(0)
+	for {
+		list, meta, err := a.kv.List(a.conf.ConfigPrefix, &api.QueryOptions{
+			WaitIndex: lastId,
+		})
+
+		if err != nil {
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
+		lastId = meta.LastIndex
+
+		for _, kv := range list {
+			a.emit(fmt.Sprintf("config::%s", kv.Key))
+		}
 	}
 }
 

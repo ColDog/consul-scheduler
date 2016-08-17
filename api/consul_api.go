@@ -188,6 +188,39 @@ func (a *ConsulApi) DelCluster(id string) error {
 	return a.del(a.conf.ClustersPrefix + id)
 }
 
+// ==> HOST operations
+
+func (a *ConsulApi) ListHosts() (hosts []*Host, err error) {
+	list, err := a.list(a.conf.HostsPrefix)
+	if err != nil {
+		return hosts, err
+	}
+
+	for _, v := range list {
+		h := &Host{}
+		decode(v.Value, h)
+		hosts = append(hosts, h)
+	}
+	return hosts, nil
+}
+
+func (a *ConsulApi) GetHost(name string) (h *Host, err error) {
+	kv, err := a.get(a.conf.HostsPrefix+name)
+	if err == nil {
+		decode(kv.Value, h)
+	}
+
+	return h, err
+}
+
+func (a *ConsulApi) PutHost(h *Host) error {
+	return a.put(a.conf.ClustersPrefix+h.Name, encode(h))
+}
+
+func (a *ConsulApi) DelHost(name string) error {
+	return a.del(a.conf.HostsPrefix + name)
+}
+
 // ==> TASK DEFINITION operations
 
 func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*TaskDefinition, err error) {

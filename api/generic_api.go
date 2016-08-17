@@ -83,6 +83,12 @@ type SchedulerApi interface {
 	GetTaskDefinition(name string, version uint) (*TaskDefinition, error)
 	PutTaskDefinition(t *TaskDefinition) error
 
+	// API Host Operations
+	ListHosts() ([]*Host, error)
+	GetHost(id string) (*Host, error)
+	PutHost(h *Host) (error)
+	DelHost(id string) (error)
+
 	// API Task Operations
 	ListTasks(q *TaskQueryOpts) ([]*Task, error)
 	GetTask(id string) ([]*Task, error)
@@ -92,8 +98,8 @@ type SchedulerApi interface {
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.
 	// Events that should be emitted on change:
-	// health: <status (failing|passing)>:<task_id>
-	// config: <resource (service|task_definition|host|cluster)>_<resource_id>
+	// health:<status (failing|passing)>:<task_id>
+	// config:<resource (service|task_definition|host|cluster)>_<resource_id>
 	Listen(evt string, listener chan string)
 }
 
