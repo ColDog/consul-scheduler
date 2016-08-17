@@ -2,7 +2,7 @@ package api
 
 import "fmt"
 
-func NewTask(cluster Cluster, taskDef TaskDefinition, service Service, instance int) Task {
+func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instance int) Task {
 	return Task{
 		Cluster:  cluster,
 		TaskDef:  taskDef,
@@ -36,7 +36,7 @@ func (task *Task) State() TaskState {
 	}
 }
 
-func (task *Task) Validate(api *SchedulerApi) (errors []string) {
+func (task *Task) Validate(api SchedulerApi) (errors []string) {
 	if task.Service == "" {
 		errors = append(errors, "service name is blank")
 	}

@@ -5,6 +5,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/hashicorp/consul/api"
+	"fmt"
+	"sync"
 )
 
 var (
@@ -19,6 +21,8 @@ type ConsulApi struct {
 	client     *api.Client
 	ConsulConf *api.Config
 	conf       *StorageConfig
+	listeners  map[string]chan string
+	eventLock  *sync.RWMutex
 }
 
 func NewConsulApi(conf *StorageConfig) *ConsulApi {
@@ -29,7 +33,7 @@ func NewConsulApi(conf *StorageConfig) *ConsulApi {
 		log.Fatal(err)
 	}
 
-	a := &SchedulerApi{
+	a := &ConsulApi{
 		kv:         client.KV(),
 		agent:      client.Agent(),
 		catalog:    client.Catalog(),
@@ -77,6 +81,10 @@ func (a *ConsulApi) list(prefix string) (api.KVPairs, error) {
 		log.WithField("consul-api", "put").WithField("key", prefix).Error(err)
 	}
 	return res, err
+}
+
+func (a *ConsulApi) Lock(key string) (Lockable, error) {
+	return a.client.LockKey(key)
 }
 
 // ==> REGISTER & DEREGISTER
@@ -196,23 +204,20 @@ func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*TaskDefinition, err error
 	return taskDefs, nil
 }
 
-func (a *ConsulApi) GetTaskDefinition(id string) (*Service, error) {
-	c := &Service{}
+func (a *ConsulApi) GetTaskDefinition(name string, version uint) (t *TaskDefinition, err error) {
+	id := fmt.Sprintf("%s/%s/%d", a.conf.TaskDefinitionsPrefix, name, version)
 
-	kv, err := a.get(a.conf.TaskDefinitionsPrefix + id)
+	kv, err := a.get(id)
 	if err == nil {
-		decode(kv.Value, c)
+		decode(kv.Value, t)
 	}
 
-	return c, err
+	return t, err
 }
 
-func (a *ConsulApi) PutTaskDefinition(c *TaskDefinition) error {
-	return a.put(a.conf.TaskDefinitionsPrefix+c.Name, encode(c))
-}
-
-func (a *ConsulApi) DelTaskDefinition(id string) error {
-	return a.del(a.conf.TaskDefinitionsPrefix + id)
+func (a *ConsulApi) PutTaskDefinition(t *TaskDefinition) error {
+	id := fmt.Sprintf("%s/%s/%d", a.conf.TaskDefinitionsPrefix, t.Name, t.Version)
+	return a.put(id, encode(t))
 }
 
 // ==> TASK operations
@@ -223,7 +228,7 @@ func (a *ConsulApi) DelTaskDefinition(id string) error {
 // When a task is deleted, it is removed from the first key, but kept under the second key
 // with the 'scheduled' attribute set to false.
 
-func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (taskDefs []*TaskDefinition, err error) {
+func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 	prefix := a.conf.StatePrefix
 
 	// add the host or service prefix to the task, which will scope in what is returned
@@ -237,7 +242,7 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (taskDefs []*TaskDefinition, err
 
 	list, err := a.list(prefix)
 	if err != nil {
-		return taskDefs, err
+		return ts, err
 	}
 
 	for _, v := range list {
@@ -265,9 +270,9 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (taskDefs []*TaskDefinition, err
 			}
 		}
 
-		taskDefs = append(taskDefs, t)
+		ts = append(ts, t)
 	}
-	return taskDefs, nil
+	return ts, nil
 }
 
 func (a *ConsulApi) GetTask(id string) (*Task, error) {
@@ -344,7 +349,7 @@ func (a *ConsulApi) DeScheduleTask(t *Task) error {
 func (a *ConsulApi) taskStatus(t *Task) bool {
 	s, _, err := a.health.Checks(t.Name(), nil)
 	if err != nil {
-		return false, err
+		return false
 	}
 
 	for _, ch := range s {

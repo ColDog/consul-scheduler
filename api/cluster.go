@@ -6,7 +6,7 @@ type Cluster struct {
 	Services  []string
 }
 
-func (c *Cluster) Validate(api *SchedulerApi) (errors []string) {
+func (c *Cluster) Validate(api SchedulerApi) (errors []string) {
 	if c.Name == "" {
 		errors = append(errors, "cluster name is blank")
 	}

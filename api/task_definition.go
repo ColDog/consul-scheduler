@@ -18,7 +18,7 @@ type TaskDefinition struct {
 	Checks      []*Check     `json:"checks"`
 }
 
-func (task *TaskDefinition) Validate(api *SchedulerApi) (errors []string) {
+func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 	_, err := api.GetTaskDefinition(task.Name, task.Version)
 	if err == nil {
 		errors = append(errors, "version already provisioned")

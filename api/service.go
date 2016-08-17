@@ -15,7 +15,7 @@ type Service struct {
 	Max         int    `json:"max"`
 }
 
-func (service *Service) Validate(api *SchedulerApi) (errors []string) {
+func (service *Service) Validate(api SchedulerApi) (errors []string) {
 	_, err := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if err != nil {
 		errors = append(errors, "task ("+service.TaskName+") does not exist")

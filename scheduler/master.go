@@ -40,7 +40,7 @@ func NewMaster(a *SchedulerApi) *Master {
 // The default scheduler provided is suitable for small workloads, specifically web applications. It focuses on
 // being predictable and doesn't care where it's locating a specific workload.
 type Master struct {
-	api        *SchedulerApi
+	api        SchedulerApi
 	Schedulers map[string]Scheduler
 	lock       *sync.RWMutex
 	Default    Scheduler
