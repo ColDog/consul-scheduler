@@ -64,7 +64,7 @@ type Agent struct {
 	LastSync  time.Time
 	LastState Host
 	StartedAt map[string]time.Time
-
+	Config    *AgentConfig
 	lock     *sync.RWMutex
 	queue    chan action
 	stopCh   chan struct{}
