@@ -2,11 +2,21 @@ package agent
 
 import (
 	. "github.com/coldog/scheduler/api"
+	. "github.com/coldog/scheduler/tools"
 
 	"fmt"
 	"testing"
 	"time"
 )
+
+func TestAgentRunner(t *testing.T) {
+	ag := NewAgent(NewSchedulerApi())
+	defer ag.Stop()
+
+	go ag.runner(0)
+
+
+}
 
 func TestAgentSync(t *testing.T) {
 	ag := NewAgent(NewSchedulerApi())

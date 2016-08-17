@@ -61,20 +61,7 @@ func NewSchedulerApiWithConfig(conf *Config) *SchedulerApi {
 }
 
 func NewSchedulerApi() *SchedulerApi {
-	client, err := api.NewClient(api.DefaultConfig())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	a := &SchedulerApi{
-		kv:      client.KV(),
-		agent:   client.Agent(),
-		catalog: client.Catalog(),
-		health:  client.Health(),
-		client:  client,
-	}
-
-	return a
+	return NewSchedulerApiWithConfig(&Config{})
 }
 
 type SchedulerApi struct {
@@ -197,21 +184,6 @@ func (a *SchedulerApi) Host() (string, error) {
 	return n, nil
 }
 
-func (a *SchedulerApi) ListClusters() (clusters []Cluster, err error) {
-	list, err := a.list(ClustersPrefix)
-	if err != nil {
-		return clusters, err
-	}
-
-	for _, res := range list {
-		cluster := Cluster{}
-		decode(res.Value, &cluster)
-		clusters = append(clusters, cluster)
-	}
-
-	return clusters, nil
-}
-
 func (a *SchedulerApi) RegisterAgent(id string) error {
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID:   "consul-scheduler-" + id,
@@ -257,6 +229,9 @@ func (a *SchedulerApi) DeRegister(taskId string) error {
 	return a.agent.ServiceDeregister(taskId)
 }
 
+
+
+// ==> TASKS:
 func (a *SchedulerApi) PutTask(t Task) error {
 	// todo: wrap in transaction
 
@@ -296,6 +271,43 @@ func (a *SchedulerApi) ListTasks(prefix string) (tasks []Task, err error) {
 	return tasks, nil
 }
 
+func (a *SchedulerApi) GetTask(taskId string) (t Task, err error) {
+	res, err := a.get(StatePrefix + taskId)
+	if err != nil {
+		return t, err
+	}
+
+	if res == nil {
+		return t, NotFoundErr
+	}
+
+	decode(res.Value, &t)
+	t.Stopped = res.Flags == uint64(1)
+	return t, nil
+}
+
+func (a *SchedulerApi) TaskPassing(task Task) (ok bool) {
+	if task.Service == "" {
+		return false
+	}
+
+	s, _, err := a.health.Checks(task.Name(), nil)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, ch := range s {
+		if ch.ServiceID == task.Id() {
+			return ch.Status == "passing"
+		}
+	}
+
+	return ok
+}
+
+
+
+// ==> SERVICES:
 func (a *SchedulerApi) PutService(s Service) error {
 	return a.put(ServicesPrefix+s.Name, encode(s))
 }
@@ -318,6 +330,9 @@ func (a *SchedulerApi) GetService(name string) (s Service, err error) {
 	return s, nil
 }
 
+
+
+// ==> HOSTS:
 func (a *SchedulerApi) ListHosts() (hosts []Host, err error) {
 	list, err := a.list(HostsPrefix)
 	if err != nil {
@@ -355,6 +370,9 @@ func (a *SchedulerApi) DelHost(hostId string) error {
 	return a.del(HostsPrefix + hostId)
 }
 
+
+
+// ==> TASK DEFINITIONS:
 func (a *SchedulerApi) GetTaskDefinition(name string, ver uint) (s TaskDefinition, err error) {
 	key := fmt.Sprintf("%s%s/%v", TasksPrefix, name, ver)
 
@@ -376,6 +394,24 @@ func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) error {
 	return a.put(key, encode(s))
 }
 
+
+
+// ==> CLUSTERS:
+func (a *SchedulerApi) ListClusters() (clusters []Cluster, err error) {
+	list, err := a.list(ClustersPrefix)
+	if err != nil {
+		return clusters, err
+	}
+
+	for _, res := range list {
+		cluster := Cluster{}
+		decode(res.Value, &cluster)
+		clusters = append(clusters, cluster)
+	}
+
+	return clusters, nil
+}
+
 func (a *SchedulerApi) PutCluster(c Cluster) error {
 	return a.put(ClustersPrefix+c.Name, encode(c))
 }
@@ -388,40 +424,9 @@ func (a *SchedulerApi) GetCluster(name string) (c Cluster, err error) {
 	return c, err
 }
 
-func (a *SchedulerApi) GetTask(taskId string) (t Task, err error) {
-	res, err := a.get(StatePrefix + taskId)
-	if err != nil {
-		return t, err
-	}
 
-	if res == nil {
-		return t, NotFoundErr
-	}
 
-	decode(res.Value, &t)
-	t.Stopped = res.Flags == uint64(1)
-	return t, nil
-}
-
-func (a *SchedulerApi) TaskPassing(task Task) (ok bool) {
-	if task.Service == "" {
-		return false
-	}
-
-	s, _, err := a.health.Checks(task.Name(), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, ch := range s {
-		if ch.ServiceID == task.Id() {
-			return ch.Status == "passing"
-		}
-	}
-
-	return ok
-}
-
+// ==> TASK QUERIES:
 func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string]RunningTask, err error) {
 	tasks = make(map[string]RunningTask)
 
