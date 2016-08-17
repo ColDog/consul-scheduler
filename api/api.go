@@ -170,8 +170,8 @@ func (a *SchedulerApi) WaitOnKey(key string) error {
 	lastIdx := uint64(0)
 	for {
 		keys, meta, err := a.kv.List(key, &api.QueryOptions{
-			AllowStale: false,
-			WaitTime:   10 * time.Minute,
+			AllowStale: true,
+			WaitTime:   3 * time.Minute,
 			WaitIndex:  lastIdx,
 		})
 
@@ -197,7 +197,7 @@ func (a *SchedulerApi) WaitOnKey(key string) error {
 				}
 			}
 
-			if lastIdx == 0 {
+			if lastIdx == uint64(0) {
 				lastIdx = meta.LastIndex
 			}
 		}
@@ -234,11 +234,15 @@ func (a *SchedulerApi) RegisterAgent(id string) error {
 		Name: "consul-scheduler",
 		Checks: api.AgentServiceChecks{
 			&api.AgentServiceCheck{
-				HTTP:     "http://127.0.0.1:8231",
-				Interval: "60s",
+				HTTP:     "http://127.0.0.1:8231/health",
+				Interval: "15s",
 			},
 		},
 	})
+}
+
+func (a *SchedulerApi) DeRegisterAgent(id string) error {
+	return a.agent.ServiceDeregister("consul-scheduler-" + id)
 }
 
 func (a *SchedulerApi) Register(t Task) error {

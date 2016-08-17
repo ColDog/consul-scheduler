@@ -1,11 +1,11 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
 	"time"
-	"errors"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	tcpPortRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	tcpPortRand        = rand.New(rand.NewSource(time.Now().UnixNano()))
 	CannotStartTaskErr = errors.New("Cannot start Task")
 )
 

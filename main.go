@@ -95,6 +95,8 @@ func (app *App) setup() {
 	}
 }
 
+
+// Registers a listener for SIGTERM and sets the function to run being the 'ExitHandler' function.
 func (app *App) AtExit(e ExitHandler) {
 	app.atExit = e
 
@@ -102,6 +104,8 @@ func (app *App) AtExit(e ExitHandler) {
 	signal.Notify(killCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-killCh
+
+		fmt.Println(" caught interrupt ")
 
 		// ensure that we will actually quit within 10 seconds, but allow for some
 		// cleanup to happen by the code before we exit.

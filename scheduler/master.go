@@ -230,5 +230,5 @@ func (master *Master) Run() {
 }
 
 func (master *Master) Stop() {
-	master.stopCh <- struct{}{}
+	close(master.stopCh)
 }
