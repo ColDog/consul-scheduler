@@ -27,6 +27,16 @@ type ConsulApi struct {
 }
 
 func NewConsulApi(conf *StorageConfig) *ConsulApi {
+	a := newConsulApi()
+	a.conf = conf
+
+	go a.monitorConfig()
+	go a.monitorHealth()
+
+	return a
+}
+
+func newConsulApi() *ConsulApi {
 	apiConfig := api.DefaultConfig()
 
 	client, err := api.NewClient(apiConfig)
@@ -34,20 +44,21 @@ func NewConsulApi(conf *StorageConfig) *ConsulApi {
 		log.Fatal(err)
 	}
 
-	a := &ConsulApi{
+	return &ConsulApi{
 		kv:         client.KV(),
 		agent:      client.Agent(),
 		catalog:    client.Catalog(),
 		health:     client.Health(),
+		listeners:  make(map[string]chan string),
+		eventLock:  &sync.RWMutex{},
 		client:     client,
 		ConsulConf: apiConfig,
-		conf:       conf,
+		conf:       DefaultStorageConfig(),
 	}
+}
 
-	go a.monitorConfig()
-	go a.monitorHealth()
-
-	return a
+func (a *ConsulApi) HostName() (string, error) {
+	return a.agent.NodeName()
 }
 
 func (a *ConsulApi) put(key string, value []byte, flags ...uint64) error {
@@ -75,10 +86,11 @@ func (a *ConsulApi) get(key string) (*api.KVPair, error) {
 	res, _, err := a.kv.Get(key, nil)
 	if err != nil {
 		log.WithField("consul-api", "get").WithField("key", key).Error(err)
+		return res, ErrNotFound
 	}
 
 	if res == nil || res.Value == nil {
-		return ErrNotFound
+		return res, ErrNotFound
 	}
 
 	return res, err

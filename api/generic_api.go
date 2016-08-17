@@ -60,6 +60,7 @@ type TaskQueryOpts struct {
 
 type SchedulerApi interface {
 
+	HostName() (string, error)
 	Lock(key string) (Lockable, error)
 
 	// Register With Generic API

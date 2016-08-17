@@ -19,14 +19,20 @@ func (a *ConsulApi) Listen(evt string, listener chan string) {
 func (a *ConsulApi) monitorHealth() {
 	lastId := uint64(0)
 	for {
+		log.WithField("lastId", lastId).Debug("[consul-api] monitoring health")
+
 		checks, meta, err := a.health.State("any", &api.QueryOptions{
 			WaitIndex: lastId,
+			WaitTime:  3 * time.Minute,
 		})
 
 		if err != nil {
+			log.WithField("lastId", lastId).WithField("error", err).Debug("[consul-api] monitoring health errored")
 			time.Sleep(10 * time.Second)
 			continue
 		}
+
+
 
 		if meta.LastIndex > lastId {
 			log.WithField("lastId", lastId).Debug("[consul-api] sending health events")
@@ -37,6 +43,8 @@ func (a *ConsulApi) monitorHealth() {
 				if check.Status == "critical" || check.Status == "warning" {
 					stat = "failing"
 				}
+
+				fmt.Printf("check: %+v\n", check)
 
 				a.emit(fmt.Sprintf("health::%s:%s", stat, check.ServiceID))
 			}
