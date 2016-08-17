@@ -9,26 +9,26 @@ const (
 )
 
 type StorageConfig struct {
-	ConfigPrefix string
-	ClustersPrefix string
-	ServicesPrefix string
-	HostsPrefix string
+	ConfigPrefix          string
+	ClustersPrefix        string
+	ServicesPrefix        string
+	HostsPrefix           string
 	TaskDefinitionsPrefix string
-	SchedulersPrefix string
-	StatePrefix string
+	SchedulersPrefix      string
+	StatePrefix           string
 }
 
 func DefaultStorageConfig() {
 	confPrefix := "config/"
 
 	return &StorageConfig{
-		ConfigPrefix: confPrefix,
-		ClustersPrefix: confPrefix+"clusters/",
-		ServicesPrefix: confPrefix+"service/",
-		HostsPrefix: confPrefix+"hosts/",
-		TaskDefinitionsPrefix: confPrefix+"task_definitions/",
-		SchedulersPrefix: "schedulers/",
-		StatePrefix: "state/",
+		ConfigPrefix:          confPrefix,
+		ClustersPrefix:        confPrefix + "clusters/",
+		ServicesPrefix:        confPrefix + "service/",
+		HostsPrefix:           confPrefix + "hosts/",
+		TaskDefinitionsPrefix: confPrefix + "task_definitions/",
+		SchedulersPrefix:      "schedulers/",
+		StatePrefix:           "state/",
 	}
 }
 
@@ -68,9 +68,8 @@ type GenericApi interface {
 	GetTask(id string) ([]*Task, error)
 	ScheduleTask(task *Task) error
 	DeScheduleTask(task *Task) error
-	TaskStatus(id string) (string, error)
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.
-	Listen(evt string, chan struct{})
+	Listen(evt string, listener chan struct{})
 }

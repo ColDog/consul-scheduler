@@ -3,8 +3,8 @@ package api
 import (
 	"errors"
 
-	"github.com/hashicorp/consul/api"
 	log "github.com/Sirupsen/logrus"
+	"github.com/hashicorp/consul/api"
 )
 
 var (
@@ -33,15 +33,14 @@ func NewConsulApi(conf *StorageConfig) *ConsulApi {
 		kv:         client.KV(),
 		agent:      client.Agent(),
 		catalog:    client.Catalog(),
-		health:         client.Health(),
-		client:         client,
-		ConsulConf:     apiConfig,
-		conf:  conf,
+		health:     client.Health(),
+		client:     client,
+		ConsulConf: apiConfig,
+		conf:       conf,
 	}
 
 	return a
 }
-
 
 func (a *ConsulApi) put(key string, value []byte, flags ...uint64) error {
 	flag := uint64(0)
@@ -80,7 +79,6 @@ func (a *ConsulApi) list(prefix string) (api.KVPairs, error) {
 	return res, err
 }
 
-
 // ==> REGISTER & DEREGISTER
 
 func (a *ConsulApi) Register(t *Task) error {
@@ -112,7 +110,6 @@ func (a *ConsulApi) DeRegister(taskId string) error {
 	return a.agent.ServiceDeregister(taskId)
 }
 
-
 // ==> CLUSTER operations
 
 func (a *ConsulApi) ListClusters() (clusters []*Cluster, err error) {
@@ -132,7 +129,7 @@ func (a *ConsulApi) ListClusters() (clusters []*Cluster, err error) {
 func (a *ConsulApi) GetCluster(id string) (*Cluster, error) {
 	c := &Cluster{}
 
-	kv, err := a.get(a.conf.ClustersPrefix+id)
+	kv, err := a.get(a.conf.ClustersPrefix + id)
 	if err == nil {
 		decode(kv.Value, c)
 	}
@@ -145,10 +142,8 @@ func (a *ConsulApi) PutService(s *Service) error {
 }
 
 func (a *ConsulApi) DelService(id string) error {
-	return a.del(a.conf.ServicesPrefix+id)
+	return a.del(a.conf.ServicesPrefix + id)
 }
-
-
 
 // ==> SERVICE operations
 
@@ -169,7 +164,7 @@ func (a *ConsulApi) ListServices() (services []*Service, err error) {
 func (a *ConsulApi) GetService(id string) (*Service, error) {
 	c := &Service{}
 
-	kv, err := a.get(a.conf.ServicesPrefix+id)
+	kv, err := a.get(a.conf.ServicesPrefix + id)
 	if err == nil {
 		decode(kv.Value, c)
 	}
@@ -182,10 +177,8 @@ func (a *ConsulApi) PutCluster(c *Cluster) error {
 }
 
 func (a *ConsulApi) DelCluster(id string) error {
-	return a.del(a.conf.ClustersPrefix+id)
+	return a.del(a.conf.ClustersPrefix + id)
 }
-
-
 
 // ==> TASK DEFINITION operations
 
@@ -206,7 +199,7 @@ func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*TaskDefinition, err error
 func (a *ConsulApi) GetTaskDefinition(id string) (*Service, error) {
 	c := &Service{}
 
-	kv, err := a.get(a.conf.TaskDefinitionsPrefix+id)
+	kv, err := a.get(a.conf.TaskDefinitionsPrefix + id)
 	if err == nil {
 		decode(kv.Value, c)
 	}
@@ -219,10 +212,8 @@ func (a *ConsulApi) PutTaskDefinition(c *TaskDefinition) error {
 }
 
 func (a *ConsulApi) DelTaskDefinition(id string) error {
-	return a.del(a.conf.TaskDefinitionsPrefix+id)
+	return a.del(a.conf.TaskDefinitionsPrefix + id)
 }
-
-
 
 // ==> TASK operations
 // tasks are stored under the following keys
@@ -253,12 +244,26 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (taskDefs []*TaskDefinition, err
 		t := &Task{}
 		decode(v.Value, t)
 
-		// use the query filter to only return those that are scheduled
-		if q.Scheduled && !t.Scheduled {
-			continue
+		t.Passing = a.taskStatus(t)
+
+		// handle the by state queries here.
+		if q.ByState {
+			if q.State == RUNNING {
+				if !t.Passing {
+					continue
+				}
+
+			} else if q.State == FAILING {
+				if t.Passing {
+					continue
+				}
+
+			} else if q.State == STOPPED {
+				if t.Scheduled {
+					continue
+				}
+			}
 		}
-
-
 
 		taskDefs = append(taskDefs, t)
 	}
@@ -268,28 +273,13 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (taskDefs []*TaskDefinition, err
 func (a *ConsulApi) GetTask(id string) (*Task, error) {
 	t := &Task{}
 
-	kv, err := a.get(a.conf.TaskDefinitionsPrefix+id)
+	kv, err := a.get(a.conf.TaskDefinitionsPrefix + id)
 	if err == nil {
 		decode(kv.Value, t)
+		t.Passing = a.taskStatus(t)
 	}
 
 	return t, err
-}
-
-// used to find out if a task is passing.
-func (a *ConsulApi) TaskStatus(t *Task) (bool, error) {
-	s, _, err := a.health.Checks(t.Name(), nil)
-	if err != nil {
-		return false, err
-	}
-
-	for _, ch := range s {
-		if ch.ServiceID == t.Id() {
-			return ch.Status == "passing"
-		}
-	}
-
-	return false
 }
 
 func (a *ConsulApi) ScheduleTask(t *Task) error {
@@ -299,13 +289,13 @@ func (a *ConsulApi) ScheduleTask(t *Task) error {
 	t.Scheduled = true
 	ops := api.KVTxnOps{
 		&api.KVTxnOp{
-			Verb: "set",
-			Key: a.conf.StatePrefix+t.Host+"/"+t.Id(),
+			Verb:  "set",
+			Key:   a.conf.StatePrefix + t.Host + "/" + t.Id(),
 			Value: body,
 		},
 		&api.KVTxnOp{
-			Verb: "set",
-			Key: a.conf.StatePrefix+t.Id(),
+			Verb:  "set",
+			Key:   a.conf.StatePrefix + t.Id(),
 			Value: body,
 		},
 	}
@@ -329,11 +319,11 @@ func (a *ConsulApi) DeScheduleTask(t *Task) error {
 	ops := api.KVTxnOps{
 		&api.KVTxnOp{
 			Verb: "delete",
-			Key: a.conf.StatePrefix+t.Host+"/"+t.Id(),
+			Key:  a.conf.StatePrefix + t.Host + "/" + t.Id(),
 		},
 		&api.KVTxnOp{
-			Verb: "set",
-			Key: a.conf.StatePrefix+t.Id(),
+			Verb:  "set",
+			Key:   a.conf.StatePrefix + t.Id(),
 			Value: encode(t),
 		},
 	}
@@ -348,4 +338,20 @@ func (a *ConsulApi) DeScheduleTask(t *Task) error {
 	}
 
 	return nil
+}
+
+// used to find out if a task is passing.
+func (a *ConsulApi) taskStatus(t *Task) bool {
+	s, _, err := a.health.Checks(t.Name(), nil)
+	if err != nil {
+		return false, err
+	}
+
+	for _, ch := range s {
+		if ch.ServiceID == t.Id() {
+			return ch.Status == "passing"
+		}
+	}
+
+	return false
 }

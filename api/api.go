@@ -229,8 +229,6 @@ func (a *SchedulerApi) DeRegister(taskId string) error {
 	return a.agent.ServiceDeregister(taskId)
 }
 
-
-
 // ==> TASKS:
 func (a *SchedulerApi) PutTask(t Task) error {
 	// todo: wrap in transaction
@@ -305,8 +303,6 @@ func (a *SchedulerApi) TaskPassing(task Task) (ok bool) {
 	return ok
 }
 
-
-
 // ==> SERVICES:
 func (a *SchedulerApi) PutService(s Service) error {
 	return a.put(ServicesPrefix+s.Name, encode(s))
@@ -329,8 +325,6 @@ func (a *SchedulerApi) GetService(name string) (s Service, err error) {
 	decode(res.Value, &s)
 	return s, nil
 }
-
-
 
 // ==> HOSTS:
 func (a *SchedulerApi) ListHosts() (hosts []Host, err error) {
@@ -370,8 +364,6 @@ func (a *SchedulerApi) DelHost(hostId string) error {
 	return a.del(HostsPrefix + hostId)
 }
 
-
-
 // ==> TASK DEFINITIONS:
 func (a *SchedulerApi) GetTaskDefinition(name string, ver uint) (s TaskDefinition, err error) {
 	key := fmt.Sprintf("%s%s/%v", TasksPrefix, name, ver)
@@ -393,8 +385,6 @@ func (a *SchedulerApi) PutTaskDefinition(s TaskDefinition) error {
 	key := fmt.Sprintf("%s%s/%v", TasksPrefix, s.Name, s.Version)
 	return a.put(key, encode(s))
 }
-
-
 
 // ==> CLUSTERS:
 func (a *SchedulerApi) ListClusters() (clusters []Cluster, err error) {
@@ -423,8 +413,6 @@ func (a *SchedulerApi) GetCluster(name string) (c Cluster, err error) {
 	}
 	return c, err
 }
-
-
 
 // ==> TASK QUERIES:
 func (a *SchedulerApi) RunningTasksOnHost(host string) (tasks map[string]RunningTask, err error) {

@@ -31,9 +31,9 @@ func (t *TaskDefinition) Key() string {
 }
 
 type Container struct {
-	Name     string	          `json:"name"`
-	Type     string           `json:"type"`
-	Executor json.RawMessage  `json:"executor"`
+	Name     string          `json:"name"`
+	Type     string          `json:"type"`
+	Executor json.RawMessage `json:"executor"`
 }
 
 // a check passed along to consul
