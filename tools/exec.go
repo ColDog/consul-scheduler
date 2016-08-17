@@ -5,15 +5,13 @@ import (
 
 	"os/exec"
 	"time"
-	"os"
 	"strings"
+	"os"
 )
 
 func Exec(env []string, main string, cmds ...string) error {
-	if log.GetLevel() == log.DebugLevel {
-		cmdName := main + " " + strings.Join(cmds, " ")
-		log.WithField("cmd", cmdName).WithField("env", env).Debug("executing")
-	}
+	cmdName := main + " " + strings.Join(cmds, " ")
+	log.WithField("cmd", cmdName).WithField("env", env).Debug("executing")
 
 	done := make(chan struct{}, 1)
 	cmd := exec.Command(main, cmds...)
@@ -44,5 +42,10 @@ func Exec(env []string, main string, cmds ...string) error {
 
 	err = cmd.Wait()
 	done <- struct{}{}
+
+	if err != nil {
+		log.WithField("cmd", cmdName).WithField("err", err).WithField("env", env).Warn("exec failed")
+	}
+
 	return err
 }

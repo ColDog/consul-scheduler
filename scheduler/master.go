@@ -5,28 +5,20 @@ import (
 	. "github.com/coldog/scheduler/api"
 	"github.com/coldog/scheduler/tools"
 
+	"errors"
 	"sync"
 	"time"
-	"errors"
 )
 
 var (
-	NoSchedulerErr error = errors.New("No Scheduler Found")
-	ApiFailureErr error = errors.New("Api Failure")
+	NoSchedulerErr = errors.New("No Scheduler Found")
+	ApiFailureErr  = errors.New("Api Failure")
 )
-
-/**
- * The master scheduler registers schedulers on a per cluster basis and for each cluster, attempts to lock the
- * responsibility for scheduling on that cluster. This allows for fault tolerant scheduling, as if the scheduler
- * is no longer to maintain it's presence, it will fail and another process in the cluster can take over.
- *
- * The default scheduler provided is suitable for small workloads, specifically web applications. It focuses on
- * being predictable and doesn't care where it's locating a specific workload.
- */
 
 // The scheduler is a function that takes the cluster it should schedule and a pointer to the api object to do
 // some scheduling.
 type Scheduler func(cluster Cluster, api *SchedulerApi, stopCh chan struct{})
+
 
 func NewMaster(a *SchedulerApi) *Master {
 	m := &Master{
@@ -38,12 +30,15 @@ func NewMaster(a *SchedulerApi) *Master {
 		stopCh:     make(chan struct{}),
 	}
 
-	m.Use("default", DefaultScheduler)
+	m.Use("default", RunDefaultScheduler)
 	return m
 }
 
-// The master is a process that handles maintaining a lock on each cluster and initiating scheduling when
-// required.
+// The master process registers schedulers on a per cluster basis and for each cluster, attempts to lock the
+// responsibility for scheduling on that cluster. This allows for fault tolerant scheduling, as if the scheduler
+// is no longer to maintain it's presence, it will fail and another process in the cluster can take over.
+// The default scheduler provided is suitable for small workloads, specifically web applications. It focuses on
+// being predictable and doesn't care where it's locating a specific workload.
 type Master struct {
 	api        *SchedulerApi
 	Schedulers map[string]Scheduler

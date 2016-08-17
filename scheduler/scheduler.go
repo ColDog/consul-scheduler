@@ -4,65 +4,54 @@ import (
 	log "github.com/Sirupsen/logrus"
 	. "github.com/coldog/scheduler/api"
 
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
+	"cmd/go/testdata/testinternal3"
 )
 
-/**
+var (
+	ScheduleTaskFailErr    = errors.New("could not schedule task")
+	ScheduleGetHostFailErr = errors.New("could not get hosts")
+)
 
-The base scheduler:
-
-This is a simple scheduler for simple workloads. It simply builds up a list of all the tasks that must be placed and then
-works down the list to see if they have been placed already. If they haven't, it will place the task on a random machine
-that does not have a port conflict and has enough memory / cpu.
-
-*/
-
-func DefaultScheduler(cluster Cluster, api *SchedulerApi, stopCh chan struct{}) {
-	log.WithField("cluster", cluster.Name).Debug("[scheduler] starting")
-
-	hosts, err := api.ListHosts()
-	if err != nil {
-		log.WithField("error", err).Error("[scheduler] failed")
-		return
+func RunDefaultScheduler(cluster Cluster, api *SchedulerApi, stopCh chan struct{})  {
+	s := &DefaultScheduler{
+		cluster: cluster,
+		api: api,
+		stopCh: stopCh,
+		maxPort: make(map[string]uint),
 	}
-
-	log.WithField("hosts", len(hosts)).Debug("[scheduler] found hosts")
-
-	for _, serviceName := range cluster.Services {
-
-		// read periodically from the stop channel to see if we need to exit.
-		select {
-		case <-stopCh:
-			log.Warn("[scheduler] exited prematurely from stop signal")
-			return
-		default:
-		}
-
-		service, err := api.GetService(serviceName)
-		if err != nil {
-			log.WithField("error", err).Error("[scheduler] failed")
-			return
-		}
-
-		scheduleForService(api, hosts, cluster, service)
-	}
+	s.Run()
 }
 
-func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, service Service) {
+// This is a simple scheduler for simple workloads. It simply builds up a list of all the tasks that must be placed and then
+// works down the list to see if they have been placed already. If they haven't, it will place the task on a random machine
+// that does not have a port conflict and has enough memory / cpu.
+type DefaultScheduler struct {
+	api     *SchedulerApi
+	cluster Cluster
+	stopCh  chan struct{}
+	hosts   []Host
+	maxPort map[string]uint
+}
+
+// Runs the scheduler on a specific service. This entails counting the differential between what is running and what
+// should be running and writing to the correct keys in consul to make sure that the agents can schedule.
+func (scheduler *DefaultScheduler) scheduleForService(service Service) {
 	t1 := time.Now().UnixNano()
 
 	// retrieve the task definition for a given service that needs to be scheduled
-	taskDef, err := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
+	taskDef, err := scheduler.api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if err != nil {
 		log.WithField("error", err).WithField("task", fmt.Sprintf("%s.%d", service.TaskName, service.TaskVersion)).Error("[scheduler] could not find task")
 		return
 	}
 
 	// build up all of the required variables
-	runningName := cluster.Name + "_" + service.TaskName
-	tasks, err := api.ListTasks(runningName)
+	runningName := scheduler.cluster.Name + "_" + service.TaskName
+	tasks, err := scheduler.api.ListTasks(runningName)
 	if err != nil {
 		log.WithField("error", err).Error("[scheduler] failed")
 		return
@@ -103,7 +92,7 @@ func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, servic
 		if removalCandidate.TaskDef.Version != service.TaskVersion {
 			removed++
 			log.WithField("task", removalCandidate.Id()).Warn("[scheduler] removing")
-			api.DelTask(removalCandidate)
+			scheduler.api.DelTask(removalCandidate)
 		}
 	}
 
@@ -113,12 +102,12 @@ func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, servic
 		for i := (count - removed) - 1; i > service.Desired-1; i-- {
 
 			// calculate the id that would have been given to this instance
-			id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
-			t, err := api.GetTask(id)
+			id := fmt.Sprintf("%s_%s_%v-%v", scheduler.cluster.Name, service.Name, service.TaskVersion, i)
+			t, err := scheduler.api.GetTask(id)
 
 			if err == nil && t.Service != "" && !t.Stopped {
 				log.WithField("task", id).Warn("[scheduler] removing")
-				api.DelTask(t)
+				scheduler.api.DelTask(t)
 			}
 		}
 	}
@@ -126,9 +115,9 @@ func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, servic
 	// here we should make sure that we have enough instances running, again we do this by calculating the
 	// id and checking if the task exists. Any tasks that do not exist, should be scheduled.
 	for i := 0; i < service.Desired; i++ {
-		id := fmt.Sprintf("%s_%s_%v-%v", cluster.Name, service.Name, service.TaskVersion, i)
-		if !api.IsTaskScheduled(id) {
-			scheduleTask(api, hosts, cluster, service, taskDef, i)
+		id := fmt.Sprintf("%s_%s_%v-%v", scheduler.cluster.Name, service.Name, service.TaskVersion, i)
+		if !scheduler.api.IsTaskScheduled(id) {
+			scheduler.scheduleTask(service, taskDef, i)
 			added++
 		}
 	}
@@ -138,14 +127,15 @@ func scheduleForService(api *SchedulerApi, hosts []Host, cluster Cluster, servic
 
 }
 
-func scheduleTask(api *SchedulerApi, hosts []Host, cluster Cluster, service Service, taskDef TaskDefinition, instance int) {
+// Finds a host for a specific task and if successful, schedules it by placing it into consul.
+func (scheduler *DefaultScheduler) scheduleTask(service Service, taskDef TaskDefinition, instance int) error {
 	rand.Seed(time.Now().UnixNano())
-	task := NewTask(cluster, taskDef, service, instance)
+	task := NewTask(scheduler.cluster, taskDef, service, instance)
 	t1 := time.Now().UnixNano()
 
-	for i := 0; i < len(hosts); i++ {
-		r := rand.Intn(len(hosts))
-		candidateHost := hosts[r]
+	for i := 0; i < len(scheduler.hosts); i++ {
+		r := rand.Intn(len(scheduler.hosts))
+		candidateHost := scheduler.hosts[r]
 
 		if candidateHost.CpuUnits-task.TaskDef.CpuUnits <= 0 && candidateHost.Memory-task.TaskDef.Memory <= 0 {
 			log.WithField("host", candidateHost.Name).WithField("task", task.Id()).Debug("[scheduler] failed selection due to not enough cpu / memory")
@@ -161,11 +151,24 @@ func scheduleTask(api *SchedulerApi, hosts []Host, cluster Cluster, service Serv
 		task.Host = candidateHost.Name
 
 		if task.TaskDef.ProvidePort {
-			task.Port = availablePort(candidateHost, api)
+			task.Port = scheduler.availablePort(candidateHost)
 
 			if task.Port == 0 {
 				log.WithField("host", candidateHost.Name).WithField("task", task.Id()).Debug("[scheduler] failed to select a port")
 				continue
+			}
+
+			// Setup the health checks in consul with the correc tports
+			for _, check := range task.TaskDef.Checks {
+				if check.AddProvidedPort {
+					if task.TaskDef.ProvidePort && check.Http != "" {
+						check.Http = fmt.Sprintf("%s:%d", check.Http, task.Port)
+					}
+
+					if task.TaskDef.ProvidePort && check.Tcp != "" {
+						check.Http = fmt.Sprintf("%s:%d", check.Tcp, task.Port)
+					}
+				}
 			}
 		}
 
@@ -178,27 +181,67 @@ func scheduleTask(api *SchedulerApi, hosts []Host, cluster Cluster, service Serv
 			"task": task.Id(),
 		}).Info("[scheduler] added task")
 
-		api.PutTask(task)
-		return
+		scheduler.api.PutTask(task)
+		return nil
 	}
+
+	log.WithField("task", task.Id()).Warn("[scheduler] failed to find a host")
+	return ScheduleTaskFailErr
 }
 
-func availablePort(host Host, api *SchedulerApi) uint {
-	reserved := host.ReservedPorts
+// Finds an available port for a given host, the scheduler will take from the 'PortSelection' array provided by
+// the agent which will allow it to select a port that the agent is happy with.
+func (scheduler *DefaultScheduler) availablePort(host Host) (sel uint) {
 
-	tasks, _ := api.ListTasks(StatePrefix + host.Name)
-	for _, task := range tasks {
-		reserved = append(reserved, task.Port)
-	}
+	// To ensure that the scheduler does not issue multiple ports during a scheduling session the 'maxPort' map
+	// is used to track the maximum allocated port during this scheduling session per host. If we only choose
+	// ports greater than this, we shouldn't run into a conflict. This assumes the 'PortSelection' array is
+	// ordered.
+	max := scheduler.maxPort[host.Name]
 
-	for i := 0; i < len(host.PortSelection); i++ {
-		r := rand.Intn(len(host.PortSelection) - 1)
-		candidate := host.PortSelection[r]
-		if !inList(candidate, reserved) {
-			return candidate
+	for _, p := range host.PortSelection {
+		if p > max {
+			sel = p
 		}
 	}
-	return uint(0)
+
+	scheduler.maxPort[host.Name] = sel
+	return sel
+}
+
+func (scheduler *DefaultScheduler) Run() error {
+	log.WithField("cluster", scheduler.cluster.Name).Debug("[scheduler] starting")
+
+	hosts, err := scheduler.api.ListHosts()
+	if err != nil {
+		log.WithField("error", err).Error("[scheduler] failed to get hosts")
+		return ScheduleGetHostFailErr
+	}
+
+	scheduler.hosts = hosts
+
+	for _, serviceName := range scheduler.cluster.Services {
+
+		// read periodically from the stop channel to see if we need to exit.
+		select {
+		case <-scheduler.stopCh:
+			log.Warn("[scheduler] exited prematurely from stop signal")
+			return
+		default:
+		}
+
+		// get the service, an error could mean that the user deleted the service, we
+		// will warn of this and then continue to the next service.
+		service, err := scheduler.api.GetService(serviceName)
+		if err != nil {
+			log.WithField("error", err).WithField("service", serviceName).Error("[scheduler] failed to find service")
+			continue
+		}
+
+		scheduler.scheduleForService(service)
+	}
+
+	return nil
 }
 
 func inList(item uint, list []uint) bool {

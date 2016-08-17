@@ -25,8 +25,6 @@ type AgentConfig struct {
 	SyncInterval time.Duration `json:"sync_interval"`
 }
 
-const RUNNERS = 3
-
 var (
 	PassOnStartReqErr = errors.New("start request intervals too short")
 	NoExecutorErr     = errors.New("start task failed")
@@ -55,6 +53,10 @@ func NewAgent(a *SchedulerApi) *Agent {
 		syncCh:    make(chan struct{}, 100),
 		listenCh:  make(chan struct{}, 100),
 		lock:      &sync.RWMutex{},
+		Config: &AgentConfig{
+			Runners:      3,
+			SyncInterval: 30 * time.Second,
+		},
 	}
 }
 
@@ -65,11 +67,11 @@ type Agent struct {
 	LastState Host
 	StartedAt map[string]time.Time
 	Config    *AgentConfig
-	lock     *sync.RWMutex
-	queue    chan action
-	stopCh   chan struct{}
-	syncCh   chan struct{}
-	listenCh chan struct{}
+	lock      *sync.RWMutex
+	queue     chan action
+	stopCh    chan struct{}
+	syncCh    chan struct{}
+	listenCh  chan struct{}
 }
 
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
@@ -237,7 +239,15 @@ func (agent *Agent) Run() {
 	defer agent.api.DelHost(agent.Host)
 	defer agent.api.DeRegisterAgent(agent.Host)
 
+	// get our host name from consul, we pause the rest of the agent until this is ready.
 	for {
+		select {
+		case <-agent.stopCh:
+			log.Warn("[agent] exiting")
+			return
+		default:
+		}
+
 		name, err := agent.api.Host()
 		if err == nil {
 			agent.Host = name
@@ -248,6 +258,7 @@ func (agent *Agent) Run() {
 		time.Sleep(5 * time.Second)
 	}
 
+	// register the agent in consul, we wait for this before continuing
 	for {
 		select {
 		case <-agent.stopCh:
@@ -266,13 +277,22 @@ func (agent *Agent) Run() {
 		time.Sleep(5 * time.Second)
 	}
 
-	log.Info("[agent] publishing initial state")
 
-	for i := 0; i < RUNNERS; i++ {
+	for i := 0; i < agent.Config.Runners; i++ {
 		go agent.runner(i)
 	}
 
 	go agent.stateWatcher()
+
+	select {
+	case <-agent.stopCh:
+		log.Warn("[agent] exiting")
+		return
+	default:
+	}
+
+	agent.sync()
+	agent.PublishState()
 
 	log.Debug("[agent] waiting")
 	for {
@@ -282,7 +302,7 @@ func (agent *Agent) Run() {
 			agent.sync()
 			agent.PublishState()
 
-		case <-time.After(30 * time.Second):
+		case <-time.After(agent.Config.SyncInterval):
 			log.Debug("[agent] sync after timeout")
 			agent.sync()
 			agent.PublishState()
@@ -320,9 +340,13 @@ func (agent *Agent) Server() {
 // the runner handles starting processes. It listens to a queue of processes to start and starts them as needed.
 // it will only start a task if it hasn't already attemted to start a task in the last minute.
 func (agent *Agent) runner(id int) {
+	log.Debugf("[runner-%d] starting", id)
+
 	for {
 		select {
 		case act := <-agent.queue:
+			log.WithField("task", act.task.Id()).Debugf("[runner-%d] begin %s", id, act.name())
+
 			var err error
 			if act.start {
 				err = agent.start(act.task)

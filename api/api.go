@@ -105,30 +105,6 @@ func (a *SchedulerApi) WaitForInitialize() {
 	}
 }
 
-func (a *SchedulerApi) LockScheduler(cluster string) (*api.Lock, error) {
-	lock, err := a.client.LockKey(SchedulersPrefix + cluster)
-	if err != nil {
-		log.Error(err)
-		return lock, err
-	}
-
-	_, err = lock.Lock(nil)
-	if err != nil {
-		log.Error(err)
-		return lock, err
-	}
-
-	return lock, nil
-}
-
-func (a *SchedulerApi) Lock(key string) (*api.Lock, error) {
-	lock, err := a.client.LockKey(key)
-	if err != nil {
-		log.Error(err)
-	}
-	return lock, err
-}
-
 func (a *SchedulerApi) put(key string, value []byte, flags ...uint64) error {
 	flag := uint64(0)
 	if len(flags) >= 1 {
@@ -164,6 +140,14 @@ func (a *SchedulerApi) list(prefix string) (api.KVPairs, error) {
 		log.WithField("consul-api", "put").WithField("key", prefix).Error(err)
 	}
 	return res, err
+}
+
+func (a *SchedulerApi) Lock(key string) (*api.Lock, error) {
+	lock, err := a.client.LockKey(key)
+	if err != nil {
+		log.Error(err)
+	}
+	return lock, err
 }
 
 func (a *SchedulerApi) WaitOnKey(key string) error {
@@ -246,31 +230,8 @@ func (a *SchedulerApi) DeRegisterAgent(id string) error {
 }
 
 func (a *SchedulerApi) Register(t Task) error {
-	servs, err := a.agent.Services()
-	if err != nil {
-		return err
-	}
-
-	for id, _ := range servs {
-		if id == t.Id() {
-			return nil
-		}
-	}
-
 	checks := api.AgentServiceChecks{}
-
 	for _, check := range t.TaskDef.Checks {
-
-		if check.AddProvidedPort {
-			if t.TaskDef.ProvidePort && check.Http != "" {
-				check.Http = fmt.Sprintf("%s:%d", check.Http, t.Port)
-			}
-
-			if t.TaskDef.ProvidePort && check.Tcp != "" {
-				check.Http = fmt.Sprintf("%s:%d", check.Tcp, t.Port)
-			}
-		}
-
 		checks = append(checks, &api.AgentServiceCheck{
 			Interval: check.Interval,
 			Script:   check.Script,
@@ -282,7 +243,7 @@ func (a *SchedulerApi) Register(t Task) error {
 
 	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("host", t.Host).Debug("registering task")
 
-	err = a.agent.ServiceRegister(&api.AgentServiceRegistration{
+	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID:      t.Id(),
 		Name:    t.Name(),
 		Tags:    append(t.TaskDef.Tags, t.Cluster.Name, t.Service),
@@ -290,8 +251,6 @@ func (a *SchedulerApi) Register(t Task) error {
 		Address: t.Host,
 		Checks:  checks,
 	})
-
-	return err
 }
 
 func (a *SchedulerApi) DeRegister(taskId string) error {
@@ -313,6 +272,7 @@ func (a *SchedulerApi) IsTaskScheduled(taskId string) bool {
 	return err == nil && res != nil && res.Flags == uint64(0)
 }
 
+// Deleting a task flags the task in consul as having a 1
 func (a *SchedulerApi) DelTask(t Task) error {
 	// todo: wrap in a transaction
 
@@ -426,17 +386,6 @@ func (a *SchedulerApi) GetCluster(name string) (c Cluster, err error) {
 		decode(kv.Value, &c)
 	}
 	return c, err
-}
-
-func (a *SchedulerApi) DebugKeys() {
-	list, _, err := a.kv.Keys("", "", nil)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, key := range list {
-		fmt.Printf("> %s\n", key)
-	}
 }
 
 func (a *SchedulerApi) GetTask(taskId string) (t Task, err error) {
