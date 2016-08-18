@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"os"
 	"syscall"
+	"fmt"
 )
 
 func init()  {
@@ -24,8 +25,11 @@ type TestConsulAgent struct {
 
 func (a *TestConsulAgent) Start() {
 	a.cmd = exec.Command("consul", "agent", "-dev", "-ui", "-bind=127.0.0.1")
-	a.cmd.Stderr = os.Stderr
-	a.cmd.Stdout = os.Stdout
+
+	if os.Getenv("TEST_LOG_CONSUL") != "" {
+		a.cmd.Stderr = os.Stderr
+		a.cmd.Stdout = os.Stdout
+	}
 
 	err := a.cmd.Start()
 	if err != nil {
@@ -36,4 +40,22 @@ func (a *TestConsulAgent) Start() {
 
 func (a *TestConsulAgent) Stop() {
 	a.cmd.Process.Signal(syscall.SIGTERM)
+}
+
+type ConsulApiTest func(api *ConsulApi)
+func RunConsulApiTest(f ConsulApiTest)  {
+	fmt.Println("\nbooting consul...")
+	agent := NewConsulAgent()
+	defer agent.Stop()
+
+	api := newConsulApi()
+
+	for {
+		_, _, err := api.kv.Get("test", nil)
+		if err == nil {
+			break
+		}
+	}
+
+	f(api)
 }

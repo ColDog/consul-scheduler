@@ -76,8 +76,8 @@ type SchedulerApi interface {
 	// API Service Operations
 	ListServices() ([]*Service, error)
 	GetService(id string) (*Service, error)
-	PutService(s *Service) (*Service, error)
-	DelService(id string) (*Service, error)
+	PutService(s *Service) error
+	DelService(id string) error
 
 	// API Task Definition Operations
 	ListTaskDefinitions() ([]*TaskDefinition, error)
@@ -92,7 +92,7 @@ type SchedulerApi interface {
 
 	// API Task Operations
 	ListTasks(q *TaskQueryOpts) ([]*Task, error)
-	GetTask(id string) ([]*Task, error)
+	GetTask(id string) (*Task, error)
 	ScheduleTask(task *Task) error
 	DeScheduleTask(task *Task) error
 

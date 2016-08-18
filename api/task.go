@@ -2,10 +2,10 @@ package api
 
 import "fmt"
 
-func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instance int) Task {
-	return Task{
+func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instance int) *Task {
+	return &Task{
 		Cluster:  cluster,
-		TaskDef:  taskDef,
+		TaskDefinition:  taskDef,
 		Service:  service.Name,
 		Instance: instance,
 		Port:     taskDef.Port,
@@ -15,7 +15,7 @@ func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instan
 // a depiction of a running task definition
 type Task struct {
 	Cluster   *Cluster
-	TaskDef   *TaskDefinition
+	TaskDefinition   *TaskDefinition
 	Service   string
 	Instance  int
 	Port      uint
@@ -52,7 +52,7 @@ func (task *Task) Validate(api SchedulerApi) (errors []string) {
 // consul name:  <cluster_name>.<service_name>
 // consul id:    <name>.<task_version>-<instance>
 func (task *Task) Id() string {
-	return fmt.Sprintf("%s-%v-%v", task.Name(), task.TaskDef.Version, task.Instance)
+	return fmt.Sprintf("%s-%v-%v", task.Name(), task.TaskDefinition.Version, task.Instance)
 }
 
 func (task *Task) Name() string {

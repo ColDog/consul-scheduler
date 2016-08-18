@@ -113,7 +113,7 @@ func (a *ConsulApi) Lock(key string) (Lockable, error) {
 func (a *ConsulApi) Register(t *Task) error {
 
 	checks := api.AgentServiceChecks{}
-	for _, check := range t.TaskDef.Checks {
+	for _, check := range t.TaskDefinition.Checks {
 		checks = append(checks, &api.AgentServiceCheck{
 			Interval: check.Interval,
 			Script:   check.Script,
@@ -128,7 +128,7 @@ func (a *ConsulApi) Register(t *Task) error {
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID:      t.Id(),
 		Name:    t.Name(),
-		Tags:    append(t.TaskDef.Tags, t.Cluster.Name, t.Service),
+		Tags:    append(t.TaskDefinition.Tags, t.Cluster.Name, t.Service),
 		Port:    int(t.Port),
 		Address: t.Host,
 		Checks:  checks,
@@ -270,7 +270,7 @@ func (a *ConsulApi) GetTaskDefinition(name string, version uint) (t *TaskDefinit
 }
 
 func (a *ConsulApi) PutTaskDefinition(t *TaskDefinition) error {
-	id := fmt.Sprintf("%s/%s/%d", a.conf.TaskDefinitionsPrefix, t.Name, t.Version)
+	id := fmt.Sprintf("%s%s/%d", a.conf.TaskDefinitionsPrefix, t.Name, t.Version)
 	return a.put(id, encode(t))
 }
 
