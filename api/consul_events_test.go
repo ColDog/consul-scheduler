@@ -31,7 +31,8 @@ func TestHealthEventWaiting(t *testing.T) {
 	go api.monitorHealth()
 
 	listener := make(chan string)
-	api.Listen("health::*", listener)
+	api.Subscribe("test-health", "health::*", listener)
+	defer api.UnSubscribe("test-health")
 
 	c := 0
 	go func() {
@@ -63,7 +64,8 @@ func TestConfigEventWaiting(t *testing.T) {
 	go api.monitorConfig()
 
 	listener := make(chan string)
-	api.Listen("config::*", listener)
+	api.Subscribe("test-config", "config::*", listener)
+	defer api.UnSubscribe("test-config")
 
 	c := 0
 	go func() {

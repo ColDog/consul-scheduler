@@ -102,15 +102,18 @@ type SchedulerApi interface {
 	// Events that should be emitted on change:
 	// health:<status (failing|passing)>:<task_id>
 	// config:<resource (service|task_definition|host|cluster)>_<resource_id>
-	Listen(evt string, listener chan string)
+	Subscribe(key, evt string, listener chan string)
+	UnSubscribe(key string)
+
+	Conf() *StorageConfig
 }
 
 // the executor is a stop and startable executable that can be passed to an agent to run.
 // all commands should have at least one string in the array or else a panic will be thrown
 // by the agent.
 type Executor interface {
-	StartTask(t Task) error
-	StopTask(t Task) error
+	StartTask(t *Task) error
+	StopTask(t *Task) error
 }
 
 type Validatable interface {

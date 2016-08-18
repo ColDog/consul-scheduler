@@ -24,10 +24,10 @@ func NewMaster(a *SchedulerApi) *Master {
 	m := &Master{
 		api:        a,
 		Schedulers: make(map[string]Scheduler),
-		events:     tools.NewEvents(),
-		lock:       &sync.RWMutex{},
 		monitors:   make(map[string]chan struct{}),
 		stopCh:     make(chan struct{}),
+		schedLock:  &sync.RWMutex{},
+		monLock:    &sync.RWMutex{},
 	}
 
 	m.Use("default", RunDefaultScheduler)
@@ -42,41 +42,45 @@ func NewMaster(a *SchedulerApi) *Master {
 type Master struct {
 	api        SchedulerApi
 	Schedulers map[string]Scheduler
-	lock       *sync.RWMutex
 	Default    Scheduler
-	events     *tools.Events
 	monitors   map[string]chan struct{}
 	stopCh     chan struct{}
+	monLock    *sync.RWMutex
+	schedLock  *sync.RWMutex
 }
 
 func (master *Master) Use(name string, sched Scheduler) {
-	master.lock.Lock()
-	defer master.lock.Unlock()
+	master.schedLock.Lock()
+	defer master.schedLock.Unlock()
 	log.WithField("scheduler", name).Info("[master] registering scheduler")
 	master.Schedulers[name] = sched
 }
 
 func (master *Master) monitor(name string, stopCh chan struct{}) {
 	log.Infof("[monitor-%s] starting", name)
+	defer master.closeMonitor(name)
+	defer close(stopCh)
 
-	lock, err := master.api.Lock(SchedulersPrefix + name)
+LOCK:
+	lock, err := master.api.Lock(master.api.Conf().SchedulersPrefix+name)
 	if err != nil {
 		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return
 	}
+	defer lock.Unlock()
 
 	lockFailCh, err := lock.Lock(master.stopCh)
 	if err != nil {
 		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return
 	}
+	defer close(lockFailCh)
 
-	listener := make(chan struct{})
-	master.events.Subscribe(name, listener)
-
+	listener := make(chan struct{}, 10)
 	defer close(listener)
-	defer lock.Unlock()
-	defer master.events.UnSubscribe(name)
+
+	master.api.Subscribe("monitor-"+name, "config::*", listener)
+	defer master.api.UnSubscribe("monitor-"+name)
 
 	err = master.schedule(name, stopCh)
 	if err != nil {
@@ -92,7 +96,8 @@ func (master *Master) monitor(name string, stopCh chan struct{}) {
 
 		case <-lockFailCh:
 			log.Warnf("[monitor-%s] lock failed", name)
-			return
+			// attempt to lock again if the lock has failed
+			goto LOCK
 
 		case <-listener:
 			log.Debugf("[monitor-%s] triggering scheduler", name)
@@ -136,30 +141,20 @@ func (master *Master) schedule(name string, stopCh chan struct{}) error {
 }
 
 func (master *Master) getScheduler(name string) Scheduler {
-	master.lock.RLock()
-	defer master.lock.RUnlock()
+	master.schedLock.RLock()
+	defer master.schedLock.RUnlock()
+
 	if scheduler, ok := master.Schedulers[name]; ok {
 		return scheduler
 	}
 	return nil
 }
 
-func (master *Master) watcher() {
-	for {
-		select {
-		case <-master.stopCh:
-			return
-		default:
-		}
-
-		log.Debug("[master] waiting")
-		err := master.api.WaitOnKey("config/")
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
-		}
-
-		master.events.Publish()
+func (master *Master) closeMonitor(name string) {
+	if _, ok := master.monitors[name]; ok {
+		master.monLock.Lock()
+		delete(master.monitors, name)
+		master.monLock.Unlock()
 	}
 }
 
@@ -177,7 +172,9 @@ func (master *Master) addMonitors() {
 			count++
 			nextStopCh := make(chan struct{})
 			go master.monitor(cluster.Name, nextStopCh)
+			master.monLock.Lock()
 			master.monitors[cluster.Name] = nextStopCh
+			master.monLock.Unlock()
 		}
 	}
 
@@ -190,8 +187,8 @@ func (master *Master) addMonitors() {
 // is added to the configuration.
 func (master *Master) monitoring() {
 	listener := make(chan struct{})
-	master.events.Subscribe("main", listener)
-	defer master.events.UnSubscribe("main")
+	master.api.Subscribe("main-monitor", "config::*", listener)
+	defer master.api.UnSubscribe("main-monitor")
 
 	master.addMonitors()
 
@@ -199,9 +196,11 @@ func (master *Master) monitoring() {
 		select {
 
 		case <-master.stopCh:
+			master.monLock.Lock()
 			for _, monitorStopCh := range master.monitors {
 				close(monitorStopCh)
 			}
+			master.monLock.Unlock()
 			return
 
 		case <-listener:
@@ -218,7 +217,6 @@ func (master *Master) Run() {
 	log.Info("[master] starting")
 
 	go master.monitoring()
-	go master.watcher()
 
 	<-master.stopCh
 	log.Warn("[master] exiting")

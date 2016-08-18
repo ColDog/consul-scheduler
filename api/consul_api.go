@@ -14,6 +14,12 @@ var (
 	ErrNotFound = errors.New("could not find the requested resource")
 )
 
+type listener struct {
+	on string
+	ch chan string
+
+}
+
 type ConsulApi struct {
 	kv         *api.KV
 	agent      *api.Agent
@@ -22,7 +28,7 @@ type ConsulApi struct {
 	client     *api.Client
 	ConsulConf *api.Config
 	conf       *StorageConfig
-	listeners  map[string]chan string
+	listeners  map[string]*listener
 	eventLock  *sync.RWMutex
 }
 
@@ -49,7 +55,7 @@ func newConsulApi() *ConsulApi {
 		agent:      client.Agent(),
 		catalog:    client.Catalog(),
 		health:     client.Health(),
-		listeners:  make(map[string]chan string),
+		listeners:  make(map[string]*listener),
 		eventLock:  &sync.RWMutex{},
 		client:     client,
 		ConsulConf: apiConfig,
@@ -59,6 +65,10 @@ func newConsulApi() *ConsulApi {
 
 func (a *ConsulApi) HostName() (string, error) {
 	return a.agent.NodeName()
+}
+
+func (a *ConsulApi) Conf() *StorageConfig {
+	return a.conf
 }
 
 func (a *ConsulApi) put(key string, value []byte, flags ...uint64) error {

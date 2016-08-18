@@ -8,10 +8,18 @@ import (
 	"time"
 )
 
-func (a *ConsulApi) Listen(evt string, listener chan string) {
+func (a *ConsulApi) Subscribe(key, on string, ch chan string) {
 	a.eventLock.Lock()
-	a.listeners[evt] = listener
+	a.listeners[key] = &listener{on: on, ch: ch}
 	a.eventLock.Unlock()
+}
+
+func (a *ConsulApi) UnSubscribe(key string) {
+	if _, ok := a.listeners[key]; ok {
+		a.eventLock.Lock()
+		delete(a.listeners, key)
+		a.eventLock.Unlock()
+	}
 }
 
 // should emit events: health::<status (failing|passing)>:<task_id>
@@ -82,11 +90,15 @@ func (a *ConsulApi) monitorConfig() {
 	}
 }
 
+// todo: debounce emissions, ie one every 5-10 seconds only.
 func (a *ConsulApi) emit(evt string) {
-	for key, listener := range a.listeners {
-		if match(key, evt) {
+	a.eventLock.RLock()
+	defer a.eventLock.RUnlock()
+
+	for _, listener := range a.listeners {
+		if match(listener.on, evt) {
 			select {
-			case listener <- evt:
+			case listener.ch <- evt:
 			default:
 			}
 		}
