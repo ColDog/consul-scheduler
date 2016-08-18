@@ -7,18 +7,18 @@ package api
 //DownloadDir string   `json:"download_dir"`
 func sampleContainer() *Container {
 	return &Container{
-		Name: "test",
-		Type: "bash",
+		Name:     "test",
+		Type:     "bash",
 		Executor: []byte(`{"start": ["echo start"], "stop": ["echo stop"]}`),
 	}
 }
 
 func sampleTaskDefinition() *TaskDefinition {
 	return &TaskDefinition{
-		Name: "test",
-		Version: 0,
+		Name:        "test",
+		Version:     1,
 		ProvidePort: true,
-		Tags: []string{"test"},
+		Tags:        []string{"test"},
 		Containers: []*Container{
 			sampleContainer(),
 		},

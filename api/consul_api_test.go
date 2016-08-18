@@ -19,7 +19,6 @@ func TestConsulApi_Lock(t *testing.T) {
 		lock, err := api.Lock("test")
 		tools.Ok(t, err)
 
-
 		_, err = lock.Lock(nil)
 		tools.Ok(t, err)
 
@@ -83,7 +82,6 @@ func TestConsulApi_Services(t *testing.T) {
 	})
 }
 
-
 //ListTaskDefinitions() ([]*TaskDefinition, error)
 //GetTaskDefinition(name string, version uint) (*TaskDefinition, error)
 //PutTaskDefinition(t *TaskDefinition) error
@@ -94,12 +92,17 @@ func TestConsulApi_TaskDefinitions(t *testing.T) {
 
 		c, err := api.GetTaskDefinition(sampleTaskDefinition().Name, sampleTaskDefinition().Version)
 		tools.Ok(t, err)
+		tools.Assert(t, c != nil, "task definition is nil")
+
 		tools.Equals(t, c.Name, sampleTaskDefinition().Name)
 		tools.Equals(t, c.Version, sampleTaskDefinition().Version)
 
 		cs, err := api.ListTaskDefinitions()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no task definitions to list")
+
+		_, err = api.GetTaskDefinition("non-existent", 100)
+		tools.Assert(t, err == ErrNotFound, "found a non existent task definition")
 	})
 }
 
@@ -107,10 +110,25 @@ func TestConsulApi_TaskDefinitions(t *testing.T) {
 //GetHost(id string) (*Host, error)
 //PutHost(h *Host) (error)
 //DelHost(id string) (error)
+func TestConsulApi_Hosts(t *testing.T) {
+	RunConsulApiTest(func(api *ConsulApi) {
+		err := api.PutHost(sampleHost())
+		tools.Ok(t, err)
+
+		c, err := api.GetHost(sampleHost().Name)
+		tools.Ok(t, err)
+		tools.Equals(t, c.Name, sampleHost().Name)
+
+		cs, err := api.ListHosts()
+		tools.Ok(t, err)
+		tools.Assert(t, len(cs) > 0, "no services to list")
+
+		errr := api.DelHost(sampleHost().Name)
+		tools.Ok(t, errr)
+	})
+}
 
 //ListTasks(q *TaskQueryOpts) ([]*Task, error)
 //GetTask(id string) ([]*Task, error)
 //ScheduleTask(task *Task) error
 //DeScheduleTask(task *Task) error
-
-

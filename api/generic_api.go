@@ -1,6 +1,8 @@
 package api
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type TaskState int
 
@@ -59,7 +61,6 @@ type TaskQueryOpts struct {
 }
 
 type SchedulerApi interface {
-
 	HostName() (string, error)
 	Lock(key string) (Lockable, error)
 
@@ -87,8 +88,8 @@ type SchedulerApi interface {
 	// API Host Operations
 	ListHosts() ([]*Host, error)
 	GetHost(id string) (*Host, error)
-	PutHost(h *Host) (error)
-	DelHost(id string) (error)
+	PutHost(h *Host) error
+	DelHost(id string) error
 
 	// API Task Operations
 	ListTasks(q *TaskQueryOpts) ([]*Task, error)
@@ -126,5 +127,8 @@ func encode(item interface{}) []byte {
 }
 
 func decode(data []byte, item interface{}) {
-	json.Unmarshal(data, item)
+	err := json.Unmarshal(data, item)
+	if err != nil {
+		panic(err)
+	}
 }

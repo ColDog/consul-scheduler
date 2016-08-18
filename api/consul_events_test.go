@@ -1,9 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 func TestMatcher(t *testing.T) {
@@ -33,7 +33,6 @@ func TestHealthEventWaiting(t *testing.T) {
 	listener := make(chan string)
 	api.Listen("health::*", listener)
 
-
 	c := 0
 	go func() {
 		for val := range listener {
@@ -48,7 +47,6 @@ func TestHealthEventWaiting(t *testing.T) {
 		t.Fatal("could not get any events from health monitor")
 	}
 }
-
 
 func TestConfigEventWaiting(t *testing.T) {
 	agent := NewConsulAgent()

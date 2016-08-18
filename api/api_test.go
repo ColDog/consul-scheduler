@@ -3,13 +3,12 @@ package api
 import (
 	log "github.com/Sirupsen/logrus"
 
-	"os/exec"
 	"os"
+	"os/exec"
 	"syscall"
-	"fmt"
 )
 
-func init()  {
+func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
@@ -43,8 +42,8 @@ func (a *TestConsulAgent) Stop() {
 }
 
 type ConsulApiTest func(api *ConsulApi)
-func RunConsulApiTest(f ConsulApiTest)  {
-	fmt.Println("\nbooting consul...")
+
+func RunConsulApiTest(f ConsulApiTest) {
 	agent := NewConsulAgent()
 	defer agent.Stop()
 

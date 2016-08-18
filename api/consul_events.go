@@ -4,8 +4,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/hashicorp/consul/api"
 
-	"time"
 	"fmt"
+	"time"
 )
 
 func (a *ConsulApi) Listen(evt string, listener chan string) {
@@ -13,7 +13,6 @@ func (a *ConsulApi) Listen(evt string, listener chan string) {
 	a.listeners[evt] = listener
 	a.eventLock.Unlock()
 }
-
 
 // should emit events: health::<status (failing|passing)>:<task_id>
 func (a *ConsulApi) monitorHealth() {
@@ -31,8 +30,6 @@ func (a *ConsulApi) monitorHealth() {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-
-
 
 		if meta.LastIndex > lastId {
 			log.WithField("lastId", lastId).Debug("[consul-api] sending health events")

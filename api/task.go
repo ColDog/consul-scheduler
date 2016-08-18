@@ -4,24 +4,24 @@ import "fmt"
 
 func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instance int) *Task {
 	return &Task{
-		Cluster:  cluster,
-		TaskDefinition:  taskDef,
-		Service:  service.Name,
-		Instance: instance,
-		Port:     taskDef.Port,
+		Cluster:        cluster,
+		TaskDefinition: taskDef,
+		Service:        service.Name,
+		Instance:       instance,
+		Port:           taskDef.Port,
 	}
 }
 
 // a depiction of a running task definition
 type Task struct {
-	Cluster   *Cluster
-	TaskDefinition   *TaskDefinition
-	Service   string
-	Instance  int
-	Port      uint
-	Host      string
-	Passing   bool
-	Scheduled bool
+	Cluster        *Cluster
+	TaskDefinition *TaskDefinition
+	Service        string
+	Instance       int
+	Port           uint
+	Host           string
+	Passing        bool
+	Scheduled      bool
 }
 
 func (task *Task) State() TaskState {

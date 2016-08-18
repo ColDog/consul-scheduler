@@ -2,8 +2,8 @@ package api
 
 func sampleCluster() *Cluster {
 	return &Cluster{
-		Name: "test",
+		Name:      "test",
 		Scheduler: "default",
-		Services: []string{"test"},
+		Services:  []string{"test"},
 	}
 }

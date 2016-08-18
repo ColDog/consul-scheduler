@@ -3,9 +3,9 @@ package api
 import (
 	"errors"
 
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/hashicorp/consul/api"
-	"fmt"
 	"sync"
 )
 
@@ -159,6 +159,10 @@ func (a *ConsulApi) GetCluster(id string) (*Cluster, error) {
 	c := &Cluster{}
 
 	kv, err := a.get(a.conf.ClustersPrefix + id)
+	if kv == nil || kv.Value == nil {
+		return c, ErrNotFound
+	}
+
 	if err == nil {
 		decode(kv.Value, c)
 	}
@@ -194,6 +198,10 @@ func (a *ConsulApi) GetService(id string) (*Service, error) {
 	c := &Service{}
 
 	kv, err := a.get(a.conf.ServicesPrefix + id)
+	if kv == nil || kv.Value == nil {
+		return c, ErrNotFound
+	}
+
 	if err == nil {
 		decode(kv.Value, c)
 	}
@@ -225,8 +233,14 @@ func (a *ConsulApi) ListHosts() (hosts []*Host, err error) {
 	return hosts, nil
 }
 
-func (a *ConsulApi) GetHost(name string) (h *Host, err error) {
-	kv, err := a.get(a.conf.HostsPrefix+name)
+func (a *ConsulApi) GetHost(name string) (*Host, error) {
+	h := &Host{}
+
+	kv, err := a.get(a.conf.HostsPrefix + name)
+	if kv == nil || kv.Value == nil {
+		return h, ErrNotFound
+	}
+
 	if err == nil {
 		decode(kv.Value, h)
 	}
@@ -235,7 +249,7 @@ func (a *ConsulApi) GetHost(name string) (h *Host, err error) {
 }
 
 func (a *ConsulApi) PutHost(h *Host) error {
-	return a.put(a.conf.ClustersPrefix+h.Name, encode(h))
+	return a.put(a.conf.HostsPrefix+h.Name, encode(h))
 }
 
 func (a *ConsulApi) DelHost(name string) error {
@@ -258,10 +272,15 @@ func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*TaskDefinition, err error
 	return taskDefs, nil
 }
 
-func (a *ConsulApi) GetTaskDefinition(name string, version uint) (t *TaskDefinition, err error) {
-	id := fmt.Sprintf("%s/%s/%d", a.conf.TaskDefinitionsPrefix, name, version)
+func (a *ConsulApi) GetTaskDefinition(name string, version uint) (*TaskDefinition, error) {
+	t := &TaskDefinition{}
+	id := fmt.Sprintf("%s%s/%d", a.conf.TaskDefinitionsPrefix, name, version)
 
 	kv, err := a.get(id)
+	if kv == nil || kv.Value == nil {
+		return t, ErrNotFound
+	}
+
 	if err == nil {
 		decode(kv.Value, t)
 	}
