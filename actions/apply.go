@@ -1,7 +1,7 @@
 package actions
 
 import (
-	. "github.com/coldog/scheduler/api"
+	"github.com/coldog/scheduler/api"
 	"github.com/ghodss/yaml"
 
 	"fmt"
@@ -9,14 +9,14 @@ import (
 	"io/ioutil"
 )
 
-var ValidationErr error = errors.New("Validation Failed")
+var ErrValidationFailure error = errors.New("Validation Failed")
 
 func valid(errs []string) error {
 	if len(errs) > 0 {
 		for _, err := range errs {
 			fmt.Printf("err: %s\n", err)
 		}
-		return ValidationErr
+		return ErrValidationFailure
 	}
 	return nil
 }
@@ -31,11 +31,11 @@ func readYml(file string, res interface{}) error {
 	return err
 }
 
-func ApplyConfig(arg string, api *SchedulerApi) error {
+func ApplyConfig(arg string, api api.SchedulerApi) error {
 	obj := struct {
-		Clusters []Cluster `json:"clusters"`
-		Services []Service `json:"services"`
-		Tasks []TaskDefinition `json:"tasks"`
+		Clusters []*api.Cluster `json:"clusters"`
+		Services []*api.Service `json:"services"`
+		Tasks []*api.TaskDefinition `json:"tasks"`
 	}{}
 
 	err := readYml(arg, &obj)
