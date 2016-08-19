@@ -7,10 +7,11 @@ import (
 	"github.com/coldog/scheduler/tools"
 
 	"testing"
+	"fmt"
 )
 
 func init() {
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 }
 
 func TestScheduler_WithoutHosts(t *testing.T) {
@@ -57,5 +58,28 @@ func TestScheduler_WithHosts(t *testing.T) {
 		tools.Ok(t, err)
 
 		tools.Assert(t, len(tasks) == 4, "not enough tasks scheduled")
+	})
+}
+
+func TestScheduler_Complex(t *testing.T) {
+	api.RunConsulApiTest(func(a *api.ConsulApi) {
+		err := actions.ApplyConfig("../examples/complex.yml", a)
+		tools.Ok(t, err)
+
+		c, err := a.GetCluster("default")
+		tools.Ok(t, err)
+
+		for i := 0; i < 5000; i++ {
+			// register a host
+			a.PutHost(&api.Host{
+				Name:          fmt.Sprintf("test-%d", i),
+				CpuUnits:      10000,
+				Memory:        100000,
+				PortSelection: []uint{1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007},
+				ReservedPorts: []uint{2000},
+			})
+		}
+
+		RunDefaultScheduler(c, a, nil)
 	})
 }

@@ -39,14 +39,14 @@ type DefaultScheduler struct {
 
 // Runs the scheduler on a specific service. This entails counting the differential between what is running and what
 // should be running and writing to the correct keys in consul to make sure that the agents can schedule.
-func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
+func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) (int, int, error) {
 	t1 := time.Now().UnixNano()
 
 	// retrieve the task definition for a given service that needs to be scheduled
 	taskDef, err := scheduler.api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if err != nil {
 		log.WithField("error", err).WithField("task", fmt.Sprintf("%s.%d", service.TaskName, service.TaskVersion)).Error("[scheduler] could not find task")
-		return
+		return 0, 0, err
 	}
 
 	// build up all of the required variables
@@ -55,7 +55,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 	})
 	if err != nil {
 		log.WithField("error", err).Error("[scheduler] failed")
-		return
+		return 0, 0, err
 	}
 
 	count := len(tasks)
@@ -92,7 +92,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 		// remove the task if the versions do not match, note this is not 'lower than' to allow rollbacks.
 		if removalCandidate.TaskDefinition.Version != service.TaskVersion {
 			removed++
-			log.WithField("task", removalCandidate.Id()).Warn("[scheduler] removing")
+			log.WithField("task", removalCandidate.Id()).Debug("[scheduler] removing")
 			scheduler.api.DeScheduleTask(removalCandidate)
 		}
 	}
@@ -107,7 +107,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 			t, err := scheduler.api.GetTask(id)
 
 			if err == nil && t.Service != "" && t.Scheduled {
-				log.WithField("task", id).Warn("[scheduler] removing")
+				log.WithField("task", id).Debug("[scheduler] removing")
 				scheduler.api.DeScheduleTask(t)
 			}
 		}
@@ -124,7 +124,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 			err := scheduler.scheduleTask(service, taskDef, i)
 			if err != nil && err != ErrCouldNotSchedule {
 				log.WithField("error", err).Error("[scheduler] failed")
-				return
+				return 0, 0, err
 			}
 			added++
 		}
@@ -132,7 +132,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 
 	t2 := time.Now().UnixNano()
 	log.WithFields(log.Fields{"removed": removed, "added": added, "service": service.Name, "time": t2 - t1}).Info("[scheduler] finished scheduling service")
-
+	return removed, added, nil
 }
 
 // Finds a host for a specific task and if successful, schedules it by placing it into consul.
@@ -192,7 +192,7 @@ func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *a
 			"host": task.Host,
 			"time": t1 - t2,
 			"task": task.Id(),
-		}).Info("[scheduler] added task")
+		}).Debug("[scheduler] added task")
 
 		return nil
 	}
@@ -211,8 +211,6 @@ func (scheduler *DefaultScheduler) availablePort(host *api.Host) (sel uint) {
 	// ordered.
 	max := scheduler.maxPort[host.Name]
 
-	log.WithField("host", host.Name).WithField("ports", host.PortSelection).WithField("max", max).Debug("[scheduler] selecting a port")
-
 	for _, p := range host.PortSelection {
 		if p > max {
 			sel = p
@@ -225,6 +223,10 @@ func (scheduler *DefaultScheduler) availablePort(host *api.Host) (sel uint) {
 }
 
 func (scheduler *DefaultScheduler) Run() error {
+	removed := 0
+	added := 0
+
+	t1 := time.Now().UnixNano()
 	log.WithField("cluster", scheduler.cluster.Name).Debug("[scheduler] starting")
 
 	hosts, err := scheduler.api.ListHosts()
@@ -253,9 +255,14 @@ func (scheduler *DefaultScheduler) Run() error {
 			continue
 		}
 
-		scheduler.scheduleForService(service)
+		rem, add, _ := scheduler.scheduleForService(service)
+		added += add
+		removed += rem
 	}
 
+	t2 := time.Now().UnixNano()
+
+	log.WithField("time", t2 - t1).WithField("seconds", float64(t2 - t1) / 1000000000.00).WithField("added", added).WithField("removed", removed).Info("[scheduler] finished!")
 	return nil
 }
 

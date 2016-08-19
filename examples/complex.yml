@@ -1,0 +1,49 @@
+clusters:
+  - name: default
+    scheduler: default
+    services:
+      - helloworld
+      - helloworld2
+      - helloworld3
+
+services:
+  - name: helloworld
+    task_name: helloworld
+    task_version: 2
+    min: 3
+    max: 10000
+    desired: 10000
+
+  - name: helloworld2
+    task_name: helloworld
+    task_version: 2
+    min: 3
+    max: 10000
+    desired: 10000
+
+  - name: helloworld3
+    task_name: helloworld
+    task_version: 2
+    min: 3
+    max: 4
+    desired: 4
+
+tasks:
+  - name: helloworld
+    version: 2
+    tags:
+      - urlprefix-/helloworld
+
+    provide_port: true
+    checks:
+      - http: http://127.0.0.1
+        interval: 10s
+        add_provided_port: true
+
+    containers:
+      - name: helloworld
+        type: docker
+        executor:
+          name: helloworld
+          image: tutum/hello-world
+          container_port: 80
