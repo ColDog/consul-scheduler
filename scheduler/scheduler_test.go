@@ -56,6 +56,6 @@ func TestScheduler_WithHosts(t *testing.T) {
 		tasks, err := a.ListTasks(&api.TaskQueryOpts{})
 		tools.Ok(t, err)
 
-		tools.Assert(t, len(tasks) > 0, "no tasks scheduled")
+		tools.Assert(t, len(tasks) == 4, "not enough tasks scheduled")
 	})
 }
