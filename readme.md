@@ -6,7 +6,7 @@ A scheduler that uses Consul's health checking capabilities as well as it's key 
 distributed and robust container scheduler that schedule's tasks which can utilize the full power of Consul's health
 checking and service discovery.
 
-*This project is currently a very early work in progress, please help me make it great!*
+*This project is currently a very early work in progress, please help us make it great!*
 
 ### Project Goals
 
@@ -18,64 +18,64 @@ checking and service discovery.
 
 ## Contents
 
-1. [Definitions](#definitions)
-2. [Consul KV](#consul-kv)
-3. [Processes](#processes)
-    1. [Scheduler](#scheduler)
-    2. [Agent](#agent)
+1. [Quickstart](#quickstart)
+2. [Definitions](#definitions)
+3. [Scheduling](#scheduling)
+4. [Configuring](#configuring)
+5. [Agents](#agents)
+
+
+### Quickstart
+
+1. Download Consul: https://www.consul.io/intro/getting-started/install.html
+3. Start Consul: `consul agent -dev -ui -bind=127.0.0.1`
+3. Download Consul-Scheduler: https://github.com/ColDog/consul-scheduler/releases and `cd` into the directory
+4. Start Consul-Scheduler: `./consul-scheduler combined` (start in combined mode)
+5. Load an example: `./consul-scheduler apply -f examples/hello-world.yml`
+
 
 ### Definitions
 
-##### Objects
+#### Objects
 
-##### Container
-An executable image, either docker or other, that can be run.
+Container: An executable image, either docker or other, that can be run.
 
-##### Host
-A physical machine where _containers_ can be run.
+Host: A physical machine where _containers_ can be run.
 
-##### Task Definition
-A collection of _containers_ that can be health checked and should run together.
+Task Definition: A collection of _containers_ that can be health checked and should run together.
 
-##### Service
-An object responsible for running a given _task definition_.
+Service: An object containing the configuration for running a given _task definition_.
 
-##### Cluster
-A logical grouping of _services_.
+Cluster: A logical grouping of _services_.
 
-##### Task
-A running instance of a _task definition_, associated with a _service_, _cluster_ and most importantly a _host_.
+Task: A running instance of a _task definition_, associated with a _service_, _cluster_ and most importantly a _host_.
 
 #### Concepts
 
-##### Desired State
-The desired state of all clusters described by the end user.
+Desired State: The desired state of all clusters described by the end user.
 
-##### Actual State
-The state of the cluster as described by the health checker (Consul), which includes the desired state plus information
+Actual State: The state of the cluster as described by the health checker (Consul), which includes the desired state plus information
 about whether a task is running or not.
 
-##### Issued State
-The desired state plus which hosts everything should be running on.
+Issued State: The desired state plus which hosts everything should be running on.
 
 #### Processes
 
-##### Agent
-A process that monitors the _issued state_ and attempts to match it to the _actual state_ for a given host.
+Agent: A process that monitors the _issued state_ and attempts to match it to the _actual state_ for a given host.
 
-##### Scheduler
-A process that monitors the _desired state_ for a given cluster and creates the _issued state_.
+Scheduler: A process that monitors the _desired state_ for a given cluster and creates the _issued state_.
 
 
-### Processes
+### Scheduling
 
-#### Scheduler
+Schedulers are configured on a
 
-#### Agent
+### Configuring
 
+#### YAML File
 
+#### Consul KV
 
-### Consul KV
 The following is the basic structure of the storage in consul.
 
     config/cluster/<cluster_name>                   => cluster configuration
@@ -85,3 +85,5 @@ The following is the basic structure of the storage in consul.
 
     state/<host_id>/<task_id>                       => task object, sortable by host
     state/_/<task_id>                               => task object, sortable by service
+
+### Agents
