@@ -7,6 +7,9 @@ import (
 	"errors"
 	"sync"
 	"time"
+	"net/http"
+	"encoding/json"
+	"fmt"
 )
 
 var (
@@ -14,18 +17,26 @@ var (
 	ApiFailureErr  = errors.New("Api Failure")
 )
 
+type MasterConfig struct {
+	SyncInterval time.Duration
+	DisabledClusters []string
+}
+
 // The scheduler is a function that takes the cluster it should schedule and a pointer to the api object to do
 // some scheduling.
 type Scheduler func(cluster *api.Cluster, a api.SchedulerApi, stopCh chan struct{})
 
-func NewMaster(a api.SchedulerApi) *Master {
+func NewMaster(a api.SchedulerApi, conf *MasterConfig) *Master {
 	m := &Master{
 		api:        a,
 		Schedulers: make(map[string]Scheduler),
 		monitors:   make(map[string]chan struct{}),
 		stopCh:     make(chan struct{}),
+		Locks:      make(map[string]bool),
 		schedLock:  &sync.RWMutex{},
 		monLock:    &sync.RWMutex{},
+		locksLock:  &sync.RWMutex{},
+		Config:     conf,
 	}
 
 	m.Use("default", RunDefaultScheduler)
@@ -38,13 +49,16 @@ func NewMaster(a api.SchedulerApi) *Master {
 // The default scheduler provided is suitable for small workloads, specifically web applications. It focuses on
 // being predictable and doesn't care where it's locating a specific workload.
 type Master struct {
+	Locks      map[string]bool `json:"locks"`
+	Schedulers map[string]Scheduler `json:"-"`
+	Config     *MasterConfig `json:"config"`
+	Default    Scheduler `json:"-"`
 	api        api.SchedulerApi
-	Schedulers map[string]Scheduler
-	Default    Scheduler
 	monitors   map[string]chan struct{}
 	stopCh     chan struct{}
 	monLock    *sync.RWMutex
 	schedLock  *sync.RWMutex
+	locksLock  *sync.RWMutex
 }
 
 func (master *Master) Use(name string, sched Scheduler) {
@@ -55,9 +69,12 @@ func (master *Master) Use(name string, sched Scheduler) {
 }
 
 func (master *Master) monitor(name string, stopCh chan struct{}) {
+	master.locksLock.Lock()
+	master.Locks[name] = false
+	master.locksLock.Unlock()
+
 	log.Infof("[monitor-%s] starting", name)
 	defer master.closeMonitor(name)
-	defer close(stopCh)
 
 LOCK:
 	lock, err := master.api.Lock(master.api.Conf().SchedulersPrefix + name)
@@ -66,6 +83,16 @@ LOCK:
 		return
 	}
 	defer lock.Unlock()
+
+	master.locksLock.Lock()
+	master.Locks[name] = true
+	master.locksLock.Unlock()
+
+	defer func() {
+		master.locksLock.Lock()
+		master.Locks[name] = false
+		master.locksLock.Unlock()
+	}()
 
 	lockFailCh, err := lock.Lock(master.stopCh)
 	if err != nil {
@@ -165,6 +192,7 @@ func (master *Master) addMonitors() {
 	}
 
 	for _, cluster := range clusters {
+		// todo: don't use if in a disabled cluster
 		if _, ok := master.monitors[cluster.Name]; !ok {
 			count++
 			nextStopCh := make(chan struct{})
@@ -221,4 +249,21 @@ func (master *Master) Run() {
 
 func (master *Master) Stop() {
 	close(master.stopCh)
+}
+
+func (master *Master) RegisterRoutes() {
+	http.HandleFunc("/master/status", func(w http.ResponseWriter, r *http.Request) {
+		res, err := json.Marshal(master)
+		if err != nil {
+			fmt.Printf("json err: %v\n", err)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(res)
+	})
+
+	http.HandleFunc("/master/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK\n"))
+	})
 }

@@ -53,3 +53,7 @@ func TestAgent_Syncing(t *testing.T) {
 		}
 	})
 }
+
+func TestAgent_Start(t *testing.T) {
+
+}

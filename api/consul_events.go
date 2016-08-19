@@ -40,6 +40,7 @@ func (a *ConsulApi) monitorHealth() {
 		}
 
 		if meta.LastIndex > lastId {
+			events := make([]string, 0, len(checks))
 			log.WithField("lastId", lastId).Debug("[consul-api] sending health events")
 			for _, check := range checks {
 
@@ -49,10 +50,10 @@ func (a *ConsulApi) monitorHealth() {
 					stat = "failing"
 				}
 
-				fmt.Printf("check: %+v\n", check)
-
-				a.emit(fmt.Sprintf("health::%s:%s", stat, check.ServiceID))
+				events = append(events, fmt.Sprintf("health::%s:%s", stat, check.ServiceID))
 			}
+			a.emit(events...)
+			time.Sleep(2 * time.Second)
 		} else {
 			// have not found any new results
 			time.Sleep(10 * time.Second)
@@ -76,11 +77,15 @@ func (a *ConsulApi) monitorConfig() {
 		}
 
 		if meta.LastIndex > lastId {
-			log.WithField("lastId", lastId).Debug("[consul-api] sending config events")
-			a.emit("config::change")
+
+			events := make([]string, 0, len(list))
 			for _, kv := range list {
-				a.emit(fmt.Sprintf("config::%s", kv.Key))
+				events = append(events, fmt.Sprintf("config::%s", kv.Key))
 			}
+
+			log.WithField("lastId", lastId).Debug("[consul-api] sending config events")
+			a.emit(events...)
+			time.Sleep(2 * time.Second)
 		} else {
 			// have not found any new results
 			time.Sleep(10 * time.Second)
@@ -90,16 +95,18 @@ func (a *ConsulApi) monitorConfig() {
 	}
 }
 
-// todo: debounce emissions, ie one every 5-10 seconds only.
-func (a *ConsulApi) emit(evt string) {
+func (a *ConsulApi) emit(events ...string) {
 	a.eventLock.RLock()
 	defer a.eventLock.RUnlock()
 
 	for _, listener := range a.listeners {
-		if match(listener.on, evt) {
-			select {
-			case listener.ch <- evt:
-			default:
+		for _, evt := range events {
+			if match(listener.on, evt) {
+				select {
+				case listener.ch <- evt:
+				default:
+				}
+				break
 			}
 		}
 	}

@@ -1,12 +1,13 @@
 package api
 
 import (
-	"errors"
-
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/hashicorp/consul/api"
+
+	"errors"
+	"fmt"
 	"sync"
+	"time"
 )
 
 var (
@@ -31,9 +32,22 @@ type ConsulApi struct {
 	eventLock  *sync.RWMutex
 }
 
-func NewConsulApi(conf *StorageConfig) *ConsulApi {
-	a := newConsulApi()
-	a.conf = conf
+func NewConsulApi(conf *StorageConfig, apiConf *api.Config) *ConsulApi {
+	client, err := api.NewClient(apiConf)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	a := &ConsulApi{
+		kv:         client.KV(),
+		agent:      client.Agent(),
+		catalog:    client.Catalog(),
+		health:     client.Health(),
+		listeners:  make(map[string]*listener),
+		eventLock:  &sync.RWMutex{},
+		client:     client,
+		conf:       DefaultStorageConfig(),
+	}
 
 	go a.monitorConfig()
 	go a.monitorHealth()
@@ -68,6 +82,17 @@ func (a *ConsulApi) HostName() (string, error) {
 
 func (a *ConsulApi) Conf() *StorageConfig {
 	return a.conf
+}
+
+func (a *ConsulApi) Wait() error {
+	for {
+		_, _, err := a.kv.Get("test", nil)
+		if err == nil {
+			return nil
+		}
+
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func (a *ConsulApi) put(key string, value []byte, flags ...uint64) error {
@@ -128,7 +153,7 @@ func (a *ConsulApi) RegisterAgent(host, addr string, port int) error {
 		Checks: api.AgentServiceChecks{
 			&api.AgentServiceCheck{
 				Interval: "30s",
-				HTTP:     fmt.Sprintf("http://%s:%d", addr, port),
+				HTTP:     fmt.Sprintf("http://%s:%d/agent/health", addr, port),
 			},
 		},
 	})
@@ -137,7 +162,7 @@ func (a *ConsulApi) RegisterAgent(host, addr string, port int) error {
 func (a *ConsulApi) Register(t *Task) error {
 
 	checks := api.AgentServiceChecks{}
-	for _, check := range t.TaskDefinition.Checks {
+	for _, check := range t.Checks {
 		checks = append(checks, &api.AgentServiceCheck{
 			Interval: check.Interval,
 			Script:   check.Script,

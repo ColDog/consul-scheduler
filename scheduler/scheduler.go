@@ -138,9 +138,11 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) (int
 
 // Finds a host for a specific task and if successful, schedules it by placing it into consul.
 func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *api.TaskDefinition, instance int) error {
-	rand.Seed(time.Now().UnixNano())
-	task := api.NewTask(scheduler.cluster, taskDef, service, instance)
 	t1 := time.Now().UnixNano()
+	rand.Seed(t1)
+
+	// copy this over so we can modify the task definition checks and other attributes
+	task := api.NewTask(scheduler.cluster, taskDef, service, instance)
 
 	for i := 0; i < len(scheduler.hosts); i++ {
 		r := rand.Intn(len(scheduler.hosts))
@@ -167,17 +169,25 @@ func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *a
 				continue
 			}
 
-			// Setup the health checks in consul with the correc tports
+			// Setup the health checks in consul with the correct ports
 			for _, check := range task.TaskDefinition.Checks {
-				if check.AddProvidedPort {
-					if task.TaskDefinition.ProvidePort && check.HTTP != "" {
-						check.HTTP = fmt.Sprintf("%s:%d", check.HTTP, task.Port)
-					}
-
-					if task.TaskDefinition.ProvidePort && check.TCP != "" {
-						check.HTTP = fmt.Sprintf("%s:%d", check.TCP, task.Port)
+				if check.AddProvidedPort && task.TaskDefinition.ProvidePort {
+					if check.HTTP != "" {
+						task.Checks = append(task.Checks, &api.Check{
+							HTTP: fmt.Sprintf("%s:%d", check.HTTP, task.Port),
+							Interval: check.Interval,
+						})
+					} else if check.TCP != "" {
+						task.Checks = append(task.Checks, &api.Check{
+							TCP: fmt.Sprintf("%s:%d", check.TCP, task.Port),
+							Interval: check.Interval,
+						})
+					} else {
+						task.Checks = append(task.Checks, check)
 					}
 				}
+
+				fmt.Printf("check: %+v\n", check)
 			}
 		}
 

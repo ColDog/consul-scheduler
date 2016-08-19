@@ -65,6 +65,8 @@ type SchedulerApi interface {
 	HostName() (string, error)
 	Lock(key string) (Lockable, error)
 
+	Wait() error
+
 	// Register With Generic API
 	RegisterAgent(host, addr string, port int) error
 	Register(t *Task) error

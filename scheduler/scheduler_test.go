@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
 }
 
 func TestScheduler_WithoutHosts(t *testing.T) {

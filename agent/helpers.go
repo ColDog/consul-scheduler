@@ -12,6 +12,7 @@ const (
 	minTCPPort         = 0
 	maxTCPPort         = 65535
 	maxReservedTCPPort = 1024
+	startListingPort   = 32000
 	maxRandTCPPort     = maxTCPPort - (maxReservedTCPPort + 1)
 )
 
@@ -47,7 +48,7 @@ func RandomTCPPort() int {
 }
 
 func AvailablePortList(count int) (res []uint) {
-	for i := maxReservedTCPPort; i < maxTCPPort && count > 0; i++ {
+	for i := startListingPort; i < maxTCPPort && count > 0; i++ {
 		if IsTCPPortAvailable(i) {
 			count--
 			res = append(res, uint(i))

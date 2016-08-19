@@ -1,13 +1,16 @@
 package main
 
 import (
+	_ "net/http/pprof"
+
 	"github.com/coldog/scheduler/actions"
-	. "github.com/coldog/scheduler/agent"
-	. "github.com/coldog/scheduler/api"
-	. "github.com/coldog/scheduler/scheduler"
+	"github.com/coldog/scheduler/api"
+	"github.com/coldog/scheduler/agent"
+	"github.com/coldog/scheduler/scheduler"
 
 	"github.com/urfave/cli"
 	log "github.com/Sirupsen/logrus"
+	consulApi "github.com/hashicorp/consul/api"
 
 	"fmt"
 	"os"
@@ -15,12 +18,17 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"net/http"
 )
+
+type AppConfig struct {
+	Addr string
+	Port int
+}
 
 func NewApp() *App {
 	app := &App{
-		cli:    cli.NewApp(),
-		Config: &Config{},
+		cli: cli.NewApp(),
 	}
 	app.setup()
 	return app
@@ -31,25 +39,32 @@ type AppCmd func(app *App) cli.Command
 
 type App struct {
 	cli    *cli.App
-	Api    *SchedulerApi
-	Agent  *Agent
-	Master *Master
-	Config *Config
+	Api    api.SchedulerApi
+	Config *AppConfig
+	Agent  *agent.Agent
+	Master *scheduler.Master
 	atExit ExitHandler
+	ConsulConf *consulApi.Config
 }
 
 func (app *App) printWelcome(mode string) {
 	fmt.Printf("\nconsul-scheduler starting...\n\n")
 	fmt.Printf("          version  %s\n", VERSION)
 	fmt.Printf("        log-level  %s\n", log.GetLevel())
-	fmt.Printf("       consul-api  %s\n", app.Api.ConsulConf.Address)
-	fmt.Printf("        consul-dc  %s\n", app.Api.ConsulConf.Datacenter)
+	fmt.Printf("       consul-api  %s\n", app.ConsulConf.Address)
+	fmt.Printf("        consul-dc  %s\n", app.ConsulConf.Datacenter)
 	fmt.Printf("             mode  %s\n", mode)
 	fmt.Printf("             pid   %d\n", os.Getpid())
 	fmt.Print("\nlog output will now begin streaming....\n")
 }
 
 func (app *App) setup() {
+	app.ConsulConf = consulApi.DefaultConfig()
+	app.Config = &AppConfig{
+		Port: 8231,
+		Addr: "127.0.0.1",
+	}
+
 	app.cli.Name = "consul-scheduler"
 	app.cli.Version = VERSION
 	app.cli.Author = "Colin Walker"
@@ -62,10 +77,20 @@ func (app *App) setup() {
 		cli.StringFlag{Name: "consul-token", Value: "", Usage: "consul token"},
 	}
 	app.cli.Before = func(c *cli.Context) error {
-		app.Config.ConsulApiAddress = c.GlobalString("consul-api")
-		app.Config.ConsulApiDc = c.GlobalString("consul-dc")
-		app.Config.ConsulApiToken = c.GlobalString("consul-token")
-		app.Api = NewSchedulerApiWithConfig(app.Config)
+		if c.GlobalString("consul-api") != "" {
+			app.ConsulConf.Address = c.GlobalString("consul-api")
+		}
+
+		if c.GlobalString("consul-dc") != "" {
+			app.ConsulConf.Datacenter = c.GlobalString("consul-dc")
+		}
+
+		if c.GlobalString("consul-token") != "" {
+			app.ConsulConf.Token = c.GlobalString("consul-token")
+		}
+
+		store := api.DefaultStorageConfig()
+		app.Api = api.NewConsulApi(store, app.ConsulConf)
 
 		switch c.GlobalString("log-level") {
 		case "debug":
@@ -110,20 +135,32 @@ func (app *App) AtExit(e ExitHandler) {
 		// ensure that we will actually quit within 10 seconds, but allow for some
 		// cleanup to happen by the code before we exit.
 		go func() {
-			time.Sleep(10 * time.Second)
-			log.Fatal("[main] failed to exit cleanly")
+			select {
+			case <-killCh:
+				log.Fatal("[main] exiting abruptly")
+			case <-time.After(5 * time.Second):
+				log.Fatal("[main] failed to exit cleanly")
+			}
 		}()
 
 		app.atExit()
 	}()
 }
 
-func (app *App) RegisterAgent() {
-	app.Agent = NewAgent(app.Api)
+func (app *App) RegisterAgent(c *cli.Context) {
+	app.Agent = agent.NewAgent(app.Api, &agent.AgentConfig{
+		Port: app.Config.Port,
+		Addr: app.Config.Addr,
+		Runners: c.Int("agent-runners"),
+		SyncInterval: c.Duration("agent-sync-interval"),
+	})
 }
 
-func (app *App) RegisterMaster() {
-	app.Master = NewMaster(app.Api)
+func (app *App) RegisterMaster(c *cli.Context) {
+	app.Master = scheduler.NewMaster(app.Api, &scheduler.MasterConfig{
+		SyncInterval: c.Duration("master-sync-interval"),
+		DisabledClusters: c.StringSlice("master-disabled-clusters"),
+	})
 }
 
 func (app *App) AgentCmd() (cmd cli.Command) {
@@ -131,13 +168,15 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Usage = "start the agent service"
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("agent")
-		app.Api.WaitForInitialize()
+		app.Api.Wait()
 
-		app.RegisterAgent()
+		app.RegisterAgent(c)
 		app.AtExit(func() {
 			app.Agent.Stop()
 		})
 
+		app.Agent.RegisterRoutes()
+		go app.Serve()
 		app.Agent.Run()
 		return nil
 	}
@@ -149,13 +188,15 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Usage = "start the scheduler service"
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")
-		app.Api.WaitForInitialize()
+		app.Api.Wait()
 
-		app.RegisterMaster()
+		app.RegisterMaster(c)
 		app.AtExit(func() {
 			app.Master.Stop()
 		})
 
+		app.Master.RegisterRoutes()
+		go app.Serve()
 		app.Master.Run()
 		return nil
 	}
@@ -167,10 +208,15 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 	cmd.Usage = "start the scheduler and agent service"
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("combined")
-		app.Api.WaitForInitialize()
+		app.Api.Wait()
 
-		app.RegisterMaster()
-		app.RegisterAgent()
+		app.RegisterMaster(c)
+		app.RegisterAgent(c)
+
+		app.Master.RegisterRoutes()
+		app.Agent.RegisterRoutes()
+
+		go app.Serve()
 
 		wg := &sync.WaitGroup{}
 
@@ -215,6 +261,15 @@ func (app *App) AddCmd(cmd AppCmd) {
 
 func (app *App) Run() {
 	app.cli.Run(os.Args)
+}
+
+func (app *App) Serve() {
+	//http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	//	w.Write([]byte("Consul Scheduler\n"))
+	//})
+
+	log.Info("http server starting")
+	http.ListenAndServe(fmt.Sprintf(":%d", app.Config.Port), nil)
 }
 
 func main() {

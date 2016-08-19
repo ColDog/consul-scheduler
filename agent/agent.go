@@ -45,7 +45,16 @@ func (a action) name() string {
 	}
 }
 
-func NewAgent(a api.SchedulerApi) *Agent {
+func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
+
+	if conf.Runners == 0 {
+		conf.Runners = 3
+	}
+
+	if conf.SyncInterval.Nanoseconds() == int64(0) {
+		conf.SyncInterval = 30 * time.Second
+	}
+
 	return &Agent{
 		api:       a,
 		queue:     make(chan action, 100),
@@ -53,12 +62,7 @@ func NewAgent(a api.SchedulerApi) *Agent {
 		StartedAt: make(map[string]time.Time),
 		readyCh:   make(chan struct{}),
 		lock:      &sync.RWMutex{},
-		Config: &AgentConfig{
-			Runners:      3,
-			SyncInterval: 30 * time.Second,
-			Port: 8231,
-			Addr: "127.0.0.1",
-		},
+		Config:    conf,
 	}
 }
 
@@ -98,11 +102,9 @@ func (agent *Agent) start(t *api.Task) error {
 		if executor != nil {
 			err := executor.StartTask(t)
 			if err != nil {
-				agent.stop(t)
 				return err
 			}
 		} else {
-			agent.stop(t)
 			return NoExecutorErr
 		}
 	}
@@ -257,7 +259,6 @@ func (agent *Agent) Run() {
 	log.Info("[agent] starting")
 
 	// the server provides a basic health checking port to allow for the agent to provide consul with updates
-	go agent.Server()
 	defer agent.api.DelHost(agent.Host)
 	defer agent.api.DeRegister("consul-scheduler-"+agent.Host)
 
@@ -309,8 +310,8 @@ func (agent *Agent) Run() {
 
 // the http server handles providing a health checking and informational http endpoint about the agent.
 // the main health route is at /health and the root route provides basic statistics and information.
-func (agent *Agent) Server() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func (agent *Agent) RegisterRoutes() {
+	http.HandleFunc("/agent/status", func(w http.ResponseWriter, r *http.Request) {
 		res, err := json.Marshal(agent)
 		if err != nil {
 			fmt.Printf("json err: %v\n", err)
@@ -321,11 +322,9 @@ func (agent *Agent) Server() {
 		w.Write(res)
 	})
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/agent/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK\n"))
 	})
-
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", agent.Config.Port), nil))
 }
 
 // the runner handles starting processes. It listens to a queue of processes to start and starts them as needed.

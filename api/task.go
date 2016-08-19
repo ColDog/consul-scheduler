@@ -16,6 +16,7 @@ func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instan
 type Task struct {
 	Cluster        *Cluster
 	TaskDefinition *TaskDefinition
+	Checks         []*Check
 	Service        string
 	Instance       int
 	Port           uint
