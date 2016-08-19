@@ -73,9 +73,8 @@ LOCK:
 		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return
 	}
-	defer close(lockFailCh)
 
-	listener := make(chan struct{}, 10)
+	listener := make(chan string, 10)
 	defer close(listener)
 
 	master.api.Subscribe("monitor-"+name, "config::*", listener)
@@ -185,7 +184,7 @@ func (master *Master) addMonitors() {
 // This process monitors the individual scheduler locking processes. It will start a monitor process if a new cluster
 // is added to the configuration.
 func (master *Master) monitoring() {
-	listener := make(chan struct{})
+	listener := make(chan string, 10)
 	master.api.Subscribe("main-monitor", "config::*", listener)
 	defer master.api.UnSubscribe("main-monitor")
 

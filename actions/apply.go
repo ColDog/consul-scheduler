@@ -31,7 +31,7 @@ func readYml(file string, res interface{}) error {
 	return err
 }
 
-func ApplyConfig(arg string, api api.SchedulerApi) error {
+func ApplyConfig(arg string, a api.SchedulerApi) error {
 	obj := struct {
 		Clusters []*api.Cluster `json:"clusters"`
 		Services []*api.Service `json:"services"`
@@ -44,9 +44,9 @@ func ApplyConfig(arg string, api api.SchedulerApi) error {
 	}
 
 	for _, task := range obj.Tasks {
-		err = valid(task.Validate(api))
+		err = valid(task.Validate(a))
 		if err == nil {
-			api.PutTaskDefinition(task)
+			a.PutTaskDefinition(task)
 			fmt.Printf("task: OK %s\n", task.Name)
 		} else {
 			fmt.Printf("task: FAIL %s\n", task.Name)
@@ -54,9 +54,9 @@ func ApplyConfig(arg string, api api.SchedulerApi) error {
 	}
 
 	for _, service := range obj.Services {
-		err = valid(service.Validate(api))
+		err = valid(service.Validate(a))
 		if err == nil {
-			api.PutService(service)
+			a.PutService(service)
 			fmt.Printf("service: OK %s\n", service.Name)
 		} else {
 			fmt.Printf("service: FAIL %s\n", service.Name)
@@ -64,9 +64,9 @@ func ApplyConfig(arg string, api api.SchedulerApi) error {
 	}
 
 	for _, cluster := range obj.Clusters {
-		err = valid(cluster.Validate(api))
+		err = valid(cluster.Validate(a))
 		if err == nil {
-			api.PutCluster(cluster)
+			a.PutCluster(cluster)
 			fmt.Printf("cluster: OK %s\n", cluster.Name)
 		} else {
 			fmt.Printf("cluster: FAIL %s\n", cluster.Name)

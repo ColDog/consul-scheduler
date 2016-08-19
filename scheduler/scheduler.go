@@ -8,15 +8,15 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
-	"cmd/go/testdata/testinternal3"
 )
 
 var (
-	ScheduleTaskFailErr    = errors.New("could not schedule task")
-	ScheduleGetHostFailErr = errors.New("could not get hosts")
+	ErrCouldNotSchedule = errors.New("could not schedule task")
+	ErrCouldNotGetHosts = errors.New("could not get hosts")
+	ErrExitingEarly     = errors.New("exit signal received")
 )
 
-func RunDefaultScheduler(cluster *api.Cluster, a *api.SchedulerApi, stopCh chan struct{})  {
+func RunDefaultScheduler(cluster *api.Cluster, a api.SchedulerApi, stopCh chan struct{})  {
 	s := &DefaultScheduler{
 		cluster: cluster,
 		api: a,
@@ -31,7 +31,7 @@ func RunDefaultScheduler(cluster *api.Cluster, a *api.SchedulerApi, stopCh chan 
 // that does not have a port conflict and has enough memory / cpu.
 type DefaultScheduler struct {
 	api     api.SchedulerApi
-	cluster api.Cluster
+	cluster *api.Cluster
 	stopCh  chan struct{}
 	hosts   []*api.Host
 	maxPort map[string]uint
@@ -50,8 +50,9 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 	}
 
 	// build up all of the required variables
-	runningName := scheduler.cluster.Name + "_" + service.TaskName
-	tasks, err := scheduler.api.ListTasks(runningName)
+	tasks, err := scheduler.api.ListTasks(&api.TaskQueryOpts{
+		ByService: scheduler.cluster.Name+"-"+service.Name,
+	})
 	if err != nil {
 		log.WithField("error", err).Error("[scheduler] failed")
 		return
@@ -62,7 +63,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 	added := 0
 
 	log.WithFields(log.Fields{
-		"name":    runningName,
+		"name":    service.Name,
 		"count":   count,
 		"desired": service.Desired,
 		"min":     service.Min,
@@ -120,7 +121,11 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 		// if not scheduled
 		t, err := scheduler.api.GetTask(id)
 		if err != nil || !t.Scheduled {
-			scheduler.scheduleTask(service, taskDef, i)
+			err := scheduler.scheduleTask(service, taskDef, i)
+			if err != nil && err != ErrCouldNotSchedule {
+				log.WithField("error", err).Error("[scheduler] failed")
+				return
+			}
 			added++
 		}
 	}
@@ -177,6 +182,11 @@ func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *a
 
 		t2 := time.Now().UnixNano()
 
+		err := scheduler.api.ScheduleTask(task)
+		if err != nil {
+			return err
+		}
+
 		log.WithFields(log.Fields{
 			"port": task.Port,
 			"host": task.Host,
@@ -184,17 +194,17 @@ func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *a
 			"task": task.Id(),
 		}).Info("[scheduler] added task")
 
-		scheduler.api.ScheduleTask(task)
 		return nil
 	}
 
 	log.WithField("task", task.Id()).Warn("[scheduler] failed to find a host")
-	return ScheduleTaskFailErr
+	return ErrCouldNotSchedule
 }
 
 // Finds an available port for a given host, the scheduler will take from the 'PortSelection' array provided by
 // the agent which will allow it to select a port that the agent is happy with.
 func (scheduler *DefaultScheduler) availablePort(host *api.Host) (sel uint) {
+
 
 	// To ensure that the scheduler does not issue multiple ports during a scheduling session the 'maxPort' map
 	// is used to track the maximum allocated port during this scheduling session per host. If we only choose
@@ -202,9 +212,12 @@ func (scheduler *DefaultScheduler) availablePort(host *api.Host) (sel uint) {
 	// ordered.
 	max := scheduler.maxPort[host.Name]
 
+	log.WithField("host", host.Name).WithField("ports", host.PortSelection).WithField("max", max).Debug("[scheduler] selecting a port")
+
 	for _, p := range host.PortSelection {
 		if p > max {
 			sel = p
+			break
 		}
 	}
 
@@ -218,7 +231,7 @@ func (scheduler *DefaultScheduler) Run() error {
 	hosts, err := scheduler.api.ListHosts()
 	if err != nil {
 		log.WithField("error", err).Error("[scheduler] failed to get hosts")
-		return ScheduleGetHostFailErr
+		return ErrCouldNotGetHosts
 	}
 
 	scheduler.hosts = hosts
@@ -229,7 +242,7 @@ func (scheduler *DefaultScheduler) Run() error {
 		select {
 		case <-scheduler.stopCh:
 			log.Warn("[scheduler] exited prematurely from stop signal")
-			return
+			return ErrExitingEarly
 		default:
 		}
 

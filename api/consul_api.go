@@ -380,60 +380,28 @@ func (a *ConsulApi) GetTask(id string) (*Task, error) {
 }
 
 func (a *ConsulApi) ScheduleTask(t *Task) error {
-	body := encode(t)
-
-	// ensure this is set to true before serializing
 	t.Scheduled = true
-	ops := api.KVTxnOps{
-		&api.KVTxnOp{
-			Verb:  "set",
-			Key:   a.conf.StatePrefix + t.Host + "/" + t.Id(),
-			Value: body,
-		},
-		&api.KVTxnOp{
-			Verb:  "set",
-			Key:   a.conf.StatePrefix + t.Id(),
-			Value: body,
-		},
-	}
-
-	ok, _, _, err := a.kv.Txn(ops, nil)
-	if !ok {
-		return ErrTxFailed
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return a.putTask(t)
 }
 
 func (a *ConsulApi) DeScheduleTask(t *Task) error {
-
 	// setting scheduled = false means this task won't be picked up by the query as running
 	t.Scheduled = false
-	ops := api.KVTxnOps{
-		&api.KVTxnOp{
-			Verb: "delete",
-			Key:  a.conf.StatePrefix + t.Host + "/" + t.Id(),
-		},
-		&api.KVTxnOp{
-			Verb:  "set",
-			Key:   a.conf.StatePrefix + t.Id(),
-			Value: encode(t),
-		},
-	}
+	return a.putTask(t)
+}
 
-	ok, _, _, err := a.kv.Txn(ops, nil)
-	if !ok {
-		return ErrTxFailed
-	}
+func (a *ConsulApi) putTask(t *Task) error {
+	body := encode(t)
 
+	err := a.put(a.conf.StatePrefix + t.Id(), body)
 	if err != nil {
 		return err
 	}
 
+	err = a.put(a.conf.StatePrefix + t.Host + "/" + t.Id(), body)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -451,4 +419,11 @@ func (a *ConsulApi) taskStatus(t *Task) bool {
 	}
 
 	return false
+}
+
+func (a *ConsulApi) Debug() {
+	list, _, _ := a.kv.List("", nil)
+	for _, kv := range list {
+		fmt.Printf("-> %s\n", kv.Key)
+	}
 }

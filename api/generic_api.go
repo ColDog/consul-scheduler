@@ -66,7 +66,7 @@ type SchedulerApi interface {
 	Lock(key string) (Lockable, error)
 
 	// Register With Generic API
-	RegisterAgent(host, addr string, port int)
+	RegisterAgent(host, addr string, port int) error
 	Register(t *Task) error
 	DeRegister(id string) error
 

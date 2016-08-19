@@ -1,16 +1,11 @@
 package api
 
 import (
-	log "github.com/Sirupsen/logrus"
-
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
-
-func init() {
-	log.SetLevel(log.DebugLevel)
-}
 
 func NewConsulAgent() *TestConsulAgent {
 	a := &TestConsulAgent{}
@@ -54,6 +49,8 @@ func RunConsulApiTest(f ConsulApiTest) {
 		if err == nil {
 			break
 		}
+
+		time.Sleep(1 * time.Second)
 	}
 
 	f(api)
