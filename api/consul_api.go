@@ -419,6 +419,9 @@ func (a *ConsulApi) DeScheduleTask(t *Task) error {
 func (a *ConsulApi) putTask(t *Task) error {
 	body := encode(t)
 
+	// todo: expensive to serialize and put in both
+	// todo: should be in a transaction
+	// todo: task definition is serialized as well, this is probably overkill
 	err := a.put(a.conf.StatePrefix+"_/"+t.Id(), body)
 	if err != nil {
 		return err

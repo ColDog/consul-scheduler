@@ -169,7 +169,9 @@ func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *a
 				continue
 			}
 
-			// Setup the health checks in consul with the correct ports
+			// Setup the health checks in consul with the correct ports. Since the scheduler is allowed to
+			// provide a port for the task, we fill the task.Checks object with the checks that are appropriate
+			// for this task, making sure to set the ports properly.
 			for _, check := range task.TaskDefinition.Checks {
 				if check.AddProvidedPort && task.TaskDefinition.ProvidePort {
 					if check.HTTP != "" {
@@ -187,7 +189,6 @@ func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *a
 					}
 				}
 
-				fmt.Printf("check: %+v\n", check)
 			}
 		}
 
