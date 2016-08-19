@@ -2,8 +2,7 @@ package scheduler
 
 import (
 	log "github.com/Sirupsen/logrus"
-	. "github.com/coldog/scheduler/api"
-	"github.com/coldog/scheduler/tools"
+	"github.com/coldog/scheduler/api"
 
 	"errors"
 	"sync"
@@ -17,10 +16,10 @@ var (
 
 // The scheduler is a function that takes the cluster it should schedule and a pointer to the api object to do
 // some scheduling.
-type Scheduler func(cluster Cluster, api *SchedulerApi, stopCh chan struct{})
+type Scheduler func(cluster *api.Cluster, a api.SchedulerApi, stopCh chan struct{})
 
 
-func NewMaster(a *SchedulerApi) *Master {
+func NewMaster(a api.SchedulerApi) *Master {
 	m := &Master{
 		api:        a,
 		Schedulers: make(map[string]Scheduler),
@@ -40,7 +39,7 @@ func NewMaster(a *SchedulerApi) *Master {
 // The default scheduler provided is suitable for small workloads, specifically web applications. It focuses on
 // being predictable and doesn't care where it's locating a specific workload.
 type Master struct {
-	api        SchedulerApi
+	api        api.SchedulerApi
 	Schedulers map[string]Scheduler
 	Default    Scheduler
 	monitors   map[string]chan struct{}

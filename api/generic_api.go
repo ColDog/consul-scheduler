@@ -56,8 +56,9 @@ func DefaultStorageConfig() *StorageConfig {
 type TaskQueryOpts struct {
 	ByService string
 	ByHost    string
-	ByState   bool
-	State     TaskState
+	Running   bool
+	Scheduled bool
+	Failing   bool
 }
 
 type SchedulerApi interface {
@@ -65,6 +66,7 @@ type SchedulerApi interface {
 	Lock(key string) (Lockable, error)
 
 	// Register With Generic API
+	RegisterAgent(host, addr string, port int)
 	Register(t *Task) error
 	DeRegister(id string) error
 

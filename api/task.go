@@ -49,6 +49,10 @@ func (task *Task) Validate(api SchedulerApi) (errors []string) {
 	return errors
 }
 
+func MakeTaskId(c *Cluster, s *Service, i int) string {
+	return fmt.Sprintf("%s-%s-%v-%v", c.Name, s.Name, s.TaskVersion, i)
+}
+
 // consul name:  <cluster_name>.<service_name>
 // consul id:    <name>.<task_version>-<instance>
 func (task *Task) Id() string {

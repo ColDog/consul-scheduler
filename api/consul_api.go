@@ -120,6 +120,21 @@ func (a *ConsulApi) Lock(key string) (Lockable, error) {
 
 // ==> REGISTER & DEREGISTER
 
+func (a *ConsulApi) RegisterAgent(host, addr string, port int) error {
+	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
+		ID: "consul-scheduler-"+host,
+		Name: "consul-scheduler",
+		Port: port,
+		Address: addr,
+		Checks: api.AgentServiceChecks{
+			&api.AgentServiceCheck{
+				Interval: "30s",
+				HTTP: fmt.Sprintf("http://%s:%d", addr, port),
+			},
+		},
+	})
+}
+
 func (a *ConsulApi) Register(t *Task) error {
 
 	checks := api.AgentServiceChecks{}
@@ -335,22 +350,16 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 		t.Passing = a.taskStatus(t)
 
 		// handle the by state queries here.
-		if q.ByState {
-			if q.State == RUNNING {
-				if !t.Passing {
-					continue
-				}
+		if q.Failing && t.Passing {
+			continue
+		}
 
-			} else if q.State == FAILING {
-				if t.Passing {
-					continue
-				}
+		if q.Running && !t.Passing {
+			continue
+		}
 
-			} else if q.State == STOPPED {
-				if t.Scheduled {
-					continue
-				}
-			}
+		if q.Scheduled && !t.Scheduled {
+			continue
 		}
 
 		ts = append(ts, t)

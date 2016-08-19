@@ -2,11 +2,10 @@ package agent
 
 import (
 	log "github.com/Sirupsen/logrus"
-	. "github.com/coldog/scheduler/api"
-	"github.com/coldog/scheduler/executors"
+	"github.com/coldog/scheduler/api"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 
+	"errors"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,12 +16,14 @@ import (
 
 /**
  * An agent is the process that handles keeping a given host in sync with the desired configuration.
- * There are
+ * An agent
  */
 
 type AgentConfig struct {
 	Runners      int           `json:"runners"`
 	SyncInterval time.Duration `json:"sync_interval"`
+	Port         int           `json:"port"`
+	Addr         string        `json:"addr"`
 }
 
 var (
@@ -33,7 +34,7 @@ var (
 type action struct {
 	start bool
 	stop  bool
-	task  Task
+	task  *api.Task
 }
 
 func (a action) name() string {
@@ -44,14 +45,12 @@ func (a action) name() string {
 	}
 }
 
-func NewAgent(a *SchedulerApi) *Agent {
+func NewAgent(a api.SchedulerApi) *Agent {
 	return &Agent{
 		api:       a,
 		queue:     make(chan action, 100),
 		stopCh:    make(chan struct{}, 1),
 		StartedAt: make(map[string]time.Time),
-		syncCh:    make(chan struct{}, 100),
-		listenCh:  make(chan struct{}, 100),
 		lock:      &sync.RWMutex{},
 		Config: &AgentConfig{
 			Runners:      3,
@@ -61,21 +60,19 @@ func NewAgent(a *SchedulerApi) *Agent {
 }
 
 type Agent struct {
-	api       *SchedulerApi
+	api       api.SchedulerApi
 	Host      string
 	LastSync  time.Time
-	LastState Host
+	LastState *api.Host
 	StartedAt map[string]time.Time
 	Config    *AgentConfig
 	lock      *sync.RWMutex
 	queue     chan action
 	stopCh    chan struct{}
-	syncCh    chan struct{}
-	listenCh  chan struct{}
 }
 
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
-func (agent *Agent) start(t Task) error {
+func (agent *Agent) start(t *api.Task) error {
 
 	agent.lock.RLock()
 	if startTime, ok := agent.StartedAt[t.Id()]; ok {
@@ -91,8 +88,8 @@ func (agent *Agent) start(t Task) error {
 	agent.StartedAt[t.Id()] = time.Now()
 	agent.lock.Unlock()
 
-	for _, cont := range t.TaskDef.Containers {
-		executor := executors.GetExecutor(cont)
+	for _, cont := range t.TaskDefinition.Containers {
+		executor := api.GetExecutor(cont)
 
 		if executor != nil {
 			err := executor.StartTask(t)
@@ -111,11 +108,11 @@ func (agent *Agent) start(t Task) error {
 }
 
 // deregisters a task from consul and attemps to stop the task from runnning
-func (agent *Agent) stop(t Task) error {
+func (agent *Agent) stop(t *api.Task) error {
 	agent.api.DeRegister(t.Id())
 
-	for _, cont := range t.TaskDef.Containers {
-		executor := executors.GetExecutor(cont)
+	for _, cont := range t.TaskDefinition.Containers {
+		executor := api.GetExecutor(cont)
 
 		if executor != nil {
 			err := executor.StopTask(t)
@@ -139,22 +136,25 @@ func (agent *Agent) stop(t Task) error {
 func (agent *Agent) PublishState() {
 	m, _ := mem.VirtualMemory()
 
-	desired, _ := agent.api.DesiredTasksByHost(agent.Host)
+	desired, _ := agent.api.ListTasks(*api.TaskQueryOpts{
+		ByHost: agent.Host,
+		Scheduled: true,
+	})
 	ports := make([]uint, 0)
 
 	for _, task := range desired {
 		ports = append(ports, task.Port)
 	}
 
-	h := Host{
+	h := &api.Host{
 		Name:          agent.Host,
 		Memory:        m.Available,
 		CpuUnits:      uint64(runtime.NumCPU()),
 		ReservedPorts: ports,
 		PortSelection: AvailablePortList(20),
 	}
-	agent.LastState = h
 
+	agent.LastState = h
 	agent.api.PutHost(h)
 }
 
@@ -163,60 +163,32 @@ func (agent *Agent) PublishState() {
 func (agent *Agent) sync() {
 	t1 := time.Now().UnixNano()
 
-	desired, err := agent.api.DesiredTasksByHost(agent.Host)
+	tasks, err := agent.api.ListTasks(*api.TaskQueryOpts{
+		ByHost: agent.Host,
+	})
 	if err != nil {
 		log.WithField("error", err).Error("failed to sync")
 		return
 	}
 
-	running, err := agent.api.RunningTasksOnHost(agent.Host)
-	if err != nil {
-		log.WithField("error", err).Error("failed to sync")
-		return
-	}
+	for _, task := range tasks {
 
-	// go through all of the desired tasks and check if they both and exist and are passing their health checks in
-	// consul. If they are not, we push the task onto the queue.
-	for _, task := range desired {
-		runTask, ok := running[task.Id()]
-
-		if ok && runTask.Exists && runTask.Passing {
-			continue // continue if task is ok
-		}
-
-		log.WithField("task", task.Id()).WithField("passing", runTask.Passing).WithField("exists", runTask.Exists).WithField("ok", ok).Debug("[agent] enqueue")
-		agent.queue <- action{
-			start: true,
-			task:  task,
-		}
-	}
-
-	// go through all of the running tasks and check if they exist in the configuration. The agent is allowed to
-	// stop a task when the running count for the tasks service is greater than the minimum.
-	for _, runTask := range running {
-
-		if runTask.Task.Stopped {
-			log.WithField("task", runTask.Task.Id()).Debug("[agent] task stopped")
-
-			c, err := agent.api.HealthyTaskCount(runTask.Task.Name())
-			if err != nil {
-				log.WithField("error", err).Error("failed to sync")
-				return
-			}
-
-			if c > runTask.Service.Min {
-				agent.queue <- action{
-					stop: true,
-					task: runTask.Task,
-				}
+		if task.Scheduled && !task.Passing {
+			// restart the task since it is failing
+			agent.queue <- action{
+				start: true,
+				task:  task,
 			}
 		}
 
-		// no way to stop the task since we cannot find it, instead we deregister in consul
-		if !runTask.Exists {
-			log.WithField("task", runTask.ServiceID).Debug("[agent] task doesn't exist")
-			agent.api.DeRegister(runTask.ServiceID)
+		if !task.Scheduled && task.Passing {
+			// stop the task since it shouldn't be running
+			agent.queue <- action{
+				stop: true,
+				task: task,
+			}
 		}
+
 	}
 
 	t2 := time.Now().UnixNano()
@@ -237,7 +209,7 @@ func (agent *Agent) Run() {
 	// the server provides a basic health checking port to allow for the agent to provide consul with updates
 	go agent.Server()
 	defer agent.api.DelHost(agent.Host)
-	defer agent.api.DeRegisterAgent(agent.Host)
+	defer agent.api.DeRegister("consul-scheduler-"+agent.Host)
 
 	// get our host name from consul, we pause the rest of the agent until this is ready.
 	for {
@@ -248,7 +220,7 @@ func (agent *Agent) Run() {
 		default:
 		}
 
-		name, err := agent.api.Host()
+		name, err := agent.api.HostName()
 		if err == nil {
 			agent.Host = name
 			break
@@ -267,7 +239,7 @@ func (agent *Agent) Run() {
 		default:
 		}
 
-		err := agent.api.RegisterAgent(agent.Host)
+		err := agent.api.Register()
 		if err == nil {
 			log.Info("[agent] registered agent")
 			break
@@ -282,7 +254,10 @@ func (agent *Agent) Run() {
 		go agent.runner(i)
 	}
 
-	go agent.stateWatcher()
+	listener := make(chan string)
+	agent.api.Subscribe("agent", "*", listener)
+	defer agent.api.UnSubscribe("agent")
+	defer close(listener)
 
 	select {
 	case <-agent.stopCh:
@@ -297,7 +272,7 @@ func (agent *Agent) Run() {
 	log.Debug("[agent] waiting")
 	for {
 		select {
-		case <-agent.syncCh:
+		case <-listener:
 			log.Debug("[agent] sync triggered")
 			agent.sync()
 			agent.PublishState()
@@ -330,11 +305,10 @@ func (agent *Agent) Server() {
 	})
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		// todo: make this useful!
 		w.Write([]byte("OK\n"))
 	})
 
-	log.Fatal(http.ListenAndServe(":8231", nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", agent.Config.Port), nil))
 }
 
 // the runner handles starting processes. It listens to a queue of processes to start and starts them as needed.
@@ -361,29 +335,5 @@ func (agent *Agent) runner(id int) {
 		case <-agent.stopCh:
 			return
 		}
-	}
-}
-
-// the watcher handles watching the state changes, it will emit messages to the syncCh telling the syncer to resync if
-// there are any changes in the configuration.
-func (agent *Agent) stateWatcher() {
-	for {
-		// exit if stopped
-		select {
-		case <-agent.stopCh:
-			return
-		default:
-		}
-
-		// watch the state plus this hosts host, meaning if the state for this host changes, the query
-		// will return.
-		err := agent.api.WaitOnKey(StatePrefix + agent.Host)
-		if err != nil {
-			time.Sleep(15 * time.Second)
-			continue
-		}
-
-		// trigger a sync if the watcher is triggered.
-		agent.syncCh <- struct{}{}
 	}
 }
