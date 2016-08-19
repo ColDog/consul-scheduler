@@ -22,8 +22,10 @@ checking and service discovery.
 2. [Definitions](#definitions)
 3. [Scheduling](#scheduling)
 4. [Configuring](#configuring)
+    a. [Docker Executor](#docker-executor)
+    b. [Bash Executor](#bash-executor)
 5. [Agents](#agents)
-
+6. [Deploying](#deploying)
 
 ### Quickstart
 
@@ -75,6 +77,8 @@ Schedulers are configured on a
 #### YAML File
 
 #### Consul KV
+
+#### Executors
 
 The following is the basic structure of the storage in consul.
 

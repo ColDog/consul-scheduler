@@ -4,21 +4,21 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/coldog/scheduler/actions"
-	"github.com/coldog/scheduler/api"
 	"github.com/coldog/scheduler/agent"
+	"github.com/coldog/scheduler/api"
 	"github.com/coldog/scheduler/scheduler"
 
-	"github.com/urfave/cli"
 	log "github.com/Sirupsen/logrus"
 	consulApi "github.com/hashicorp/consul/api"
+	"github.com/urfave/cli"
 
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
-	"net/http"
 )
 
 type AppConfig struct {
@@ -38,12 +38,12 @@ type ExitHandler func()
 type AppCmd func(app *App) cli.Command
 
 type App struct {
-	cli    *cli.App
-	Api    api.SchedulerApi
-	Config *AppConfig
-	Agent  *agent.Agent
-	Master *scheduler.Master
-	atExit ExitHandler
+	cli        *cli.App
+	Api        api.SchedulerApi
+	Config     *AppConfig
+	Agent      *agent.Agent
+	Master     *scheduler.Master
+	atExit     ExitHandler
 	ConsulConf *consulApi.Config
 }
 
@@ -120,7 +120,6 @@ func (app *App) setup() {
 	}
 }
 
-
 // Registers a listener for SIGTERM and sets the function to run being the 'ExitHandler' function.
 func (app *App) AtExit(e ExitHandler) {
 	app.atExit = e
@@ -149,16 +148,16 @@ func (app *App) AtExit(e ExitHandler) {
 
 func (app *App) RegisterAgent(c *cli.Context) {
 	app.Agent = agent.NewAgent(app.Api, &agent.AgentConfig{
-		Port: app.Config.Port,
-		Addr: app.Config.Addr,
-		Runners: c.Int("agent-runners"),
+		Port:         app.Config.Port,
+		Addr:         app.Config.Addr,
+		Runners:      c.Int("agent-runners"),
 		SyncInterval: c.Duration("agent-sync-interval"),
 	})
 }
 
 func (app *App) RegisterMaster(c *cli.Context) {
 	app.Master = scheduler.NewMaster(app.Api, &scheduler.MasterConfig{
-		SyncInterval: c.Duration("master-sync-interval"),
+		SyncInterval:     c.Duration("master-sync-interval"),
 		DisabledClusters: c.StringSlice("master-disabled-clusters"),
 	})
 }
