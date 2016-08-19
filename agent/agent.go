@@ -51,10 +51,13 @@ func NewAgent(a api.SchedulerApi) *Agent {
 		queue:     make(chan action, 100),
 		stopCh:    make(chan struct{}, 1),
 		StartedAt: make(map[string]time.Time),
+		readyCh:   make(chan struct{}),
 		lock:      &sync.RWMutex{},
 		Config: &AgentConfig{
 			Runners:      3,
 			SyncInterval: 30 * time.Second,
+			Port: 8231,
+			Addr: "127.0.0.1",
 		},
 	}
 }
@@ -69,6 +72,7 @@ type Agent struct {
 	lock      *sync.RWMutex
 	queue     chan action
 	stopCh    chan struct{}
+	readyCh   chan struct{}
 }
 
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
@@ -136,7 +140,7 @@ func (agent *Agent) stop(t *api.Task) error {
 func (agent *Agent) PublishState() {
 	m, _ := mem.VirtualMemory()
 
-	desired, _ := agent.api.ListTasks(*api.TaskQueryOpts{
+	desired, _ := agent.api.ListTasks(&api.TaskQueryOpts{
 		ByHost: agent.Host,
 		Scheduled: true,
 	})
@@ -163,7 +167,7 @@ func (agent *Agent) PublishState() {
 func (agent *Agent) sync() {
 	t1 := time.Now().UnixNano()
 
-	tasks, err := agent.api.ListTasks(*api.TaskQueryOpts{
+	tasks, err := agent.api.ListTasks(&api.TaskQueryOpts{
 		ByHost: agent.Host,
 	})
 	if err != nil {
@@ -197,21 +201,8 @@ func (agent *Agent) sync() {
 	agent.LastSync = time.Now()
 }
 
-func (agent *Agent) Stop() {
-	close(agent.stopCh)
-}
-
-// the agent will sync every 30 seconds or when a value is passed over the syncCh. There are watcher processes which
-// keep an eye one changes in consul and tell the syncer when to run the sync function.
-func (agent *Agent) Run() {
-	log.Info("[agent] starting")
-
-	// the server provides a basic health checking port to allow for the agent to provide consul with updates
-	go agent.Server()
-	defer agent.api.DelHost(agent.Host)
-	defer agent.api.DeRegister("consul-scheduler-"+agent.Host)
-
-	// get our host name from consul, we pause the rest of the agent until this is ready.
+// get our host name from consul, this will block.
+func (agent *Agent) GetHostName() {
 	for {
 		select {
 		case <-agent.stopCh:
@@ -229,8 +220,10 @@ func (agent *Agent) Run() {
 		log.WithField("error", err).Error("[agent] could not get host")
 		time.Sleep(5 * time.Second)
 	}
+}
 
-	// register the agent in consul, we wait for this before continuing
+// register the agent in consul, this will block.
+func (agent *Agent) RegisterAgent() {
 	for {
 		select {
 		case <-agent.stopCh:
@@ -239,7 +232,7 @@ func (agent *Agent) Run() {
 		default:
 		}
 
-		err := agent.api.Register()
+		err := agent.api.RegisterAgent(agent.Host, agent.Config.Addr, agent.Config.Port)
 		if err == nil {
 			log.Info("[agent] registered agent")
 			break
@@ -248,7 +241,28 @@ func (agent *Agent) Run() {
 		log.WithField("error", err).Error("[agent] could not register")
 		time.Sleep(5 * time.Second)
 	}
+}
 
+func (agent *Agent) Stop() {
+	close(agent.stopCh)
+}
+
+func (agent *Agent) Wait() {
+	<-agent.readyCh
+}
+
+// the agent will sync every 30 seconds or when a value is passed over the syncCh. There are watcher processes which
+// keep an eye one changes in consul and tell the syncer when to run the sync function.
+func (agent *Agent) Run() {
+	log.Info("[agent] starting")
+
+	// the server provides a basic health checking port to allow for the agent to provide consul with updates
+	go agent.Server()
+	defer agent.api.DelHost(agent.Host)
+	defer agent.api.DeRegister("consul-scheduler-"+agent.Host)
+
+	agent.GetHostName()
+	agent.RegisterAgent()
 
 	for i := 0; i < agent.Config.Runners; i++ {
 		go agent.runner(i)
@@ -266,8 +280,11 @@ func (agent *Agent) Run() {
 	default:
 	}
 
-	agent.sync()
 	agent.PublishState()
+
+	close(agent.readyCh)
+
+	agent.sync()
 
 	log.Debug("[agent] waiting")
 	for {

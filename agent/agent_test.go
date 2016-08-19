@@ -1,71 +1,55 @@
 package agent
 
 import (
-	. "github.com/coldog/scheduler/api"
-	. "github.com/coldog/scheduler/tools"
+	log "github.com/Sirupsen/logrus"
 
-	"fmt"
+	"github.com/coldog/scheduler/actions"
+	"github.com/coldog/scheduler/api"
+	"github.com/coldog/scheduler/scheduler"
+	"github.com/coldog/scheduler/tools"
+
 	"testing"
+	"fmt"
 	"time"
 )
 
-func TestAgentRunner(t *testing.T) {
-	ag := NewAgent(NewSchedulerApi())
-	defer ag.Stop()
-
-	go ag.runner(0)
-
-
+func init() {
+	log.SetLevel(log.DebugLevel)
 }
 
-func TestAgentSync(t *testing.T) {
-	ag := NewAgent(NewSchedulerApi())
+func TestAgent_Syncing(t *testing.T) {
+	api.RunConsulApiTest(func(a *api.ConsulApi) {
+		err := actions.ApplyConfig("../examples/hello-world.yml", a)
+		tools.Ok(t, err)
 
-	task := Task{
-		Host:    ag.Host,
-		Service: "test-service2",
-		Cluster: Cluster{
-			Name: "test-cluster2",
-		},
-		TaskDef: TaskDefinition{
-			Name: "test2",
-			Containers: []Container{
-				Container{
-					Executor: "bash",
-					Bash: BashExecutor{
-						Cmd:  "echo",
-						Args: []string{"hello there"},
-					},
-				},
-			},
-		},
-	}
+		ag := NewAgent(a)
+		ag.GetHostName()
+		ag.RegisterAgent()
+		ag.PublishState()
 
-	ag.api.PutTask(task)
-	task, ok := ag.api.GetTask(task.Id())
-	if !ok {
-		t.Fatal(task)
-	}
+		fmt.Printf("%+v\n", ag.LastState)
 
-	ag.api.DebugState("")
-	ag.sync()
+		c, err := a.GetCluster("default")
+		tools.Ok(t, err)
+		scheduler.RunDefaultScheduler(c, a, nil)
 
-	go func() {
-		time.Sleep(3 * time.Second)
-		ag.quit <- struct{}{}
-	}()
+		a.Debug()
+		ag.sync()
 
-	ag.runner()
+		count := 0
+		for {
+			select {
+			case <-time.After(3 * time.Second):
+				t.Fatal("took too long")
 
-	c := ag.api.HealthyTaskCount(task.Name())
-	fmt.Printf("count: %v\n", c)
+			case act := <- ag.queue:
+				count++
+				fmt.Printf("%d %+v\n", count, act)
+				if count >= 4 {
+					return
+				}
+
+			}
+		}
+	})
 }
-
-func TestPublishAgent(t *testing.T) {
-	ag := NewAgent(NewSchedulerApi())
-	ag.publishState()
-}
-
-//func TestStart(t *testing.T) {
-//	ag := NewAgent(NewSchedulerApi())
-//}

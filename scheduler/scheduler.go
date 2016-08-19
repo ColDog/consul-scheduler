@@ -68,6 +68,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) (int
 		"desired": service.Desired,
 		"min":     service.Min,
 		"max":     service.Max,
+		"hosts":   len(scheduler.hosts),
 	}).Info("[scheduler] scheduling " + service.Name)
 
 	// the next section will remove all of the tasks that shouldn't be running while keeping those running
