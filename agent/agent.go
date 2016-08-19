@@ -86,7 +86,8 @@ func (agent *Agent) start(t *api.Task) error {
 	if startTime, ok := agent.StartedAt[t.Id()]; ok {
 		// if we add 3 minutes to the started at time, and it's after the current
 		// time we skip this loop
-		if startTime.Add(1 * time.Minute).After(time.Now()) {
+		if startTime.Add(15 * time.Second).After(time.Now()) {
+			agent.lock.RUnlock()
 			return PassOnStartReqErr
 		}
 	}
@@ -179,19 +180,26 @@ func (agent *Agent) sync() {
 
 	for _, task := range tasks {
 
+		log.WithField("task", task.Id()).WithField("passing", task.Passing).WithField("scheduled", task.Scheduled).Debug("[agent] syncing task")
+
 		if task.Scheduled && !task.Passing {
+			log.Debug("[agent] triggering start!")
 			// restart the task since it is failing
-			agent.queue <- action{
-				start: true,
-				task:  task,
+			select {
+			case agent.queue <- action{start: true, task:  task}:
+			default:
+				log.Error("[agent] queue is full")
 			}
 		}
 
 		if !task.Scheduled && task.Passing {
+			log.Debug("[agent] triggering stop!")
+
 			// stop the task since it shouldn't be running
-			agent.queue <- action{
-				stop: true,
-				task: task,
+			select {
+			case agent.queue <- action{stop: true, task:  task}:
+			default:
+				log.Error("[agent] queue is full")
 			}
 		}
 
