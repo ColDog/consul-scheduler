@@ -17,7 +17,6 @@ var (
 type listener struct {
 	on string
 	ch chan string
-
 }
 
 type ConsulApi struct {
@@ -122,14 +121,14 @@ func (a *ConsulApi) Lock(key string) (Lockable, error) {
 
 func (a *ConsulApi) RegisterAgent(host, addr string, port int) error {
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID: "consul-scheduler-"+host,
-		Name: "consul-scheduler",
-		Port: port,
+		ID:      "consul-scheduler-" + host,
+		Name:    "consul-scheduler",
+		Port:    port,
 		Address: addr,
 		Checks: api.AgentServiceChecks{
 			&api.AgentServiceCheck{
 				Interval: "30s",
-				HTTP: fmt.Sprintf("http://%s:%d", addr, port),
+				HTTP:     fmt.Sprintf("http://%s:%d", addr, port),
 			},
 		},
 	})
@@ -332,6 +331,8 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 	// add the host or service prefix to the task, which will scope in what is returned
 	if q.ByHost != "" {
 		prefix += q.ByHost
+	} else {
+		prefix += "_/"
 	}
 
 	if q.ByService != "" {
@@ -370,7 +371,7 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 func (a *ConsulApi) GetTask(id string) (*Task, error) {
 	t := &Task{}
 
-	kv, err := a.get(a.conf.TaskDefinitionsPrefix + id)
+	kv, err := a.get(a.conf.StatePrefix + "_/" + id)
 	if err == nil {
 		decode(kv.Value, t)
 		t.Passing = a.taskStatus(t)
@@ -393,12 +394,12 @@ func (a *ConsulApi) DeScheduleTask(t *Task) error {
 func (a *ConsulApi) putTask(t *Task) error {
 	body := encode(t)
 
-	err := a.put(a.conf.StatePrefix + t.Id(), body)
+	err := a.put(a.conf.StatePrefix+"_/"+t.Id(), body)
 	if err != nil {
 		return err
 	}
 
-	err = a.put(a.conf.StatePrefix + t.Host + "/" + t.Id(), body)
+	err = a.put(a.conf.StatePrefix+t.Host+"/"+t.Id(), body)
 	if err != nil {
 		return err
 	}

@@ -1,14 +1,14 @@
 package api
 
 import (
-	"testing"
 	"github.com/coldog/scheduler/tools"
+	"testing"
 )
 
 func TestExecutors_Bash(t *testing.T) {
 	b := BashExecutor{
 		Start: []string{"echo hello"},
-		Stop: []string{"echo stop"},
+		Stop:  []string{"echo stop"},
 	}
 
 	task := sampleTask()
@@ -21,10 +21,9 @@ func TestExecutors_Bash(t *testing.T) {
 
 func TestExecutors_Docker(t *testing.T) {
 	b := DockerExecutor{
-		Image: "ubuntu",
+		Image:         "ubuntu",
 		ContainerPort: 8080,
-		Env: []string{"HI=hello"},
-
+		Env:           []string{"HI=hello"},
 	}
 
 	task := sampleTask()

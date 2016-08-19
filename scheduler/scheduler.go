@@ -16,11 +16,11 @@ var (
 	ErrExitingEarly     = errors.New("exit signal received")
 )
 
-func RunDefaultScheduler(cluster *api.Cluster, a api.SchedulerApi, stopCh chan struct{})  {
+func RunDefaultScheduler(cluster *api.Cluster, a api.SchedulerApi, stopCh chan struct{}) {
 	s := &DefaultScheduler{
 		cluster: cluster,
-		api: a,
-		stopCh: stopCh,
+		api:     a,
+		stopCh:  stopCh,
 		maxPort: make(map[string]uint),
 	}
 	s.Run()
@@ -51,7 +51,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) {
 
 	// build up all of the required variables
 	tasks, err := scheduler.api.ListTasks(&api.TaskQueryOpts{
-		ByService: scheduler.cluster.Name+"-"+service.Name,
+		ByService: scheduler.cluster.Name + "-" + service.Name,
 	})
 	if err != nil {
 		log.WithField("error", err).Error("[scheduler] failed")
@@ -204,7 +204,6 @@ func (scheduler *DefaultScheduler) scheduleTask(service *api.Service, taskDef *a
 // Finds an available port for a given host, the scheduler will take from the 'PortSelection' array provided by
 // the agent which will allow it to select a port that the agent is happy with.
 func (scheduler *DefaultScheduler) availablePort(host *api.Host) (sel uint) {
-
 
 	// To ensure that the scheduler does not issue multiple ports during a scheduling session the 'maxPort' map
 	// is used to track the maximum allocated port during this scheduling session per host. If we only choose

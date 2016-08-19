@@ -2,8 +2,8 @@ package scheduler
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/coldog/scheduler/api"
 	"github.com/coldog/scheduler/actions"
+	"github.com/coldog/scheduler/api"
 	"github.com/coldog/scheduler/tools"
 
 	"testing"
@@ -41,9 +41,9 @@ func TestScheduler_WithHosts(t *testing.T) {
 
 		// register a host
 		a.PutHost(&api.Host{
-			Name: "test",
-			CpuUnits: 10000,
-			Memory: 100000,
+			Name:          "test",
+			CpuUnits:      10000,
+			Memory:        100000,
 			PortSelection: []uint{1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007},
 			ReservedPorts: []uint{2000},
 		})

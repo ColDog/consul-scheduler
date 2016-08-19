@@ -18,7 +18,6 @@ var (
 // some scheduling.
 type Scheduler func(cluster *api.Cluster, a api.SchedulerApi, stopCh chan struct{})
 
-
 func NewMaster(a api.SchedulerApi) *Master {
 	m := &Master{
 		api:        a,
@@ -61,7 +60,7 @@ func (master *Master) monitor(name string, stopCh chan struct{}) {
 	defer close(stopCh)
 
 LOCK:
-	lock, err := master.api.Lock(master.api.Conf().SchedulersPrefix+name)
+	lock, err := master.api.Lock(master.api.Conf().SchedulersPrefix + name)
 	if err != nil {
 		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return
@@ -78,7 +77,7 @@ LOCK:
 	defer close(listener)
 
 	master.api.Subscribe("monitor-"+name, "config::*", listener)
-	defer master.api.UnSubscribe("monitor-"+name)
+	defer master.api.UnSubscribe("monitor-" + name)
 
 	err = master.schedule(name, stopCh)
 	if err != nil {

@@ -29,7 +29,6 @@ func GetExecutor(c *Container) Executor {
 	return nil
 }
 
-
 // The bash executor simply runs a list of commands to start the process, and then runs another
 // list of commands to stop the process. This is a very rough executor as it doesn't know much
 // about the underlying process and therefore cannot intelligently make many decisions about it.
@@ -69,7 +68,6 @@ func (bash BashExecutor) StopTask(t *Task) (err error) {
 	}
 	return err
 }
-
 
 // The docker executor will start a docker container.
 type DockerExecutor struct {
