@@ -33,6 +33,8 @@ git tag ${version} -m "${message}"
 git push origin --all
 git push origin --tags
 
+sleep 2
+
 # create release through github api
 payload='{"tag_name": "'${version}'","target_commitish": "master","name": "'${version}'","body": "'${message}'"}'
 body=$( curl --data "${payload}" https://api.github.com/repos/${project_path}/releases?access_token=${GITHUB_TOKEN} )
@@ -87,6 +89,7 @@ curl -XPOST \
 cd ../
 
 #echo "begin docker pushing"
-#docker build -t coldog/consul-scheduler:${version} .
-#docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
-#docker push coldog/consul-scheduler:${version}
+env GOOS=linux GOARCH=amd64 go build -o dist/sked_linux-arm64-latest ${repo}
+docker build -t coldog/sked:${version} .
+docker tag coldog/sked:${version} coldog/sked:latest
+docker push coldog/sked:${version}
