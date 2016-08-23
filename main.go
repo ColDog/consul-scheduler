@@ -48,7 +48,7 @@ type App struct {
 }
 
 func (app *App) printWelcome(mode string) {
-	fmt.Printf("\nconsul-scheduler starting...\n\n")
+	fmt.Printf("\nsked starting...\n\n")
 	fmt.Printf("          version  %s\n", VERSION)
 	fmt.Printf("        log-level  %s\n", log.GetLevel())
 	fmt.Printf("       consul-api  %s\n", app.ConsulConf.Address)
@@ -65,7 +65,7 @@ func (app *App) setup() {
 		Addr: "127.0.0.1",
 	}
 
-	app.cli.Name = "consul-scheduler"
+	app.cli.Name = "sked"
 	app.cli.Version = VERSION
 	app.cli.Author = "Colin Walker"
 	app.cli.Usage = "schedule tasks across a consul cluster."
@@ -245,7 +245,7 @@ func (app *App) ApplyCmd() (cmd cli.Command) {
 	cmd.Name = "apply"
 	cmd.Usage = "apply the provided configuration file to consul"
 	cmd.Flags = []cli.Flag{
-		cli.StringFlag{Name: "file, f", Value: "consul-scheduler.yml", Usage: "configuration file to read"},
+		cli.StringFlag{Name: "file, f", Value: "sked-conf.yml", Usage: "configuration file to read"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		file := c.String("file")

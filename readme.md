@@ -1,4 +1,7 @@
-# Consul Scheduler
+# Sked
+
+A scheduler built for Consul.io with first class support for health checking and an emphasis on simplicity and ease of
+use.
 
 
 ## Overview
@@ -42,9 +45,9 @@ checking and service discovery.
 
 1. Download Consul: https://www.consul.io/intro/getting-started/install.html
 3. Start Consul: `consul agent -dev -ui -bind=127.0.0.1`
-3. Download Consul-Scheduler: https://github.com/ColDog/consul-scheduler/releases and `cd` into the directory
-4. Start Consul-Scheduler: `./consul-scheduler combined` (start in combined mode)
-5. Load an example: `./consul-scheduler apply -f examples/hello-world.yml`
+3. Download Sked: https://github.com/ColDog/sked/releases and `cd` into the directory
+4. Start Sked: `./sked combined` (start in combined mode)
+5. Load an example: `./sked apply -f examples/hello-world.yml`
 6. Watch the output and see it schedule the tasks!
 
 
@@ -69,6 +72,8 @@ Service: An object containing the configuration for running a given _task defini
 Cluster: A logical grouping of _services_.
 
 Task: A running instance of a _task definition_, associated with a _service_, _cluster_ and most importantly a _host_.
+
+Executor: The main configuration for a container that tells the agent how to start and stop it.
 
 ### Concepts
 
@@ -239,7 +244,7 @@ task_definitions:
 ```javascript
 {
   "image": "ubuntu",            // docker image
-  "cmd": ["consul-scheduler"],  // commands
+  "cmd": ["sked"],  // commands
   "entry": "",                  // docker entrypoint
 
   // when a provided port is mapped on the task definition and the container port is present

@@ -2,6 +2,9 @@
 
 version=v${1}
 message="Release of version "${1}
+project_path="coldog/sked"
+repo="github.com/${project_path}"
+name="sked"
 
 echo releasing ${version} with ${message}
 
@@ -37,8 +40,8 @@ echo ${id}
 # create compilations
 echo "begin compiling"
 
-go install github.com/coldog/scheduler
-$GOPATH/bin/scheduler -v
+go install ${repo}
+$GOPATH/bin/${name} -v
 
 # future versions to release: linux
 for d in linux-amd64 linux-arm darwin-amd64 windows-amd64
@@ -48,27 +51,37 @@ do
 
     arch=$( echo $x | cut -d'-' -f 2 )
     os=$( echo $x | cut -d'-' -f 1 )
-    name=consul-scheduler_${d}-${version}
+    release_name=${name}_${d}-${version}
 
-    mkdir -p dist/${name}
-    env GOOS=${os} GOARCH=${arch} go build -o dist/${name}/consul-scheduler github.com/coldog/scheduler
-    cp -r examples dist/${name}/
-    cp Vagrantfile dist/${name}/
-    cp readme.md dist/${name}/
+    env GOOS=${os} GOARCH=${arch} go build -o dist/${release_name} ${repo}
 
     cd dist
-    zip -r ${name}.zip ${name}
-
     curl -XPOST \
-            --data-binary @${name}.zip \
+            --data-binary @${release_name}.zip \
             -H "Content-Type:application/octet-stream" \
-            "https://uploads.github.com/repos/coldog/consul-scheduler/releases/${id}/assets?access_token=${GITHUB_TOKEN}&name=${name}.zip"
+            "https://uploads.github.com/repos/${project_path}/releases/${id}/assets?access_token=${GITHUB_TOKEN}&name=${release_name}"
 
     cd ../
 done
 
-echo "begin docker pushing"
-env GOOS=linux GOARCH=amd64 go build -o consul-scheduler github.com/coldog/scheduler
-docker build -t coldog/consul-scheduler:${version} .
-docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
-docker push coldog/consul-scheduler:${version}
+# mac quickstart
+mkdir -p dist/examples-${version}
+cp -r examples dist/examples-${version}/
+cp Vagrantfile dist/examples-${version}/
+cp readme.md dist/examples-${version}/
+cp dist/${name}_darwin-amd64-${version} dist/examples-${version}/sked
+
+
+cd dist
+zip -r quickstart-${version}.zip examples-${version}
+curl -XPOST \
+        --data-binary @${release_name}.zip \
+        -H "Content-Type:application/octet-stream" \
+        "https://uploads.github.com/repos/${project_path}/releases/${id}/assets?access_token=${GITHUB_TOKEN}&name=quickstart-${version}.zip"
+
+cd ../
+
+#echo "begin docker pushing"
+#docker build -t coldog/consul-scheduler:${version} .
+#docker tag coldog/consul-scheduler:${version} coldog/consul-scheduler:latest
+#docker push coldog/consul-scheduler:${version}
