@@ -32,7 +32,7 @@ git push origin --tags
 
 # create release through github api
 payload='{"tag_name": "'${version}'","target_commitish": "master","name": "'${version}'","body": "'${message}'"}'
-body=$( curl --data "${payload}" https://api.github.com/repos/coldog/consul-scheduler/releases?access_token=${GITHUB_TOKEN} )
+body=$( curl --data "${payload}" https://api.github.com/repos/${project_path}/releases?access_token=${GITHUB_TOKEN} )
 
 echo $body
 id=$( echo ${body} | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["id"]' )
