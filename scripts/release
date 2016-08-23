@@ -62,7 +62,7 @@ do
 
     cd dist
     curl -XPOST \
-            --data-binary @${release_name}.zip \
+            --data-binary @${release_name} \
             -H "Content-Type:application/octet-stream" \
             "https://uploads.github.com/repos/${project_path}/releases/${id}/assets?access_token=${GITHUB_TOKEN}&name=${release_name}"
 
