@@ -236,7 +236,7 @@ task_definitions:
 ```
 
 ##### Docker Executor
-```json
+```javascript
 {
   "image": "ubuntu",            // docker image
   "cmd": ["consul-scheduler"],  // commands
@@ -254,7 +254,7 @@ task_definitions:
 ```
 
 ##### Bash Executor
-```json
+```javascript
 {
   "start": ["echo start"],            // a list of bash commands to start a task
   "stop": ["echo stop"],              // a list of bash commands to stop a task
