@@ -2,7 +2,7 @@ package agent
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/coldog/scheduler/api"
+	"github.com/coldog/sked/api"
 	"github.com/shirou/gopsutil/mem"
 
 	"errors"

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/coldog/scheduler/tools"
+	"github.com/coldog/sked/tools"
 	"testing"
 )
 

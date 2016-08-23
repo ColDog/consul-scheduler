@@ -3,10 +3,10 @@ package main
 import (
 	_ "net/http/pprof"
 
-	"github.com/coldog/scheduler/actions"
-	"github.com/coldog/scheduler/agent"
-	"github.com/coldog/scheduler/api"
-	"github.com/coldog/scheduler/scheduler"
+	"github.com/coldog/sked/actions"
+	"github.com/coldog/sked/agent"
+	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/scheduler"
 
 	log "github.com/Sirupsen/logrus"
 	consulApi "github.com/hashicorp/consul/api"

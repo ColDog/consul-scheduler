@@ -1,7 +1,7 @@
 package actions
 
 import (
-	"github.com/coldog/scheduler/api"
+	"github.com/coldog/sked/api"
 	"github.com/ghodss/yaml"
 
 	"fmt"

@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/coldog/scheduler/tools"
+	"github.com/coldog/sked/tools"
 )
 
 func GetExecutor(c *Container) Executor {
@@ -13,8 +13,8 @@ func GetExecutor(c *Container) Executor {
 			return c.docker
 		}
 
-		res := DockerExecutor{}
-		err := json.Unmarshal(c.Executor, &res)
+		res := &DockerExecutor{}
+		err := json.Unmarshal(c.Executor, res)
 		if err != nil {
 			fmt.Printf("json err: %v\n", err)
 			return nil
@@ -27,8 +27,8 @@ func GetExecutor(c *Container) Executor {
 			return c.bash
 		}
 
-		res := BashExecutor{}
-		err := json.Unmarshal(c.Executor, &res)
+		res := &BashExecutor{}
+		err := json.Unmarshal(c.Executor, res)
 		if err != nil {
 			fmt.Printf("json err: %v\n", err)
 			return nil
@@ -52,7 +52,7 @@ type BashExecutor struct {
 	DownloadDir string   `json:"download_dir"`
 }
 
-func (bash BashExecutor) StartTask(t *Task) error {
+func (bash *BashExecutor) StartTask(t *Task) error {
 	if t.TaskDefinition.ProvidePort {
 		bash.Env = append(bash.Env, fmt.Sprintf("SCHEDULED_PORT=%d", t.Port))
 	}
@@ -74,7 +74,7 @@ func (bash BashExecutor) StartTask(t *Task) error {
 	return nil
 }
 
-func (bash BashExecutor) StopTask(t *Task) (err error) {
+func (bash *BashExecutor) StopTask(t *Task) (err error) {
 	for _, cmd := range bash.Start {
 		err = tools.Exec(bash.Env, "/bin/bash", "-c", cmd)
 	}
@@ -94,7 +94,7 @@ type DockerExecutor struct {
 	Flags         []string `json:"flags"`
 }
 
-func (docker DockerExecutor) StartTask(t *Task) error {
+func (docker *DockerExecutor) StartTask(t *Task) error {
 	if t.TaskDefinition.ProvidePort {
 		p := docker.ContainerPort
 		if p == uint(0) {
@@ -139,6 +139,6 @@ func (docker DockerExecutor) StartTask(t *Task) error {
 	return tools.Exec(docker.Env, "docker", main...)
 }
 
-func (docker DockerExecutor) StopTask(t *Task) error {
+func (docker *DockerExecutor) StopTask(t *Task) error {
 	return tools.Exec(docker.Env, "docker", "stop", t.Id())
 }

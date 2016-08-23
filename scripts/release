@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+
 version=v${1}
 message="Release of version "${1}
 project_path="coldog/sked"
@@ -9,6 +10,8 @@ name="sked"
 echo releasing ${version} with ${message}
 
 set -e
+
+go install ${repo}
 
 source .env
 

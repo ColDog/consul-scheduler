@@ -2,7 +2,7 @@ package scheduler
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/coldog/scheduler/api"
+	"github.com/coldog/sked/api"
 
 	"errors"
 	"fmt"

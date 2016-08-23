@@ -2,7 +2,7 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/coldog/scheduler/tools"
+	"github.com/coldog/sked/tools"
 )
 
 // a runnable task description

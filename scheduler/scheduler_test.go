@@ -2,9 +2,9 @@ package scheduler
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/coldog/scheduler/actions"
-	"github.com/coldog/scheduler/api"
-	"github.com/coldog/scheduler/tools"
+	"github.com/coldog/sked/actions"
+	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/tools"
 
 	"testing"
 	"fmt"
