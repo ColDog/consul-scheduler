@@ -91,5 +91,6 @@ cd ../
 #echo "begin docker pushing"
 env GOOS=linux GOARCH=amd64 go build -o dist/sked_linux-arm64-latest ${repo}
 docker build -t coldog/sked:${version} .
+docker tag coldog/sked:${version} coldog/sked:${version}
 docker tag coldog/sked:${version} coldog/sked:latest
 docker push coldog/sked:${version}
