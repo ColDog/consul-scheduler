@@ -10,6 +10,8 @@ echo releasing ${version} with ${message}
 
 set -e
 
+source .env
+
 if [ ${version} = "v" ]; then
     echo "version must be given"
     exit 1
