@@ -117,8 +117,15 @@ type SchedulerApi interface {
 // all commands should have at least one string in the array or else a panic will be thrown
 // by the agent.
 type Executor interface {
+	// this function should start a task.
 	StartTask(t *Task) error
+
+	// this function should stop a task from running and is intended to be
+	// executed by the agent.
 	StopTask(t *Task) error
+
+	// a list of ports that are required by this executor
+	ReservedPorts() []uint
 }
 
 type Validatable interface {

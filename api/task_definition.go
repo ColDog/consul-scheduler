@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"github.com/coldog/sked/tools"
+	"time"
 )
 
 // a runnable task description
@@ -10,15 +11,16 @@ import (
 // 	- version must be new
 //
 type TaskDefinition struct {
-	Name        string       `json:"name"`
-	Version     uint         `json:"version"`
-	ProvidePort bool         `json:"provide_port"`
-	Port        uint         `json:"port"`
-	Tags        []string     `json:"tags"`
-	Memory      uint64       `json:"memory"`
-	CpuUnits    uint64       `json:"cpu_units"`
-	Containers  []*Container `json:"containers"`
-	Checks      []*Check     `json:"checks"`
+	Name        string        `json:"name"`
+	Version     uint          `json:"version"`
+	ProvidePort bool          `json:"provide_port"`
+	Port        uint          `json:"port"`
+	Tags        []string      `json:"tags"`
+	Memory      uint64        `json:"memory"`
+	CpuUnits    uint64        `json:"cpu_units"`
+	Containers  []*Container  `json:"containers"`
+	Checks      []*Check      `json:"checks"`
+	GracePeriod time.Duration `json:"grace_period"`
 }
 
 func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {

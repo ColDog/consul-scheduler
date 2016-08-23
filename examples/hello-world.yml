@@ -9,8 +9,8 @@ services:
     task_name: helloworld
     task_version: 2
     min: 3
-    max: 4
-    desired: 4
+    max: 50
+    desired: 50
 
 tasks:
   - name: helloworld

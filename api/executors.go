@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/coldog/sked/tools"
+	"strings"
+	"strconv"
 )
 
 func GetExecutor(c *Container) Executor {
@@ -45,6 +47,7 @@ func GetExecutor(c *Container) Executor {
 // list of commands to stop the process. This is a very rough executor as it doesn't know much
 // about the underlying process and therefore cannot intelligently make many decisions about it.
 type BashExecutor struct {
+	Ports       []uint   `json:"ports"`
 	Start       []string `json:"start"`
 	Stop        []string `json:"stop"`
 	Env         []string `json:"env"`
@@ -79,6 +82,10 @@ func (bash *BashExecutor) StopTask(t *Task) (err error) {
 		err = tools.Exec(bash.Env, "/bin/bash", "-c", cmd)
 	}
 	return err
+}
+
+func (bash *BashExecutor) ReservedPorts() []uint {
+	return bash.Ports
 }
 
 // The docker executor will start a docker container.
@@ -141,4 +148,14 @@ func (docker *DockerExecutor) StartTask(t *Task) error {
 
 func (docker *DockerExecutor) StopTask(t *Task) error {
 	return tools.Exec(docker.Env, "docker", "stop", t.Id())
+}
+
+func (docker *DockerExecutor) ReservedPorts() []uint {
+	ps := []uint{}
+	for _, p := range docker.Ports {
+		port := strings.Split(p, ":")[0]
+		i, _ := strconv.ParseInt(port, 8, 64)
+		ps = append(ps, uint(i))
+	}
+	return ps
 }

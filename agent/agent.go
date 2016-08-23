@@ -2,6 +2,7 @@ package agent
 
 import (
 	log "github.com/Sirupsen/logrus"
+
 	"github.com/coldog/sked/api"
 	"github.com/shirou/gopsutil/mem"
 
@@ -14,10 +15,12 @@ import (
 	"time"
 )
 
-/**
- * An agent is the process that handles keeping a given host in sync with the desired configuration.
- * An agent
- */
+type TaskState struct {
+	StartedAt time.Time
+	Attempts  int
+	Failure   error
+	Passing   bool
+}
 
 type AgentConfig struct {
 	Runners      int           `json:"runners"`
@@ -59,7 +62,7 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 		api:       a,
 		queue:     make(chan action, 100),
 		stopCh:    make(chan struct{}, 1),
-		StartedAt: make(map[string]time.Time),
+		TaskState: make(map[string]*TaskState),
 		readyCh:   make(chan struct{}),
 		lock:      &sync.RWMutex{},
 		Config:    conf,
@@ -71,7 +74,7 @@ type Agent struct {
 	Host      string
 	LastSync  time.Time
 	LastState *api.Host
-	StartedAt map[string]time.Time
+	TaskState map[string]*TaskState
 	Config    *AgentConfig
 	lock      *sync.RWMutex
 	queue     chan action
@@ -83,19 +86,24 @@ type Agent struct {
 func (agent *Agent) start(t *api.Task) error {
 
 	agent.lock.RLock()
-	if startTime, ok := agent.StartedAt[t.Id()]; ok {
-		// if we add 3 minutes to the started at time, and it's after the current
-		// time we skip this loop
-		if startTime.Add(15 * time.Second).After(time.Now()) {
-			agent.lock.RUnlock()
-			return PassOnStartReqErr
-		}
-	}
+	state, ok := agent.TaskState[t.Id()]
 	agent.lock.RUnlock()
 
-	agent.lock.Lock()
-	agent.StartedAt[t.Id()] = time.Now()
-	agent.lock.Unlock()
+	if ok {
+		// if we add 3 minutes to the started at time, and it's after the current
+		// time we skip this loop
+		state.StartedAt = time.Now()
+		state.Attempts += 1
+	} else {
+		state = &TaskState{
+			StartedAt: time.Now(),
+			Attempts: 1,
+		}
+
+		agent.lock.Lock()
+		agent.TaskState[t.Id()] = state
+		agent.lock.Unlock()
+	}
 
 	for _, cont := range t.TaskDefinition.Containers {
 		executor := api.GetExecutor(cont)
@@ -104,9 +112,11 @@ func (agent *Agent) start(t *api.Task) error {
 			cont.RunSetup()
 			err := executor.StartTask(t)
 			if err != nil {
+				state.Failure = err
 				return err
 			}
 		} else {
+			state.Failure = NoExecutorErr
 			return NoExecutorErr
 		}
 	}
@@ -130,9 +140,9 @@ func (agent *Agent) stop(t *api.Task) error {
 		}
 	}
 
-	if _, ok := agent.StartedAt[t.Id()]; ok {
+	if _, ok := agent.TaskState[t.Id()]; ok {
 		agent.lock.Lock()
-		delete(agent.StartedAt, t.Id())
+		delete(agent.TaskState, t.Id())
 		agent.lock.Unlock()
 	}
 
@@ -143,6 +153,7 @@ func (agent *Agent) stop(t *api.Task) error {
 // make scheduling decisions.
 func (agent *Agent) PublishState() {
 	m, _ := mem.VirtualMemory()
+	d, _ := AvailableDiskSpace()
 
 	desired, _ := agent.api.ListTasks(&api.TaskQueryOpts{
 		ByHost: agent.Host,
@@ -152,11 +163,17 @@ func (agent *Agent) PublishState() {
 
 	for _, task := range desired {
 		ports = append(ports, task.Port)
+
+		//for _, c := range task.TaskDefinition.Containers {
+		//
+		//}
 	}
 
 	h := &api.Host{
 		Name:          agent.Host,
-		Memory:        m.Available,
+		Memory:        ToMb(m.Available),
+		DiskSpace:     ToMb(d),
+		MemUsePercent: m.UsedPercent,
 		CpuUnits:      uint64(runtime.NumCPU()),
 		ReservedPorts: ports,
 		PortSelection: AvailablePortList(20),
@@ -185,7 +202,34 @@ func (agent *Agent) sync() {
 
 		log.WithField("task", task.Id()).WithField("passing", task.Passing).WithField("scheduled", task.Scheduled).Debug("[agent] syncing task")
 
+		agent.lock.RLock()
+		state, ok := agent.TaskState[task.Id()]
+		agent.lock.RUnlock()
+
+		if ok {
+			state.Passing = task.Passing
+		} else {
+			state = &TaskState{
+				Passing: task.Passing,
+			}
+			agent.TaskState[task.Id()] = state
+		}
+
 		if task.Scheduled && !task.Passing {
+
+			// leave some time in between restarting tasks, ie they may take a while before the health checks
+			// begin passing.
+			// todo: this should be configurable at the task definition level
+			waits := 30 * time.Second
+			if task.TaskDefinition.GracePeriod.Nanoseconds() != int64(0) {
+				waits = task.TaskDefinition.GracePeriod
+			}
+
+			if state.StartedAt.Add(waits).After(time.Now()) {
+				log.WithField("task", task.Id()).Debug("[agent] too soon to start this task again")
+				continue
+			}
+
 			log.Debug("[agent] triggering start!")
 			// restart the task since it is failing
 			select {

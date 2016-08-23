@@ -17,12 +17,23 @@ func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
+func TestAgent_GetsInfo(t *testing.T) {
+	api.RunConsulApiTest(func(a *api.ConsulApi) {
+		ag := NewAgent(a, &AgentConfig{})
+		ag.GetHostName()
+
+		ag.PublishState()
+
+		fmt.Printf("%+v\n", ag.LastState)
+	})
+}
+
 func TestAgent_Syncing(t *testing.T) {
 	api.RunConsulApiTest(func(a *api.ConsulApi) {
 		err := actions.ApplyConfig("../examples/hello-world.yml", a)
 		tools.Ok(t, err)
 
-		ag := NewAgent(a)
+		ag := NewAgent(a, &AgentConfig{})
 		ag.GetHostName()
 		ag.RegisterAgent()
 		ag.PublishState()
@@ -52,8 +63,4 @@ func TestAgent_Syncing(t *testing.T) {
 			}
 		}
 	})
-}
-
-func TestAgent_Start(t *testing.T) {
-
 }

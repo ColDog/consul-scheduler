@@ -19,6 +19,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"runtime"
+	"encoding/json"
 )
 
 type AppConfig struct {
@@ -254,6 +256,29 @@ func (app *App) ApplyCmd() (cmd cli.Command) {
 	return cmd
 }
 
+func (app *App) Stats() map[string]interface{} {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+
+
+	return map[string]interface{} {
+		"version": VERSION,
+		"name": "sked",
+		"go": runtime.Version(),
+		"runtime": map[string]interface{} {
+			"goroutines": runtime.NumGoroutine(),
+			"alloc": mem.Alloc,
+			"total_alloc": mem.TotalAlloc,
+			"heap_alloc": mem.HeapAlloc,
+			"heap_sys": mem.HeapSys,
+			"heap_released": mem.HeapReleased,
+			"heap_objects": mem.HeapObjects,
+			"cgo_calls": runtime.NumCgoCall(),
+			"num_cpu": runtime.NumCPU(),
+		},
+	}
+}
+
 func (app *App) AddCmd(cmd AppCmd) {
 	app.cli.Commands = append(app.cli.Commands, cmd(app))
 }
@@ -263,9 +288,20 @@ func (app *App) Run() {
 }
 
 func (app *App) Serve() {
-	//http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	//	w.Write([]byte("Consul Scheduler\n"))
-	//})
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Sked\n"))
+	})
+
+	http.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		res, err := json.Marshal(app.Stats())
+		if err != nil {
+			fmt.Printf("json err: %v\n", err)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(res)
+	})
 
 	log.Info("http server starting")
 	http.ListenAndServe(fmt.Sprintf(":%d", app.Config.Port), nil)

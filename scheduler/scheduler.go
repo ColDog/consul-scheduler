@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+	"runtime"
 )
 
 var (
@@ -24,6 +25,10 @@ func RunDefaultScheduler(cluster *api.Cluster, a api.SchedulerApi, stopCh chan s
 		maxPort: make(map[string]uint),
 	}
 	s.Run()
+
+	// the scheduler is easily the most memory intensive utility, telling the GC to run after each schedule is
+	// a straightforward way of keeping everything clean.
+	runtime.GC()
 }
 
 // This is a simple scheduler for simple workloads. It simply builds up a list of all the tasks that must be placed and then

@@ -94,3 +94,4 @@ docker build -t coldog/sked:${version} .
 docker tag coldog/sked:${version} coldog/sked:${version}
 docker tag coldog/sked:${version} coldog/sked:latest
 docker push coldog/sked:${version}
+docker push coldog/sked:latest
