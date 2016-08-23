@@ -80,7 +80,7 @@ cp dist/${name}_darwin-amd64-${version} dist/examples-${version}/sked
 cd dist
 zip -r quickstart-${version}.zip examples-${version}
 curl -XPOST \
-        --data-binary @${release_name}.zip \
+        --data-binary @quickstart-${version}.zip \
         -H "Content-Type:application/octet-stream" \
         "https://uploads.github.com/repos/${project_path}/releases/${id}/assets?access_token=${GITHUB_TOKEN}&name=quickstart-${version}.zip"
 
