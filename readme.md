@@ -170,7 +170,7 @@ task_definitions:
 ```
 
 #### Clusters
-```json
+```javascript
 {
   "name": "default",          // a unique name for this cluster
   "scheduler": "default",     // the name of the scheduler to use
@@ -179,7 +179,7 @@ task_definitions:
 ```
 
 #### Services
-```json
+```javascript
 {
   "name": "helloworld",       // a unique name for this service
   "task_name": "helloworld",  // the task name this service should run
@@ -191,7 +191,7 @@ task_definitions:
 ```
 
 #### Task Definitions
-```json
+```javascript
 {
   "name": "helloworld",                   // a unique name for the task definition
   "version": 2,                           // the task definition version, for seamless upgrades
