@@ -1,10 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
-VAGRANTFILE_API_VERSION = "2"
-
-Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+Vagrant.configure(2) do |config|
   config.vm.box = "ubuntu/trusty64"
 
   config.vm.provision "docker"
@@ -15,19 +12,19 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provision :shell, inline: 'docker rm -f consul || true'
   config.vm.provision :shell, inline: 'docker rm -f consul-scheduler || true'
 
-  config.vm.define "n1" do |n1|
-    n1.vm.hostname = "n1"
-    n1.vm.network "private_network", ip: "172.20.20.10"
-    n1.vm.provision :shell, inline: 'docker run -d --net=host -e \'CONSUL_LOCAL_CONFIG={"leave_on_terminate": true}\' --name=consul consul agent -node=n1 -server -bind=172.20.20.10'
-    n1.vm.provision :shell, inline: 'docker run -d --net=host --name=sked coldog/sked'
-  end
+  3.times do |i|
+    id = i + 1
 
-  config.vm.define "n2" do |n2|
-    n2.vm.hostname = "n2"
-    n2.vm.network "private_network", ip: "172.20.20.11"
-    n2.vm.provision :shell, inline: 'docker run -d --net=host -e \'CONSUL_LOCAL_CONFIG={"leave_on_terminate": true}\' --name=consul consul agent -node=n2 -server -bind=172.20.20.11 -bootstrap-expect=1'
-    n2.vm.provision :shell, inline: 'docker run -d --net=host --name=sked coldog/sked'
-    n2.vm.provision :shell, inline: 'consul join 172.20.20.10'
+    config.vm.define "n#{id}" do |node|
+      node.vm.hostname = "n#{id}"
+      node.vm.network "private_network", ip: "172.20.20.1#{id - 1}"
+      node.vm.provision :shell, inline: "docker run -d --net=host -e 'CONSUL_LOCAL_CONFIG={\"leave_on_terminate\": true}' --name=consul consul agent -node=n#{id} -server -bind=172.20.20.1#{id}"
+      node.vm.provision :shell, inline: "docker run -d --net=host --name=sked coldog/sked"
+      if id != 1
+        node.vm.provision :shell, inline: "consul join 172.20.20.10"
+      end
+    end
+
   end
 
 end

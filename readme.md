@@ -3,6 +3,7 @@
 A scheduler built for Consul.io with first class support for health checking and an emphasis on simplicity and ease of
 use.
 
+[![CircleCI](https://circleci.com/gh/ColDog/sked.svg?style=svg)](https://circleci.com/gh/ColDog/sked)
 
 ## Overview
 A scheduler that uses Consul's health checking capabilities as well as it's key value store and locking to build a
