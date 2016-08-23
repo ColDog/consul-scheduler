@@ -74,6 +74,8 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) (int
 	// the next section will remove all of the tasks that shouldn't be running while keeping those running
 	// that should be.
 
+	// todo: remove tasks running on a host that doesn't exist
+
 	// First of all, we go through and remove tasks (down to the minimum level) that are  running an old
 	// version of the task. This is a very specific piece of logic to this scheduler implementation, old
 	// tasks are not necessarily evil.
@@ -97,6 +99,7 @@ func (scheduler *DefaultScheduler) scheduleForService(service *api.Service) (int
 			scheduler.api.DeScheduleTask(removalCandidate)
 		}
 	}
+
 
 	// now let's make sure that we aren't over the desired limit by working our way down the list of instances
 	// and removing any leftovers.
@@ -276,6 +279,15 @@ func (scheduler *DefaultScheduler) Run() error {
 
 	log.WithField("time", t2 - t1).WithField("seconds", float64(t2 - t1) / 1000000000.00).WithField("added", added).WithField("removed", removed).Info("[scheduler] finished!")
 	return nil
+}
+
+func (scheduler *DefaultScheduler) hostExists(name string) bool {
+	for _, host := range scheduler.hosts {
+		if host.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func inList(item uint, list []uint) bool {

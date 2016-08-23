@@ -1,6 +1,9 @@
 package api
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/coldog/scheduler/tools"
+)
 
 // a runnable task description
 // validations:
@@ -34,6 +37,20 @@ type Container struct {
 	Name     string          `json:"name"`
 	Type     string          `json:"type"`
 	Executor json.RawMessage `json:"executor"`
+	Setup    []string        `json:"setup"`
+	bash     *BashExecutor
+	docker   *DockerExecutor
+}
+
+func (c *Container) RunSetup() error {
+	for _, cmd := range c.Setup {
+		err := tools.Exec(nil, "/bin/bash", "-c", cmd)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // a check passed along to consul

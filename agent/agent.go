@@ -101,6 +101,7 @@ func (agent *Agent) start(t *api.Task) error {
 		executor := api.GetExecutor(cont)
 
 		if executor != nil {
+			cont.RunSetup()
 			err := executor.StartTask(t)
 			if err != nil {
 				return err
@@ -178,6 +179,8 @@ func (agent *Agent) sync() {
 		return
 	}
 
+	// todo: agents should be able to change the port
+
 	for _, task := range tasks {
 
 		log.WithField("task", task.Id()).WithField("passing", task.Passing).WithField("scheduled", task.Scheduled).Debug("[agent] syncing task")
@@ -201,6 +204,11 @@ func (agent *Agent) sync() {
 			default:
 				log.Error("[agent] queue is full")
 			}
+		}
+
+		if !task.Scheduled && !task.Passing {
+			// perform some garbage collection
+			agent.api.DelTask(task)
 		}
 
 	}

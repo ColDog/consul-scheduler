@@ -434,6 +434,15 @@ func (a *ConsulApi) putTask(t *Task) error {
 	return nil
 }
 
+func (a *ConsulApi) DelTask(t *Task) error {
+	err := a.del(a.conf.StatePrefix+"_/"+t.Id())
+	if err != nil {
+		return err
+	}
+
+	return a.del(a.conf.StatePrefix+t.Host+"/"+t.Id())
+}
+
 // used to find out if a task is passing.
 func (a *ConsulApi) taskStatus(t *Task) bool {
 	s, _, err := a.health.Checks(t.Name(), nil)

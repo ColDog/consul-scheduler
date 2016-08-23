@@ -100,6 +100,7 @@ type SchedulerApi interface {
 	GetTask(id string) (*Task, error)
 	ScheduleTask(task *Task) error
 	DeScheduleTask(task *Task) error
+	DelTask(task *Task) error
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.

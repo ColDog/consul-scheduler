@@ -9,20 +9,32 @@ import (
 func GetExecutor(c *Container) Executor {
 
 	if c.Type == "docker" {
+		if c.docker != nil {
+			return c.docker
+		}
+
 		res := DockerExecutor{}
 		err := json.Unmarshal(c.Executor, &res)
 		if err != nil {
 			fmt.Printf("json err: %v\n", err)
 			return nil
 		}
+
+		c.docker = res
 		return res
 	} else if c.Type == "bash" {
+		if c.bash != nil {
+			return c.bash
+		}
+
 		res := BashExecutor{}
 		err := json.Unmarshal(c.Executor, &res)
 		if err != nil {
 			fmt.Printf("json err: %v\n", err)
 			return nil
 		}
+
+		c.bash = res
 		return res
 	}
 
