@@ -18,7 +18,7 @@ var (
 )
 
 type MasterConfig struct {
-	SyncInterval time.Duration
+	SyncInterval     time.Duration
 	DisabledClusters []string
 }
 
@@ -27,6 +27,11 @@ type MasterConfig struct {
 type Scheduler func(cluster *api.Cluster, a api.SchedulerApi, stopCh chan struct{})
 
 func NewMaster(a api.SchedulerApi, conf *MasterConfig) *Master {
+
+	if conf.SyncInterval.Nanoseconds() == int64(0) {
+		conf.SyncInterval = 30 * time.Second
+	}
+
 	m := &Master{
 		api:        a,
 		Schedulers: make(map[string]Scheduler),
@@ -131,7 +136,7 @@ LOCK:
 				return
 			}
 
-		case <-time.After(30 * time.Second):
+		case <-time.After(10 * time.Second):
 			// occasionally poll the api to see if the cluster still exists, sometimes a user may have removed the
 			// cluster from the configuration and accordingly this process should exit.
 			_, err := master.api.GetCluster(name)
@@ -192,7 +197,14 @@ func (master *Master) addMonitors() {
 	}
 
 	for _, cluster := range clusters {
-		// todo: don't use if in a disabled cluster
+
+		// don't start a process to monitor this cluster if explicitly disabled by the user.
+		for _, c := range master.Config.DisabledClusters {
+			if cluster.Name == c {
+				continue
+			}
+		}
+
 		if _, ok := master.monitors[cluster.Name]; !ok {
 			count++
 			nextStopCh := make(chan struct{})
@@ -231,7 +243,7 @@ func (master *Master) monitoring() {
 		case <-listener:
 			master.addMonitors()
 
-		case <-time.After(30 * time.Second):
+		case <-time.After(master.Config.SyncInterval):
 			master.addMonitors()
 		}
 

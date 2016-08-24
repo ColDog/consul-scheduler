@@ -60,7 +60,7 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 
 	return &Agent{
 		api:       a,
-		queue:     make(chan action, 100),
+		queue:     make(chan action, 500),
 		stopCh:    make(chan struct{}, 1),
 		TaskState: make(map[string]*TaskState),
 		readyCh:   make(chan struct{}),
@@ -176,7 +176,7 @@ func (agent *Agent) PublishState() {
 		MemUsePercent: m.UsedPercent,
 		CpuUnits:      uint64(runtime.NumCPU()),
 		ReservedPorts: ports,
-		PortSelection: AvailablePortList(20),
+		PortSelection: AvailablePortList(50),
 	}
 
 	agent.LastState = h
@@ -219,7 +219,6 @@ func (agent *Agent) sync() {
 
 			// leave some time in between restarting tasks, ie they may take a while before the health checks
 			// begin passing.
-			// todo: this should be configurable at the task definition level
 			waits := 30 * time.Second
 			if task.TaskDefinition.GracePeriod.Nanoseconds() != int64(0) {
 				waits = task.TaskDefinition.GracePeriod
@@ -231,6 +230,7 @@ func (agent *Agent) sync() {
 			}
 
 			log.Debug("[agent] triggering start!")
+
 			// restart the task since it is failing
 			select {
 			case agent.queue <- action{start: true, task:  task}:
@@ -350,10 +350,12 @@ func (agent *Agent) Run() {
 	log.Debug("[agent] waiting")
 	for {
 		select {
-		case <-listener:
-			log.Debug("[agent] sync triggered")
-			agent.sync()
-			agent.PublishState()
+		case x := <-listener:
+			log.WithField("key", x).Debug("[agent] sync triggered")
+			if x != "config::config/hosts/" + agent.Host {
+				agent.sync()
+				agent.PublishState()
+			}
 
 		case <-time.After(agent.Config.SyncInterval):
 			log.Debug("[agent] sync after timeout")

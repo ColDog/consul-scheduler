@@ -39,18 +39,15 @@ func NewConsulApi(conf *StorageConfig, apiConf *api.Config) *ConsulApi {
 	}
 
 	a := &ConsulApi{
-		kv:         client.KV(),
-		agent:      client.Agent(),
-		catalog:    client.Catalog(),
-		health:     client.Health(),
-		listeners:  make(map[string]*listener),
-		eventLock:  &sync.RWMutex{},
-		client:     client,
-		conf:       DefaultStorageConfig(),
+		kv:        client.KV(),
+		agent:     client.Agent(),
+		catalog:   client.Catalog(),
+		health:    client.Health(),
+		listeners: make(map[string]*listener),
+		eventLock: &sync.RWMutex{},
+		client:    client,
+		conf:      DefaultStorageConfig(),
 	}
-
-	go a.monitorConfig()
-	go a.monitorHealth()
 
 	return a
 }
@@ -74,6 +71,11 @@ func newConsulApi() *ConsulApi {
 		ConsulConf: apiConfig,
 		conf:       DefaultStorageConfig(),
 	}
+}
+
+func (a *ConsulApi) Start() {
+	go a.monitorConfig()
+	go a.monitorHealth()
 }
 
 func (a *ConsulApi) HostName() (string, error) {
@@ -422,6 +424,7 @@ func (a *ConsulApi) putTask(t *Task) error {
 	// todo: expensive to serialize and put in both
 	// todo: should be in a transaction
 	// todo: task definition is serialized as well, this is probably overkill
+
 	err := a.put(a.conf.StatePrefix+"_/"+t.Id(), body)
 	if err != nil {
 		return err
@@ -435,12 +438,12 @@ func (a *ConsulApi) putTask(t *Task) error {
 }
 
 func (a *ConsulApi) DelTask(t *Task) error {
-	err := a.del(a.conf.StatePrefix+"_/"+t.Id())
+	err := a.del(a.conf.StatePrefix + "_/" + t.Id())
 	if err != nil {
 		return err
 	}
 
-	return a.del(a.conf.StatePrefix+t.Host+"/"+t.Id())
+	return a.del(a.conf.StatePrefix + t.Host + "/" + t.Id())
 }
 
 // used to find out if a task is passing.

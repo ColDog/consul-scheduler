@@ -2,6 +2,9 @@ package api
 
 import (
 	"github.com/coldog/sked/tools"
+	"github.com/hashicorp/consul/api"
+
+	"fmt"
 	"testing"
 )
 
@@ -132,3 +135,17 @@ func TestConsulApi_Hosts(t *testing.T) {
 //GetTask(id string) ([]*Task, error)
 //ScheduleTask(task *Task) error
 //DeScheduleTask(task *Task) error
+func TestConsulApi_Tasks(t *testing.T) {
+	a := newConsulApi()
+
+	a.get("test")
+
+	ops := api.KVTxnOps{
+		&api.KVTxnOp{
+			Verb: "get",
+			Key:  "test",
+		},
+	}
+	_, _, _, err := a.kv.Txn(ops, &api.QueryOptions{})
+	fmt.Printf("res: %+v \n", err)
+}

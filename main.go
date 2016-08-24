@@ -56,16 +56,13 @@ func (app *App) printWelcome(mode string) {
 	fmt.Printf("       consul-api  %s\n", app.ConsulConf.Address)
 	fmt.Printf("        consul-dc  %s\n", app.ConsulConf.Datacenter)
 	fmt.Printf("             mode  %s\n", mode)
-	fmt.Printf("             pid   %d\n", os.Getpid())
+	fmt.Printf("              pid  %d\n", os.Getpid())
+	fmt.Printf("           server  %s:%d\n", app.Config.Addr, app.Config.Port)
 	fmt.Print("\nlog output will now begin streaming....\n")
 }
 
 func (app *App) setup() {
 	app.ConsulConf = consulApi.DefaultConfig()
-	app.Config = &AppConfig{
-		Port: 8231,
-		Addr: "127.0.0.1",
-	}
 
 	app.cli.Name = "sked"
 	app.cli.Version = VERSION
@@ -77,8 +74,15 @@ func (app *App) setup() {
 		cli.StringFlag{Name: "consul-api", Value: "", Usage: "consul api"},
 		cli.StringFlag{Name: "consul-dc", Value: "", Usage: "consul dc"},
 		cli.StringFlag{Name: "consul-token", Value: "", Usage: "consul token"},
+		cli.StringFlag{Name: "bind, b", Value: "0.0.0.0", Usage: "address to bind to"},
+		cli.IntFlag{Name: "port, p", Value: 8231, Usage: "port to bind to"},
 	}
 	app.cli.Before = func(c *cli.Context) error {
+		app.Config = &AppConfig{
+			Port: c.GlobalInt("port"),
+			Addr: c.GlobalString("bind"),
+		}
+
 		if c.GlobalString("consul-api") != "" {
 			app.ConsulConf.Address = c.GlobalString("consul-api")
 		}
@@ -91,7 +95,9 @@ func (app *App) setup() {
 			app.ConsulConf.Token = c.GlobalString("consul-token")
 		}
 
+		// todo: allow override of storage config
 		store := api.DefaultStorageConfig()
+
 		app.Api = api.NewConsulApi(store, app.ConsulConf)
 
 		switch c.GlobalString("log-level") {
@@ -167,8 +173,14 @@ func (app *App) RegisterMaster(c *cli.Context) {
 func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Name = "agent"
 	cmd.Usage = "start the agent service"
+	cmd.Flags = []cli.Flag{
+		cli.DurationFlag{Name: "agent-sync-interval", Value: 30 * time.Second, Usage: "interval to sync agent"},
+		cli.IntFlag{Name: "agent-runners", Value: 3, Usage: "amount of tasks to start in parallel on the agent"},
+	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("agent")
+
+		app.Api.Start()
 		app.Api.Wait()
 
 		app.RegisterAgent(c)
@@ -187,8 +199,14 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Name = "scheduler"
 	cmd.Usage = "start the scheduler service"
+	cmd.Flags = []cli.Flag{
+		cli.DurationFlag{Name: "master-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
+		cli.StringSliceFlag{Name: "disabled-clusters", Usage: "don't attempt to schedule these clusters"},
+	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")
+
+		app.Api.Start()
 		app.Api.Wait()
 
 		app.RegisterMaster(c)
@@ -207,8 +225,16 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 func (app *App) CombinedCmd() (cmd cli.Command) {
 	cmd.Name = "combined"
 	cmd.Usage = "start the scheduler and agent service"
+	cmd.Flags = []cli.Flag{
+		cli.DurationFlag{Name: "agent-sync-interval", Value: 30 * time.Second, Usage: "interval to sync agent"},
+		cli.IntFlag{Name: "agent-runners", Value: 3, Usage: "amount of tasks to start in parallel on the agent"},
+		cli.DurationFlag{Name: "master-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
+		cli.StringSliceFlag{Name: "disabled-clusters", Usage: "don't attempt to schedule these clusters"},
+	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("combined")
+
+		app.Api.Start()
 		app.Api.Wait()
 
 		app.RegisterMaster(c)

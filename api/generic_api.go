@@ -66,6 +66,7 @@ type SchedulerApi interface {
 	Lock(key string) (Lockable, error)
 
 	Wait() error
+	Start()
 
 	// Register With Generic API
 	RegisterAgent(host, addr string, port int) error

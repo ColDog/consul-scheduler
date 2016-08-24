@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-version=v${1}
+version=${1}
 message="Release of version "${1}
 project_path="coldog/sked"
 repo="github.com/${project_path}"
