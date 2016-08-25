@@ -5,66 +5,127 @@ import (
 	"github.com/coldog/sked/api"
 
 	"time"
-	"sync"
 )
 
-// scheduler implements the simple scheduler interface which should be able to handle getting a service and scheduling.
-type Scheduler interface {
-	Schedule(service *api.Service, quit chan struct{}) error
+type Config struct {
+	Runners      int
+	SyncInterval time.Duration
 }
 
 // The scheduler manages scheduling on a per service basis, dispatching requests for scheduling when needed.
 type Master struct {
-	Schedulers map[string]Scheduler
+	schedulers *Schedulers
+	locks      *SchedulerLocks
+	queue      *SchedulerQueue
+	Config     *Config
 	api        api.SchedulerApi
-	dispatch   chan string
 	quit       chan struct{}
-	lock       *sync.Mutex
-	locks      map[string]Lockable
 }
 
-func (s *Master) Monitor() {
+func (s *Master) monitor() {
 	listener := make(chan string, 100)
 	s.api.Subscribe("dispatch", "config::*", listener)
 	defer s.api.UnSubscribe("dispatch")
 
 	for {
 		select {
-		case evt := <-listener:
-
-		case <-s.quit:
+		case <-listener:
+			// todo: set up better logic here
+			s.dispatchAll()
 
 		case <-time.After(60 * time.Second):
+			s.dispatchAll()
 
+		case <-s.quit:
+			return
 		}
 	}
 }
 
-func (s *Master) Dispatcher() {
-	for serviceName := range s.dispatch {
+func (s *Master) dispatchAll() {
+	services, err := s.api.ListServices()
+	if err != nil {
+		log.WithField("err", err).Warnf("[master] could not list services")
+		return
+	}
+	for _, service := range services {
+		s.queue.Push(service.Name)
+	}
+}
+
+// todo: add this function to dispatch based on received event
+//func (s *Master) dispatch(evt string) {
+//	evt = strings.Replace(evt, "config::", "", 1)
+//	spl := strings.Split(evt, "/")
+//	if spl[1] == "host" {
+//
+//	} else if spl[1] == "task_definition" {
+//		services, _ := s.api.ListServices()
+//		for _, service := range services {
+//			s.queue.Push(service.Name)
+//		}
+//
+//	} else if spl[1] == "service" {
+//		s.queue.Push(spl[1])
+//	}
+//}
+
+func (s *Master) worker(i int) {
+	for {
+		listen := make(chan string)
+		s.queue.Pop(listen)
+
+		select {
+		case serviceName := <-listen:
+			s.schedule(serviceName, i)
+
+		case <-s.quit:
+			return
+		}
+
+	}
+
+}
+
+func (s *Master) schedule(serviceName string, i int) {
+	lock, err := s.locks.Lock(serviceName)
+	if err != nil {
+		log.WithField("service", serviceName).WithField("err", err).Warnf("[worker-%d] lock failed", i)
+		return
+	}
+	defer s.locks.Unlock(serviceName)
+
+	if lock.IsHeld() {
 		service, err := s.api.GetService(serviceName)
 		if err != nil {
-			log.WithField("service", serviceName).Info("[master] cannot get service")
+			log.WithField("service", serviceName).WithField("err", err).Warnf("[worker-%d] could not get service", i)
+			return
 		}
 
-		scheduler, ok := s.Schedulers[service.Scheduler]
-		if ok {
-			scheduler.Schedule(service)
+		scheduler, ok := s.schedulers.Get(service.Scheduler)
+		if !ok {
+			log.WithField("scheduler", service.Scheduler).WithField("service", serviceName).Warnf("[worker-%d] could not get scheduler", i)
+			return
 		}
+
+		log.WithField("service", serviceName).Debugf("[worker-%d] scheduling", i)
+		err = scheduler.Schedule(service, lock.QuitChan())
+		if err != nil {
+			log.WithField("service", serviceName).WithField("err", err).Warnf("[worker-%d] scheduler errord", i)
+		}
+	} else {
+		log.WithField("service", serviceName).Debugf("[worker-%d] could not lock service", i)
 	}
 }
 
-// lock locks throughout the cluster the right to schedule a given service
-func (s *Master) lock(serviceName string) (bool, <-chan struct{}) {
-
+func (s *Master) Stop() {
+	s.locks.Stop()
+	close(s.quit)
 }
 
-// unlock removes the right given to the cluster for scheduling
-func (s *Master) unlock(serviceName string) (bool, <-chan struct{}) {
-
-}
-
-// schedule holds a lock on a given service for scheduling and runs the appropriate scheduler
-func (s *Master) schedule() {
-
+func (s *Master) Run() {
+	for i := 0; i < s.Config.Runners; i++ {
+		go s.worker(i)
+	}
+	s.monitor()
 }
