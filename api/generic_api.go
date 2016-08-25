@@ -12,21 +12,11 @@ const (
 	FAILING
 )
 
-// From the consul documentation:
 // any lockable interface should implement the same functionality.
-// Lock attempts to acquire the lock and blocks while doing so.
-// Providing a non-nil stopCh can be used to abort the lock attempt.
-// Returns a channel that is closed if our lock is lost or an error.
-// This channel could be closed at any time due to session invalidation,
-// communication errors, operator intervention, etc. It is NOT safe to
-// assume that the lock is held until Unlock() unless the Session is specifically
-// created without any associated health checks. By default Consul sessions
-// prefer liveness over safety and an application must be able to handle
-// the lock being lost.
 type Lockable interface {
-	Lock(stopCh <-chan struct{}) (<-chan struct{}, error)
+	Lock() (<-chan struct{}, error)
+	IsHeld() bool
 	Unlock() error
-	Destroy() error
 }
 
 type StorageConfig struct {
@@ -62,8 +52,12 @@ type TaskQueryOpts struct {
 }
 
 type SchedulerApi interface {
+
 	HostName() (string, error)
-	Lock(key string) (Lockable, error)
+
+	// acquire a lock on a resource from consul, does not block when the lock cannot be held, rather
+	// it should return immediately
+	Lock(key string, block bool) (Lockable, error)
 
 	Wait() error
 	Start()
@@ -107,7 +101,7 @@ type SchedulerApi interface {
 	// can match events using a * pattern.
 	// Events that should be emitted on change:
 	// health:<status (failing|passing)>:<task_id>
-	// config:<resource (service|task_definition|host|cluster)>_<resource_id>
+	// config:<resource (service|task_definition|host|cluster)>/<resource_id>
 	Subscribe(key, evt string, listener chan string)
 	UnSubscribe(key string)
 

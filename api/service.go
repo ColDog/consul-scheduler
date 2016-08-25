@@ -8,6 +8,7 @@ package api
 //
 type Service struct {
 	Name        string `json:"name"`
+	Scheduler   string `json:"scheduler"`
 	TaskName    string `json:"task_name"`
 	TaskVersion uint   `json:"task_version"`
 	Desired     int    `json:"desired"`

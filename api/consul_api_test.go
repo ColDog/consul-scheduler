@@ -4,8 +4,9 @@ import (
 	"github.com/coldog/sked/tools"
 	"github.com/hashicorp/consul/api"
 
-	"fmt"
 	"testing"
+	"time"
+	"fmt"
 )
 
 // HostName() (string, error)
@@ -19,14 +20,46 @@ func TestConsulApi_HostName(t *testing.T) {
 //Lock(key string) (Lockable, error)
 func TestConsulApi_Lock(t *testing.T) {
 	RunConsulApiTest(func(api *ConsulApi) {
-		lock, err := api.Lock("test")
+		lock, err := api.Lock("test", true)
 		tools.Ok(t, err)
 
-		_, err = lock.Lock(nil)
+		_, err = lock.Lock()
 		tools.Ok(t, err)
 
 		err = lock.Unlock()
 		tools.Ok(t, err)
+	})
+}
+
+func TestConsulApi_LockNoWait(t *testing.T) {
+	RunConsulApiTest(func(a *ConsulApi) {
+		lock, err := a.Lock("test", true)
+		tools.Ok(t, err)
+
+		lc, err := lock.Lock()
+		tools.Ok(t, err)
+		tools.Assert(t, lc != nil, "lock is not held")
+		tools.Assert(t, lock.IsHeld(), "lock is not marked as held")
+
+		// if locked should return immediately
+		lock2, err := a.Lock("test", false)
+
+		tools.Ok(t, err)
+
+		t1 := time.Now().Unix()
+		c, err := lock2.Lock()
+		t2 := time.Now().Unix()
+
+		tools.Assert(t, c == nil, "lock is marked as held")
+		tools.Assert(t, !lock2.IsHeld(), "lock is marked as held")
+
+		fmt.Printf("waited: %v\n", float64(t2 - t1) / 1000.00)
+
+		err = lock2.Unlock()
+		tools.Assert(t, err == api.ErrLockNotHeld, "unlock did not error as expected")
+
+		lock.Unlock()
+		tools.Assert(t, !lock.IsHeld(), "lock unlocking did not mark lock as unheld")
 	})
 }
 
@@ -135,17 +168,3 @@ func TestConsulApi_Hosts(t *testing.T) {
 //GetTask(id string) ([]*Task, error)
 //ScheduleTask(task *Task) error
 //DeScheduleTask(task *Task) error
-func TestConsulApi_Tasks(t *testing.T) {
-	a := newConsulApi()
-
-	a.get("test")
-
-	ops := api.KVTxnOps{
-		&api.KVTxnOp{
-			Verb: "get",
-			Key:  "test",
-		},
-	}
-	_, _, _, err := a.kv.Txn(ops, &api.QueryOptions{})
-	fmt.Printf("res: %+v \n", err)
-}

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"fmt"
+	"github.com/coldog/sked/skedb"
 )
 
 var (
@@ -61,6 +62,7 @@ type Master struct {
 	api        api.SchedulerApi
 	monitors   map[string]chan struct{}
 	stopCh     chan struct{}
+	db         *skedb.SkedDB
 	monLock    *sync.RWMutex
 	schedLock  *sync.RWMutex
 	locksLock  *sync.RWMutex

@@ -140,8 +140,14 @@ func (a *ConsulApi) list(prefix string) (api.KVPairs, error) {
 	return res, err
 }
 
-func (a *ConsulApi) Lock(key string) (Lockable, error) {
-	return a.client.LockKey(key)
+func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
+	l, err := a.client.LockOpts(&api.LockOptions{
+		Key: key,
+		LockTryOnce: !block,
+	})
+
+	lock := &ConsulLockWrapper{lock: l}
+	return lock, err
 }
 
 // ==> REGISTER & DEREGISTER
