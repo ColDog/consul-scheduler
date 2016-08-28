@@ -355,14 +355,59 @@ func (a *ConsulApi) PutTaskDefinition(t *TaskDefinition) error {
 	return a.put(id, encode(t))
 }
 
-// ==> TASK operations
-func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
+// the count
+func (a *ConsulApi) CountTasks(q *TaskQueryOpts) (int, error) {
 
-	prefix := a.conf.StatePrefix
+	prefix := ""
 	if q.ByHost != "" {
 		prefix += a.conf.TasksByHostPrefix + q.ByHost
 	} else if q.ByCluster != "" && q.ByService != "" {
-		prefix += a.conf.TasksPrefix + q.ByCluster + "/" + q.ByService
+		prefix += a.conf.TasksPrefix + q.ByCluster + "-" + q.ByService
+	} else {
+		log.Warn("[consul-api] iterating all tasks")
+		prefix += a.conf.TasksPrefix
+	}
+
+	list, _, err := a.kv.Keys(prefix, "", nil)
+	if err != nil {
+		return 0, err
+	}
+
+	log.WithField("prefix", prefix).WithField("count", len(list)).Debug("[consul-api] query tasks")
+
+	if q.Failing || q.Running {
+		log.Warn("[consul-api] full logic is not implemented in the count-tasks function")
+	}
+
+	count := 0
+	for _, key := range list {
+
+		// todo: implement full query opts logic
+
+		if q.Scheduled {
+			ok, err := a.taskScheduled(key)
+			if err != ErrNotFound {
+				return 0, err
+			}
+
+			if !ok {
+				continue
+			}
+		}
+
+		count++
+	}
+	return count, nil
+}
+
+// ==> TASK operations
+func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
+
+	prefix := ""
+	if q.ByHost != "" {
+		prefix += a.conf.TasksByHostPrefix + q.ByHost
+	} else if q.ByCluster != "" && q.ByService != "" {
+		prefix += a.conf.TasksPrefix + q.ByCluster + "-" + q.ByService
 	} else {
 		log.Warn("[consul-api] iterating all tasks")
 		prefix += a.conf.TasksPrefix
@@ -372,6 +417,8 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 	if err != nil {
 		return ts, err
 	}
+
+	log.WithField("prefix", prefix).WithField("count", len(list)).Debug("[consul-api] query tasks")
 
 	for _, v := range list {
 		t := &Task{}
@@ -422,7 +469,7 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 func (a *ConsulApi) GetTask(id string) (*Task, error) {
 	t := &Task{}
 
-	kv, err := a.get(a.conf.StatePrefix + "_/" + id)
+	kv, err := a.get(a.conf.TasksPrefix + id)
 	if err == nil {
 		decode(kv.Value, t)
 	}
@@ -451,7 +498,7 @@ func (a *ConsulApi) putTask(t *Task) error {
 	// todo: should be in a transaction
 	// todo: task definition is serialized as well, this is probably overkill
 
-	err := a.put(a.conf.TasksPrefix+t.Id(), body)
+	err := a.put(a.conf.TasksPrefix + t.Id(), body)
 	if err != nil {
 		return err
 	}
@@ -464,7 +511,7 @@ func (a *ConsulApi) putTask(t *Task) error {
 }
 
 func (a *ConsulApi) DelTask(t *Task) error {
-	err := a.del(a.conf.TasksPrefix + t.Id())
+	err := a.del(a.conf.TasksPrefix)
 	if err != nil {
 		return err
 	}
@@ -473,16 +520,7 @@ func (a *ConsulApi) DelTask(t *Task) error {
 }
 
 func (a *ConsulApi) TaskScheduled(t *Task) (bool, error) {
-	_, err := a.get(a.conf.TaskScheduledPrefix + t.Id())
-	if err == ErrNotFound {
-		return false, nil
-	}
-
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return a.taskScheduled(t.Id())
 }
 
 // used to find out if a task is passing.
@@ -494,6 +532,37 @@ func (a *ConsulApi) TaskHealthy(t *Task) (bool, error) {
 
 	for _, ch := range s {
 		if ch.ServiceID == t.Id() {
+			if ch.Status != "passing" {
+				return false, nil
+			}
+		}
+	}
+
+	// if no checks are registered, tasks will always be healthy.
+	return true, nil
+}
+
+func (a *ConsulApi) taskScheduled(id string) (bool, error) {
+	_, err := a.get(a.conf.TaskScheduledPrefix + id)
+	if err == ErrNotFound {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (a *ConsulApi) taskHealthy(name, id string) (bool, error) {
+	s, _, err := a.health.Checks(name, nil)
+	if err != nil {
+		return false, err
+	}
+
+	for _, ch := range s {
+		if ch.ServiceID == id {
 			if ch.Status != "passing" {
 				return false, nil
 			}

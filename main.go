@@ -166,7 +166,7 @@ func (app *App) RegisterAgent(c *cli.Context) {
 func (app *App) RegisterMaster(c *cli.Context) {
 	app.Master = master.NewMaster(app.Api, &master.Config{
 		SyncInterval: c.Duration("master-sync-interval"),
-		Runners:      c.Int("master-workers"),
+		Runners:      c.Int("master-runners"),
 	})
 }
 
@@ -201,7 +201,7 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Usage = "start the scheduler service"
 	cmd.Flags = []cli.Flag{
 		cli.DurationFlag{Name: "master-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
-		cli.StringSliceFlag{Name: "disabled-clusters", Usage: "don't attempt to schedule these clusters"},
+		cli.IntFlag{Name: "master-runners", Usage: "amount of schedulers to run in parallel"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")

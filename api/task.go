@@ -20,7 +20,6 @@ type Task struct {
 	Instance       int             `json:"instance"`
 	Port           uint            `json:"port"`
 	Host           string          `json:"host"`
-	ProvidePort    bool            `json:"provide_port"`
 	api            SchedulerApi
 	healthy        *bool
 	scheduled      *bool

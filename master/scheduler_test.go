@@ -8,19 +8,6 @@ import (
 	"testing"
 )
 
-func setupSchedulerTest(t *testing.T, clusterName, serviceName, file string, hosts int)  {
-	a := api.NewMockApi()
-
-	for i := 0; i < hosts; i++ {
-		h := api.SampleHost()
-		h.Name = fmt.Sprintf("local-%d", i)
-		err := a.PutHost(h)
-		tools.Ok(t, err)
-	}
-
-	actions.ApplyConfig(file, a)
-}
-
 func testScheduler(t *testing.T, clusterName, serviceName, file string, hosts int) {
 	a := api.NewMockApi()
 	s := NewDefaultScheduler(a)

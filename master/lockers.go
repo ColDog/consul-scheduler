@@ -2,6 +2,7 @@ package master
 
 import (
 	"github.com/coldog/sked/api"
+	log "github.com/Sirupsen/logrus"
 	"sync"
 )
 
@@ -35,6 +36,11 @@ func (s *SchedulerLocks) Lock(serviceName string) (locker api.Lockable, err erro
 		if err != nil {
 			return locker, err
 		}
+	} else {
+		_, err := locker.Lock()
+		if err != nil {
+			return locker, err
+		}
 	}
 
 	return locker, nil
@@ -45,7 +51,9 @@ func (s *SchedulerLocks) Unlock(serviceName string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if locker, ok := s.locks[serviceName]; ok {
+	locker, ok := s.locks[serviceName]
+	log.WithField("lock", serviceName).WithField("ok", ok).Info("[master-lockers] unlocking")
+	if ok {
 		locker.Unlock()
 	}
 }

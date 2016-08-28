@@ -44,6 +44,8 @@ type Master struct {
 }
 
 func (s *Master) monitor() {
+	log.Info("[master] starting")
+
 	listener := make(chan string, 100)
 	s.api.Subscribe("dispatch", "config::*", listener)
 	defer s.api.UnSubscribe("dispatch")
@@ -53,32 +55,59 @@ func (s *Master) monitor() {
 		case evt := <-listener:
 			log.WithField("evt", evt).Debug("[master] received event")
 			// todo: set up better logic here
-			s.dispatchAll()
+			err := s.dispatchAll()
+			if err != nil {
+				log.WithField("error", err).Warn("[master] failed to dispatch")
+			}
 
-		case <-time.After(60 * time.Second):
-			s.dispatchAll()
+		case <-time.After(20 * time.Second):
+			err := s.dispatchAll()
+			if err != nil {
+				log.WithField("error", err).Warn("[master] failed to dispatch")
+			}
 
 		case <-s.quit:
+			log.Warn("[master] exiting")
 			return
 		}
 	}
 }
 
-func (s *Master) dispatchAll() {
+func (s *Master) dispatchAll() error {
+	log.Debug("[master] calculating dispatch")
 	clusters, err := s.api.ListClusters()
 	if err != nil {
-		log.WithField("err", err).Warnf("[master] could not list services")
-		return
+		return err
 	}
 	for _, c := range clusters {
 		for _, ser := range c.Services {
-			log.Debug("[master] enqueuing service ", ser)
-			s.queue.Push(scheduleReq{c.Name, ser})
+			service, err := s.api.GetService(ser)
+			if err != nil {
+				return err
+			}
+
+			count, err := s.api.CountTasks(&api.TaskQueryOpts{
+				ByService: service.Name,
+				ByCluster: c.Name,
+			})
+
+			if err != nil {
+				return err
+			}
+
+			log.WithField("count", count).WithField("desired", service.Desired).Debug("[master] dispatch")
+			if count != service.Desired {
+				s.queue.Push(scheduleReq{c.Name, service.Name})
+			}
 		}
 	}
+
+	return nil
 }
 
 func (s *Master) worker(i int) {
+	log.Infof("[master-worker-%d] starting", i)
+
 	for {
 		listen := make(chan interface{})
 		s.queue.Pop(listen)
@@ -86,9 +115,20 @@ func (s *Master) worker(i int) {
 		select {
 		case item := <-listen:
 			val := item.(scheduleReq)
+			log.WithField("req", val).Infof("[worker-%d] scheduling", i)
+			t1 := time.Now().UnixNano()
 			s.schedule(val.cluster, val.service, i)
+			t2 := time.Now().UnixNano()
+
+			log.WithFields(log.Fields{
+				"time": t2 - t1,
+				"cluster": val.cluster,
+				"service": val.service,
+				"secs": float64(t2 - t1) / 1000000000.0,
+			}).Infof("[master-worker-%d] done", i)
 
 		case <-s.quit:
+			log.Warnf("[master-worker-%d] exiting", i)
 			return
 		}
 
@@ -99,7 +139,7 @@ func (s *Master) worker(i int) {
 func (s *Master) schedule(clusterName, serviceName string, i int) {
 	lock, err := s.locks.Lock(serviceName)
 	if err != nil {
-		log.WithField("service", serviceName).WithField("err", err).Warnf("[worker-%d] lock failed", i)
+		log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] lock failed", i)
 		return
 	}
 	defer s.locks.Unlock(serviceName)
@@ -107,30 +147,30 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 	if lock.IsHeld() {
 		cluster, err := s.api.GetCluster(clusterName)
 		if err != nil {
-			log.WithField("cluster", clusterName).WithField("err", err).Warnf("[worker-%d] could not get cluster", i)
+			log.WithField("cluster", clusterName).WithField("err", err).Warnf("[master-worker-%d] could not get cluster", i)
 			return
 		}
 
 		service, err := s.api.GetService(serviceName)
 		if err != nil {
-			log.WithField("service", serviceName).WithField("err", err).Warnf("[worker-%d] could not get service", i)
+			log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] could not get service", i)
 			return
 		}
 
 		scheduler, ok := s.schedulers.Get(service.Scheduler)
 		if !ok {
-			log.WithField("scheduler", service.Scheduler).WithField("service", serviceName).Warnf("[worker-%d] could not get scheduler", i)
+			log.WithField("scheduler", service.Scheduler).WithField("service", serviceName).Warnf("[master-worker-%d] could not get scheduler", i)
 			return
 		}
 
-		log.WithField("service", serviceName).Debugf("[worker-%d] scheduling", i)
+		log.WithField("service", serviceName).Debugf("[master-worker-%d] scheduling", i)
 		err = scheduler.Schedule(cluster, service)
 
 		if err != nil {
-			log.WithField("service", serviceName).WithField("err", err).Warnf("[worker-%d] scheduler errord", i)
+			log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] scheduler errord", i)
 		}
 	} else {
-		log.WithField("service", serviceName).Debugf("[worker-%d] could not lock service", i)
+		log.WithField("service", serviceName).Debugf("[master-worker-%d] could not lock service", i)
 	}
 }
 
@@ -150,6 +190,10 @@ func (s *Master) Use(name string, sked Scheduler) {
 }
 
 func (s *Master) Run() {
+	if s.Config.Runners == 0 {
+		s.Config.Runners = 3
+	}
+
 	s.schedulers.Use("", NewDefaultScheduler(s.api))
 	for i := 0; i < s.Config.Runners; i++ {
 		go s.worker(i)

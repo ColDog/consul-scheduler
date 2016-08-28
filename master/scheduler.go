@@ -76,6 +76,7 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 
 	count := len(tasks)
 	removed := 0
+	added := 0
 
 	// cleanup, should be implemented by every scheduler realistically
 	for key, t := range taskMap {
@@ -130,7 +131,7 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 					t.Port = t.TaskDefinition.Port
 				}
 
-				if t.ProvidePort {
+				if t.TaskDefinition.ProvidePort {
 					selectedPort, err := s.selectPort(t)
 					if err != nil {
 						// this should realistically never happen
@@ -141,12 +142,20 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 				}
 
 				// we are good to schedule the task!
-				log.WithField("host", selectedHost).WithField("task", t.Id()).Debugf("[scheduler-%s] added task", service.Name)
+				log.WithField("host", selectedHost).WithField("port", t.Port).WithField("task", t.Id()).Debugf("[scheduler-%s] added task", service.Name)
 				s.api.ScheduleTask(t)
+				added++
 				taskMap[t.Id()] = t
 			}
 		}
 	}
+
+	log.WithFields(log.Fields{
+		"removed": removed,
+		"added": added,
+		"total": count + added - removed,
+	}).Infof("[scheduler-%s] done", service.Name)
+
 	return nil
 }
 

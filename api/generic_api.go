@@ -112,6 +112,7 @@ type SchedulerApi interface {
 	// Task queries can be executed with a set of options in the TaskQueryOpts, currently
 	// tasks can only be queried by using the ByHost or ByService and ByCluster parameters.
 	ListTasks(opts *TaskQueryOpts) ([]*Task, error)
+	CountTasks(opts *TaskQueryOpts) (int, error)
 
 	GetTask(id string) (*Task, error)
 	ScheduleTask(t *Task) error

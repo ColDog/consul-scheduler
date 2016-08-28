@@ -358,6 +358,11 @@ func (a *MockApi) ListTasks(q *TaskQueryOpts) ([]*Task, error) {
 	return ts, nil
 }
 
+func (a *MockApi) CountTasks(q *TaskQueryOpts) (int, error) {
+	tasks, _ := a.ListTasks(q)
+	return len(tasks), nil
+}
+
 func (a *MockApi) Subscribe(key, evt string, listener chan string) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
