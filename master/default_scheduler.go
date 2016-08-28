@@ -17,7 +17,7 @@ type DefaultScheduler struct {
 	maxPort map[string]uint
 }
 
-func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service, quit <-chan struct{}) error {
+func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) error {
 
 	taskDefinition, err := s.api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if err != nil {

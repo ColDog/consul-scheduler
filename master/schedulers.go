@@ -7,7 +7,7 @@ import (
 
 // scheduler implements the simple scheduler interface which should be able to handle getting a service and scheduling.
 type Scheduler interface {
-	Schedule(service *api.Service, quit <-chan struct{}) error
+	Schedule(cluster *api.Cluster, service *api.Service) error
 }
 
 type Schedulers struct {
