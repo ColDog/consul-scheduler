@@ -35,7 +35,7 @@ func (a *ConsulApi) monitorHealth() {
 
 		if err != nil {
 			log.WithField("lastId", lastId).WithField("error", err).Debug("[consul-api] monitoring health errored")
-			time.Sleep(10 * time.Second)
+			time.Sleep(2 * time.Second)
 			continue
 		}
 
@@ -55,7 +55,7 @@ func (a *ConsulApi) monitorHealth() {
 			a.emit(events...)
 		} else {
 			// have not found any new results
-			time.Sleep(10 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 
 		lastId = meta.LastIndex
@@ -66,20 +66,21 @@ func (a *ConsulApi) monitorHealth() {
 func (a *ConsulApi) monitorConfig() {
 	lastId := uint64(0)
 	for {
-		list, meta, err := a.kv.List(a.conf.ConfigPrefix, &api.QueryOptions{
+		list, meta, err := a.kv.Keys(a.conf.ConfigPrefix, "", &api.QueryOptions{
 			WaitIndex: lastId,
+			WaitTime:  3 * time.Minute,
 		})
 
 		if err != nil {
-			time.Sleep(10 * time.Second)
+			time.Sleep(2 * time.Second)
 			continue
 		}
 
 		if meta.LastIndex > lastId {
 
 			events := make([]string, 0, len(list))
-			for _, kv := range list {
-				events = append(events, fmt.Sprintf("config::%s", kv.Key))
+			for _, key := range list {
+				events = append(events, fmt.Sprintf("config::%s", key))
 			}
 
 			log.WithField("lastId", lastId).Debug("[consul-api] sending config events")
@@ -87,7 +88,7 @@ func (a *ConsulApi) monitorConfig() {
 			time.Sleep(2 * time.Second)
 		} else {
 			// have not found any new results
-			time.Sleep(10 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 
 		lastId = meta.LastIndex

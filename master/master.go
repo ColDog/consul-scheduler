@@ -50,7 +50,8 @@ func (s *Master) monitor() {
 
 	for {
 		select {
-		case <-listener:
+		case evt := <-listener:
+			log.WithField("evt", evt).Debug("[master] received event")
 			// todo: set up better logic here
 			s.dispatchAll()
 
@@ -71,6 +72,7 @@ func (s *Master) dispatchAll() {
 	}
 	for _, c := range clusters {
 		for _, ser := range c.Services {
+			log.Debug("[master] enqueuing service ", ser)
 			s.queue.Push(scheduleReq{c.Name, ser})
 		}
 	}

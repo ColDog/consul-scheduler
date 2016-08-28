@@ -53,6 +53,8 @@ func (s *SchedulerQueue) listen() {
 				s.doEnqueue(val)
 			case future := <-s.dequeue:
 				future.res <- s.queue[len(s.queue)-1]
+				s.queue = s.queue[0:len(s.queue)-1]
+
 			case <-s.quit:
 				return
 			}

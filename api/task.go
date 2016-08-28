@@ -14,17 +14,16 @@ func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instan
 
 // a depiction of a running task definition
 type Task struct {
-	Cluster        *Cluster
-	TaskDefinition *TaskDefinition
-	Service        string
-	Instance       int
-	Port           uint
-	Host           string
-	ProvidePort    bool
-
-	api       SchedulerApi
-	healthy   *bool
-	scheduled *bool
+	Cluster        *Cluster        `json:"cluster"`
+	TaskDefinition *TaskDefinition `json:"task_definition"`
+	Service        string          `json:"service"`
+	Instance       int             `json:"instance"`
+	Port           uint            `json:"port"`
+	Host           string          `json:"host"`
+	ProvidePort    bool            `json:"provide_port"`
+	api            SchedulerApi
+	healthy        *bool
+	scheduled      *bool
 }
 
 func (task *Task) AllPorts() []uint {

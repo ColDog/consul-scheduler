@@ -65,7 +65,7 @@ type Container struct {
 
 func (c *Container) RunSetup() error {
 	for _, cmd := range c.Setup {
-		err := tools.Exec(nil, "/bin/bash", "-c", cmd)
+		err := tools.Exec(nil, 20*time.Second, "/bin/bash", "-c", cmd)
 		if err != nil {
 			return err
 		}

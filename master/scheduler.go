@@ -126,6 +126,10 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 
 				t.Host = selectedHost
 
+				if t.TaskDefinition.Port != 0 {
+					t.Port = t.TaskDefinition.Port
+				}
+
 				if t.ProvidePort {
 					selectedPort, err := s.selectPort(t)
 					if err != nil {
@@ -134,8 +138,6 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 						continue
 					}
 					t.Port = selectedPort
-				} else if t.TaskDefinition.Port != 0 {
-					t.Port = t.TaskDefinition.Port
 				}
 
 				// we are good to schedule the task!

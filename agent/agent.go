@@ -19,6 +19,7 @@ type TaskState struct {
 	StartedAt time.Time
 	Attempts  int
 	Failure   error
+	Rejected  bool
 	Healthy   bool
 	Task      *api.Task
 }
@@ -232,6 +233,10 @@ func (agent *Agent) sync() {
 
 		if scheduled && healthy {
 
+			if state.Rejected {
+				continue
+			}
+
 			// leave some time in between restarting tasks, ie they may take a while before the health checks
 			// begin passing.
 			waits := 30 * time.Second
@@ -246,8 +251,21 @@ func (agent *Agent) sync() {
 
 			if state.Attempts > task.TaskDefinition.MaxAttempts {
 				agent.api.RejectTask(task, "too many attempts")
+				state.Rejected = true
+				state.Failure = fmt.Errorf("too many attempts")
 				log.WithField("task", task.Id()).Warn("[agent] too many attempts")
 				continue
+			}
+
+			for _, p := range task.AllPorts() {
+				if !IsTCPPortAvailable(int(p)) {
+					s := fmt.Sprintf("port not available: %d", p)
+					agent.api.RejectTask(task, s)
+					state.Rejected = true
+					state.Failure = errors.New(s)
+					log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
+					continue
+				}
 			}
 
 			log.Debug("[agent] triggering start!")

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"github.com/hashicorp/consul/api"
 	"os"
 	"os/exec"
@@ -43,6 +44,8 @@ func RunConsulApiTest(f ConsulApiTest) {
 	agent := NewConsulAgent()
 	defer agent.Stop()
 
+	fmt.Println("--- starting consul")
+
 	api := NewConsulApi(DefaultStorageConfig(), api.DefaultConfig())
 
 	for {
@@ -54,6 +57,7 @@ func RunConsulApiTest(f ConsulApiTest) {
 		time.Sleep(1 * time.Second)
 	}
 
+	fmt.Println("--- begin test")
 	f(api)
 }
 
