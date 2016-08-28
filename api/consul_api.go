@@ -75,7 +75,8 @@ func newConsulApi() *ConsulApi {
 }
 
 func (a *ConsulApi) Start() {
-	go a.monitorConfig()
+	go a.monitor(a.conf.ConfigPrefix, "config")
+	go a.monitor(a.conf.StatePrefix, "state")
 	go a.monitorHealth()
 }
 
@@ -525,21 +526,7 @@ func (a *ConsulApi) TaskScheduled(t *Task) (bool, error) {
 
 // used to find out if a task is passing.
 func (a *ConsulApi) TaskHealthy(t *Task) (bool, error) {
-	s, _, err := a.health.Checks(t.Name(), nil)
-	if err != nil {
-		return false, err
-	}
-
-	for _, ch := range s {
-		if ch.ServiceID == t.Id() {
-			if ch.Status != "passing" {
-				return false, nil
-			}
-		}
-	}
-
-	// if no checks are registered, tasks will always be healthy.
-	return true, nil
+	return a.taskHealthy(t.Name(), t.Id())
 }
 
 func (a *ConsulApi) taskScheduled(id string) (bool, error) {
@@ -561,8 +548,10 @@ func (a *ConsulApi) taskHealthy(name, id string) (bool, error) {
 		return false, err
 	}
 
+	any := false
 	for _, ch := range s {
 		if ch.ServiceID == id {
+			any = true
 			if ch.Status != "passing" {
 				return false, nil
 			}
@@ -570,7 +559,7 @@ func (a *ConsulApi) taskHealthy(name, id string) (bool, error) {
 	}
 
 	// if no checks are registered, tasks will always be healthy.
-	return true, nil
+	return any, nil
 }
 
 func (a *ConsulApi) RejectTask(t *Task, reason string) error {

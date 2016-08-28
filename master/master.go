@@ -39,6 +39,7 @@ type Master struct {
 	locks      *SchedulerLocks
 	queue      *SchedulerQueue
 	Config     *Config
+	hostCount  int
 	api        api.SchedulerApi
 	quit       chan struct{}
 }
@@ -53,14 +54,13 @@ func (s *Master) monitor() {
 	for {
 		select {
 		case evt := <-listener:
-			log.WithField("evt", evt).Debug("[master] received event")
-			// todo: set up better logic here
+			log.WithField("evt", evt).Info("[master] received event")
 			err := s.dispatchAll()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
 
-		case <-time.After(20 * time.Second):
+		case <-time.After(45 * time.Second):
 			err := s.dispatchAll()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
@@ -79,6 +79,18 @@ func (s *Master) dispatchAll() error {
 	if err != nil {
 		return err
 	}
+
+	list, err := s.api.ListHosts()
+	if err != nil {
+		return err
+	}
+
+	hostMismatch := false
+	if s.hostCount != len(list) {
+		hostMismatch = true
+	}
+	s.hostCount = len(list)
+
 	for _, c := range clusters {
 		for _, ser := range c.Services {
 			service, err := s.api.GetService(ser)
@@ -95,8 +107,15 @@ func (s *Master) dispatchAll() error {
 				return err
 			}
 
-			log.WithField("count", count).WithField("desired", service.Desired).Debug("[master] dispatch")
-			if count != service.Desired {
+			log.WithFields(log.Fields{
+				"count": count,
+				"desired": service.Desired,
+				"service": service.Name,
+				"cluster": c.Name,
+				"dispatching": count != service.Desired || hostMismatch,
+			}).Info("[master] dispatcher")
+
+			if count != service.Desired || hostMismatch {
 				s.queue.Push(scheduleReq{c.Name, service.Name})
 			}
 		}

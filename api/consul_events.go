@@ -63,10 +63,10 @@ func (a *ConsulApi) monitorHealth() {
 }
 
 // should emit events: config::<key>
-func (a *ConsulApi) monitorConfig() {
+func (a *ConsulApi) monitor(key, name string) {
 	lastId := uint64(0)
 	for {
-		list, meta, err := a.kv.Keys(a.conf.ConfigPrefix, "", &api.QueryOptions{
+		list, meta, err := a.kv.Keys(key, "/", &api.QueryOptions{
 			WaitIndex: lastId,
 			WaitTime:  3 * time.Minute,
 		})
@@ -80,10 +80,10 @@ func (a *ConsulApi) monitorConfig() {
 
 			events := make([]string, 0, len(list))
 			for _, key := range list {
-				events = append(events, fmt.Sprintf("config::%s", key))
+				events = append(events, fmt.Sprintf("%s::%s", name, key))
 			}
 
-			log.WithField("lastId", lastId).Debug("[consul-api] sending config events")
+			log.WithField("lastId", lastId).WithField("name", name).Debug("[consul-api] sending events")
 			a.emit(events...)
 			time.Sleep(2 * time.Second)
 		} else {
@@ -94,6 +94,8 @@ func (a *ConsulApi) monitorConfig() {
 		lastId = meta.LastIndex
 	}
 }
+
+
 
 func (a *ConsulApi) emit(events ...string) {
 	a.eventLock.RLock()

@@ -52,7 +52,7 @@ func (s *SchedulerLocks) Unlock(serviceName string) {
 	defer s.lock.Unlock()
 
 	locker, ok := s.locks[serviceName]
-	log.WithField("lock", serviceName).WithField("ok", ok).Info("[master-lockers] unlocking")
+	log.WithField("lock", serviceName).WithField("ok", ok).Debug("[master-lockers] unlocking")
 	if ok {
 		locker.Unlock()
 	}

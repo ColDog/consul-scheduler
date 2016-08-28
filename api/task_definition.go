@@ -43,6 +43,15 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 	if err == nil {
 		errors = append(errors, "version already provisioned")
 	}
+
+	if task.MaxAttempts == 0 {
+		task.MaxAttempts = 10
+	}
+
+	if task.GracePeriod == 0 {
+		task.GracePeriod = 60 * time.Second
+	}
+
 	return errors
 }
 

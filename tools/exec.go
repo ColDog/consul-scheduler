@@ -23,7 +23,9 @@ func Exec(env []string, timeout time.Duration, main string, cmds ...string) erro
 		case <-done:
 			return
 		case <-time.After(timeout):
-			cmd.Process.Kill()
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
 			return
 		}
 

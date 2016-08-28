@@ -51,6 +51,15 @@ func (task *Task) Scheduled() (bool, error) {
 	return ok, nil
 }
 
+func (task *Task) HasChecks() bool {
+	for _, c := range task.TaskDefinition.Containers {
+		if len(c.Checks) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (task *Task) Healthy() (bool, error) {
 	if task.healthy != nil {
 		return *task.healthy, nil

@@ -21,6 +21,7 @@ type TaskState struct {
 	Failure   error
 	Rejected  bool
 	Healthy   bool
+	Scheduled bool
 	Task      *api.Task
 }
 
@@ -215,37 +216,46 @@ func (agent *Agent) sync() {
 			return
 		}
 
-		log.WithField("task", task.Id()).WithField("healthy", healthy).WithField("scheduled", scheduled).Debug("[agent] syncing task")
-
 		agent.lock.RLock()
 		state, ok := agent.TaskState[task.Id()]
 		agent.lock.RUnlock()
 
 		if ok {
 			state.Healthy = healthy
+			state.Scheduled = scheduled
 		} else {
 			state = &TaskState{
-				Task:    task,
-				Healthy: healthy,
+				Task:      task,
+				Healthy:   healthy,
+				Scheduled: scheduled,
 			}
 			agent.TaskState[task.Id()] = state
 		}
 
-		if scheduled && healthy {
+		if state.Healthy {
+			state.Failure = nil
+		}
 
-			if state.Rejected {
+		log.WithFields(log.Fields{
+			"task": task.Id(),
+			"attempts": state.Attempts,
+			"failure": state.Failure,
+			"health": state.Healthy,
+			"scheduled": scheduled,
+			"last_started": state.StartedAt,
+		}).Info("[agent] task state")
+
+		if scheduled && !state.Rejected && !healthy {
+			// if the task does not have any checks, then we just rely on the attempts number since state.Health
+			// will always be false.
+			if !task.HasChecks() && state.Attempts > 0 {
 				continue
 			}
 
 			// leave some time in between restarting tasks, ie they may take a while before the health checks
 			// begin passing.
-			waits := 30 * time.Second
-			if task.TaskDefinition.GracePeriod.Nanoseconds() != int64(0) {
-				waits = task.TaskDefinition.GracePeriod
-			}
-
-			if state.StartedAt.Add(waits).After(time.Now()) {
-				log.WithField("task", task.Id()).Debug("[agent] too soon to start this task again")
+			if state.StartedAt.Add(task.TaskDefinition.GracePeriod).After(time.Now()) {
+				log.Debug("[agent] skipping start, too short an interval")
 				continue
 			}
 
@@ -268,8 +278,8 @@ func (agent *Agent) sync() {
 				}
 			}
 
-			log.Debug("[agent] triggering start!")
-
+			log.WithField("last_started", state.StartedAt).WithField("task", task.Id()).Info("[agent] starting")
+			state.StartedAt = time.Now() // put the started at here since time into the queue could be longer.
 			// restart the task since it is failing
 			select {
 			case agent.queue <- action{start: true, task: task}:
@@ -297,7 +307,7 @@ func (agent *Agent) sync() {
 	}
 
 	t2 := time.Now().UnixNano()
-	log.WithField("time", t2-t1).Info("[agent] finished sync")
+	log.WithField("time", t2-t1).WithField("secs", float64(t2 - t1) / 1000000000.0).Info("[agent] finished sync")
 
 	agent.LastSync = time.Now()
 }
@@ -363,38 +373,37 @@ func (agent *Agent) Run() {
 
 	agent.GetHostName()
 	agent.RegisterAgent()
+	agent.PublishState()
 
 	for i := 0; i < agent.Config.Runners; i++ {
 		go agent.runner(i)
 	}
 
-	listener := make(chan string)
-	agent.api.Subscribe("agent", "*", listener)
-	defer agent.api.UnSubscribe("agent")
-	defer close(listener)
+	listenState := make(chan string)
+	agent.api.Subscribe("agent-state", "state::*", listenState)
+	defer agent.api.UnSubscribe("agent-state")
+	defer close(listenState)
 
-	select {
-	case <-agent.stopCh:
-		log.Warn("[agent] exiting")
-		return
-	default:
-	}
-
-	agent.PublishState()
+	listenHealth := make(chan string)
+	agent.api.Subscribe("agent-health", "health::*", listenHealth)
+	defer agent.api.UnSubscribe("agent-health")
+	defer close(listenHealth)
 
 	close(agent.readyCh)
-
 	agent.sync()
 
 	log.Debug("[agent] waiting")
 	for {
 		select {
-		case x := <-listener:
-			log.WithField("key", x).Debug("[agent] sync triggered")
-			if x != "config::config/hosts/"+agent.Host {
-				agent.sync()
-				agent.PublishState()
-			}
+		case x := <-listenState:
+			log.WithField("key", x).Info("[agent] sync triggered")
+			agent.sync()
+			agent.PublishState()
+
+		case x := <-listenHealth:
+			log.WithField("key", x).Info("[agent] sync triggered")
+			agent.sync()
+			agent.PublishState()
 
 		case <-time.After(agent.Config.SyncInterval):
 			log.Debug("[agent] sync after timeout")
@@ -450,6 +459,7 @@ func (agent *Agent) runner(id int) {
 			}
 
 		case <-agent.stopCh:
+			log.Warnf("[runner-%d] exiting", id)
 			return
 		}
 	}
