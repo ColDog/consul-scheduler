@@ -19,7 +19,8 @@ type TaskState struct {
 	StartedAt time.Time
 	Attempts  int
 	Failure   error
-	Passing   bool
+	Healthy   bool
+	Task      *api.Task
 }
 
 type AgentConfig struct {
@@ -96,6 +97,7 @@ func (agent *Agent) start(t *api.Task) error {
 		state.Attempts += 1
 	} else {
 		state = &TaskState{
+			Task: t,
 			StartedAt: time.Now(),
 			Attempts: 1,
 		}
@@ -106,7 +108,7 @@ func (agent *Agent) start(t *api.Task) error {
 	}
 
 	for _, cont := range t.TaskDefinition.Containers {
-		executor := api.GetExecutor(cont)
+		executor := cont.GetExecutor()
 
 		if executor != nil {
 			cont.RunSetup()
@@ -130,7 +132,7 @@ func (agent *Agent) stop(t *api.Task) error {
 	agent.api.DeRegister(t.Id())
 
 	for _, cont := range t.TaskDefinition.Containers {
-		executor := api.GetExecutor(cont)
+		executor := cont.GetExecutor()
 
 		if executor != nil {
 			err := executor.StopTask(t)
@@ -167,9 +169,11 @@ func (agent *Agent) PublishState() {
 	for _, task := range desired {
 		ports = append(ports, task.Port)
 
-		//for _, c := range task.TaskDefinition.Containers {
-		//
-		//}
+		for _, c := range task.TaskDefinition.Containers {
+			for _, p := range c.GetExecutor().ReservedPorts() {
+				ports = append(ports, p)
+			}
+		}
 	}
 
 	h := &api.Host{
@@ -199,26 +203,25 @@ func (agent *Agent) sync() {
 		return
 	}
 
-	// todo: agents should be able to change the port
-
 	for _, task := range tasks {
 
-		log.WithField("task", task.Id()).WithField("passing", task.Passing).WithField("scheduled", task.Scheduled).Debug("[agent] syncing task")
+		log.WithField("task", task.Id()).WithField("healthy", task.Healthy()).WithField("scheduled", task.Scheduled).Debug("[agent] syncing task")
 
 		agent.lock.RLock()
 		state, ok := agent.TaskState[task.Id()]
 		agent.lock.RUnlock()
 
 		if ok {
-			state.Passing = task.Passing
+			state.Healthy = task.Healthy()
 		} else {
 			state = &TaskState{
-				Passing: task.Passing,
+				Task: task,
+				Healthy: task.Healthy(),
 			}
 			agent.TaskState[task.Id()] = state
 		}
 
-		if task.Scheduled && !task.Passing {
+		if task.Scheduled && !task.Healthy() {
 
 			// leave some time in between restarting tasks, ie they may take a while before the health checks
 			// begin passing.
@@ -242,7 +245,7 @@ func (agent *Agent) sync() {
 			}
 		}
 
-		if !task.Scheduled && task.Passing {
+		if !task.Scheduled && task.Healthy() {
 			log.Debug("[agent] triggering stop!")
 
 			// stop the task since it shouldn't be running
@@ -253,7 +256,7 @@ func (agent *Agent) sync() {
 			}
 		}
 
-		if !task.Scheduled && !task.Passing {
+		if !task.Scheduled && !task.Healthy() {
 			// perform some garbage collection
 			agent.api.DelTask(task)
 		}

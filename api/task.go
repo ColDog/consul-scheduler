@@ -27,6 +27,19 @@ type Task struct {
 	scheduled *bool
 }
 
+func (task *Task) AllPorts() []uint {
+	if task.Port != 0 {
+		return append(task.TaskDefinition.AllPorts(), task.Port)
+	} else {
+		return task.TaskDefinition.AllPorts()
+	}
+}
+
+func (task *Task) Reset() {
+	task.healthy = nil
+	task.scheduled = nil
+}
+
 func (task *Task) Scheduled() (bool, error) {
 	if task.scheduled != nil {
 		return *task.scheduled

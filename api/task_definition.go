@@ -20,6 +20,23 @@ type TaskDefinition struct {
 	GracePeriod time.Duration `json:"grace_period"`
 }
 
+// all the ports this task needs to run
+func (t *TaskDefinition) AllPorts() []uint {
+	ports := []uint{}
+	if t.Port != 0 {
+		ports = append(ports, t.Port)
+	}
+
+	for _, c := range t.Containers {
+		ex := c.GetExecutor()
+		if ex != nil {
+			ports = append(ports, ex.ReservedPorts())
+		}
+	}
+
+	return ports
+}
+
 func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 	_, err := api.GetTaskDefinition(task.Name, task.Version)
 	if err == nil {

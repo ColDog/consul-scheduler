@@ -31,6 +31,7 @@ type StorageConfig struct {
 	TaskScheduledPrefix   string
 	TasksPrefix           string
 	TasksByHostPrefix     string
+	TaskRejectionPrefix   string
 }
 
 func DefaultStorageConfig() *StorageConfig {
@@ -48,6 +49,7 @@ func DefaultStorageConfig() *StorageConfig {
 		TasksByHostPrefix:     statePrefix + "hosts/",
 		TasksPrefix:           statePrefix + "tasks/",
 		TaskScheduledPrefix:   statePrefix + "scheduling/",
+		TaskRejectionPrefix:   statePrefix + "rejections/",
 	}
 }
 
@@ -104,6 +106,7 @@ type SchedulerApi interface {
 	// => state/tasks/<cluster>/<service>/<task_id>  # stores a version of the task by cluster and service
 	// => state/hosts/<host_id>/<task_id>            # stores a version of the task by host
 	// => state/scheduling/<task_id>                 # marks the task as being scheduled or not scheduled
+	// => state/rejections/<task_id>                 # marks the task as being rejected by the agent
 	// => state/health/<task_id>                     # marks the task as being healthy or not (unnecessary in consul)
 	//
 	// Task queries can be executed with a set of options in the TaskQueryOpts, currently
@@ -112,12 +115,14 @@ type SchedulerApi interface {
 	ListTaskKeys(opts *TaskQueryOpts) ([]string, error)
 
 	GetTask(id string) (*Task, error)
-	ScheduleTask(task *Task) error
-	DeScheduleTask(task *Task) error
-	DelTask(task *Task) error
+	ScheduleTask(t *Task) error
+	DeScheduleTask(t *Task) error
+	DelTask(t *Task) error
+	RejectTask(id, reason string) error
 
-	TaskHealthy(id string) (bool, error)
-	TaskScheduled(id string) (bool, error)
+	TaskHealthy(t *Task) (bool, error)
+	TaskScheduled(t *Task) (bool, error)
+	TaskRejected(t *Task) (bool, error)
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.

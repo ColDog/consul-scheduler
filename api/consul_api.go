@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"cmd/go/testdata/testinternal3"
 )
 
 var (
@@ -497,6 +498,23 @@ func (a *ConsulApi) TaskHealthy(t *Task) (bool, error) {
 
 	// if no checks are registered, tasks will always be healthy.
 	return true
+}
+
+func (a *ConsulApi) RejectTask(t *Task, reason string) {
+	return a.put(a.conf.TaskRejectionPrefix + t.Id(), []byte(reason))
+}
+
+func (a *ConsulApi) TaskRejected(t *Task) (bool, error) {
+	_, err := a.get(a.conf.TaskRejectionPrefix + t.Id())
+	if err == ErrNotFound {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (a *ConsulApi) Debug() {
