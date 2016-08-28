@@ -6,6 +6,7 @@ import (
 	"github.com/coldog/sked/tools"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (c *Container) GetExecutor() Executor {
@@ -47,12 +48,13 @@ func (c *Container) GetExecutor() Executor {
 // list of commands to stop the process. This is a very rough executor as it doesn't know much
 // about the underlying process and therefore cannot intelligently make many decisions about it.
 type BashExecutor struct {
-	Ports       []uint   `json:"ports"`
-	Start       []string `json:"start"`
-	Stop        []string `json:"stop"`
-	Env         []string `json:"env"`
-	Artifact    string   `json:"artifact"`
-	DownloadDir string   `json:"download_dir"`
+	Ports            []uint        `json:"ports"`
+	Start            []string      `json:"start"`
+	Stop             []string      `json:"stop"`
+	Env              []string      `json:"env"`
+	Artifact         string        `json:"artifact"`
+	DownloadDir      string        `json:"download_dir"`
+	AllowedStartTime time.Duration `json:"allowed_start_time"`
 }
 
 func (bash *BashExecutor) StartTask(t *Task) error {
@@ -61,14 +63,14 @@ func (bash *BashExecutor) StartTask(t *Task) error {
 	}
 
 	if bash.Artifact != "" {
-		err := tools.Exec(bash.Env, "curl", "-o", bash.DownloadDir, bash.Artifact)
+		err := tools.Exec(bash.Env, 30*time.Second, "curl", "-o", bash.DownloadDir, bash.Artifact)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, cmd := range bash.Start {
-		err := tools.Exec(bash.Env, "/bin/bash", "-c", cmd)
+		err := tools.Exec(bash.Env, bash.AllowedStartTime, "/bin/bash", "-c", cmd)
 		if err != nil {
 			return err
 		}
@@ -79,7 +81,7 @@ func (bash *BashExecutor) StartTask(t *Task) error {
 
 func (bash *BashExecutor) StopTask(t *Task) (err error) {
 	for _, cmd := range bash.Start {
-		err = tools.Exec(bash.Env, "/bin/bash", "-c", cmd)
+		err = tools.Exec(bash.Env, 20*time.Second, "/bin/bash", "-c", cmd)
 	}
 	return err
 }
@@ -90,18 +92,19 @@ func (bash *BashExecutor) ReservedPorts() []uint {
 
 // The docker executor will start a docker container.
 type DockerExecutor struct {
-	Image         string   `json:"image"`
-	Cmd           string   `json:"cmd"`
-	Entry         string   `json:"entry"`
-	ContainerPort uint     `json:"container_port"`
-	Ports         []string `json:"ports"`
-	Env           []string `json:"env"`
-	WorkDir       string   `json:"work_dir"`
-	Net           string   `json:"net"`
-	NetAlias      string   `json:"net_alias"`
-	Volumes       []string `json:"volumes"`
-	VolumeDriver  string   `json:"volume_driver"`
-	Flags         []string `json:"flags"`
+	Image            string        `json:"image"`
+	Cmd              string        `json:"cmd"`
+	Entry            string        `json:"entry"`
+	ContainerPort    uint          `json:"container_port"`
+	Ports            []string      `json:"ports"`
+	Env              []string      `json:"env"`
+	WorkDir          string        `json:"work_dir"`
+	Net              string        `json:"net"`
+	NetAlias         string        `json:"net_alias"`
+	Volumes          []string      `json:"volumes"`
+	VolumeDriver     string        `json:"volume_driver"`
+	Flags            []string      `json:"flags"`
+	AllowedStartTime time.Duration `json:"allowed_start_time"`
 }
 
 func (docker *DockerExecutor) StartTask(t *Task) error {
@@ -113,12 +116,12 @@ func (docker *DockerExecutor) StartTask(t *Task) error {
 		docker.Ports = append(docker.Ports, fmt.Sprintf("%d:%d", t.Port, p))
 	}
 
-	err := tools.Exec(docker.Env, "docker", "pull", docker.Image)
+	err := tools.Exec(docker.Env, 3*time.Minute, "docker", "pull", docker.Image)
 	if err != nil {
 		return err
 	}
 
-	tools.Exec(docker.Env, "docker", "rm", "-f", t.Id())
+	tools.Exec(docker.Env, 5*time.Second, "docker", "rm", "-f", t.Id())
 
 	main := []string{"run"}
 	main = append(main, "--name", t.Id())
@@ -158,11 +161,11 @@ func (docker *DockerExecutor) StartTask(t *Task) error {
 	}
 
 	main = append(main, "-d", docker.Image)
-	return tools.Exec(docker.Env, "docker", main...)
+	return tools.Exec(docker.Env, docker.AllowedStartTime, "docker", main...)
 }
 
 func (docker *DockerExecutor) StopTask(t *Task) error {
-	return tools.Exec(docker.Env, "docker", "stop", t.Id())
+	return tools.Exec(docker.Env, 20*time.Second, "docker", "stop", t.Id())
 }
 
 func (docker *DockerExecutor) ReservedPorts() []uint {

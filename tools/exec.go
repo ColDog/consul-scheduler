@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func Exec(env []string, main string, cmds ...string) error {
+func Exec(env []string, timeout time.Duration, main string, cmds ...string) error {
 	cmdName := main + " " + strings.Join(cmds, " ")
 	log.WithField("cmd", cmdName).WithField("env", env).Debug("executing")
 
@@ -22,7 +22,7 @@ func Exec(env []string, main string, cmds ...string) error {
 		select {
 		case <-done:
 			return
-		case <-time.After(30 * time.Second):
+		case <-time.After(timeout):
 			cmd.Process.Kill()
 			return
 		}

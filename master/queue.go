@@ -1,12 +1,11 @@
 package master
 
-
 func NewSchedulerQueue() *SchedulerQueue {
 	q := &SchedulerQueue{
-		queue: make([]interface{}, 0, 200),
-		quit: make(chan struct{}),
+		queue:   make([]interface{}, 0, 200),
+		quit:    make(chan struct{}),
 		enqueue: make(chan interface{}, 50),
-		dequeue: make(chan struct {res chan interface{}}, 50),
+		dequeue: make(chan struct{ res chan interface{} }, 50),
 	}
 
 	go q.listen()
@@ -19,13 +18,13 @@ type SchedulerQueue struct {
 	queue   []interface{}
 	quit    chan struct{}
 	enqueue chan interface{}
-	dequeue chan struct{
+	dequeue chan struct {
 		res chan interface{}
 	}
 }
 
 func (s *SchedulerQueue) Pop(l chan interface{}) {
-	s.dequeue <- struct {res chan interface{}} {l}
+	s.dequeue <- struct{ res chan interface{} }{l}
 }
 
 func (s *SchedulerQueue) Push(val interface{}) {
@@ -45,7 +44,7 @@ func (s *SchedulerQueue) doEnqueue(val interface{}) {
 	s.queue = append(s.queue, val)
 }
 
-func (s *SchedulerQueue) listen()  {
+func (s *SchedulerQueue) listen() {
 	for {
 		if len(s.queue) > 0 {
 			// if the queue has items in it, also listen to the dequeue channel
@@ -53,7 +52,7 @@ func (s *SchedulerQueue) listen()  {
 			case val := <-s.enqueue:
 				s.doEnqueue(val)
 			case future := <-s.dequeue:
-				future.res <- s.queue[len(s.queue) - 1]
+				future.res <- s.queue[len(s.queue)-1]
 			case <-s.quit:
 				return
 			}

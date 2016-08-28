@@ -2,7 +2,7 @@ package api
 
 func NewMockLock(k string, a *MockApi) Lockable {
 	return &MockLock{
-		a: a,
+		a:   a,
 		key: k,
 	}
 }

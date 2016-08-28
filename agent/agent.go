@@ -6,8 +6,8 @@ import (
 	"github.com/coldog/sked/api"
 	"github.com/shirou/gopsutil/mem"
 
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -31,7 +31,7 @@ type AgentConfig struct {
 }
 
 var (
-	NoExecutorErr      = errors.New("start task failed")
+	NoExecutorErr = errors.New("start task failed")
 )
 
 type action struct {
@@ -95,9 +95,9 @@ func (agent *Agent) start(t *api.Task) error {
 		state.Attempts += 1
 	} else {
 		state = &TaskState{
-			Task: t,
+			Task:      t,
 			StartedAt: time.Now(),
-			Attempts: 1,
+			Attempts:  1,
 		}
 
 		agent.lock.Lock()
@@ -159,7 +159,7 @@ func (agent *Agent) PublishState() {
 	d, _ := AvailableDiskSpace()
 
 	desired, _ := agent.api.ListTasks(&api.TaskQueryOpts{
-		ByHost: agent.Host,
+		ByHost:    agent.Host,
 		Scheduled: true,
 	})
 	ports := make([]uint, 0)
@@ -224,7 +224,7 @@ func (agent *Agent) sync() {
 			state.Healthy = healthy
 		} else {
 			state = &TaskState{
-				Task: task,
+				Task:    task,
 				Healthy: healthy,
 			}
 			agent.TaskState[task.Id()] = state
@@ -254,7 +254,7 @@ func (agent *Agent) sync() {
 
 			// restart the task since it is failing
 			select {
-			case agent.queue <- action{start: true, task:  task}:
+			case agent.queue <- action{start: true, task: task}:
 			default:
 				log.Error("[agent] queue is full")
 			}
@@ -265,7 +265,7 @@ func (agent *Agent) sync() {
 
 			// stop the task since it shouldn't be running
 			select {
-			case agent.queue <- action{stop: true, task:  task}:
+			case agent.queue <- action{stop: true, task: task}:
 			default:
 				log.Error("[agent] queue is full")
 			}
@@ -341,7 +341,7 @@ func (agent *Agent) Run() {
 
 	// the server provides a basic health checking port to allow for the agent to provide consul with updates
 	defer agent.api.DelHost(agent.Host)
-	defer agent.api.DeRegister("sked-"+agent.Host)
+	defer agent.api.DeRegister("sked-" + agent.Host)
 
 	agent.GetHostName()
 	agent.RegisterAgent()
@@ -373,7 +373,7 @@ func (agent *Agent) Run() {
 		select {
 		case x := <-listener:
 			log.WithField("key", x).Debug("[agent] sync triggered")
-			if x != "config::config/hosts/" + agent.Host {
+			if x != "config::config/hosts/"+agent.Host {
 				agent.sync()
 				agent.PublishState()
 			}

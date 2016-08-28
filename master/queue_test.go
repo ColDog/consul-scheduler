@@ -1,8 +1,8 @@
 package master
 
 import (
-	"testing"
 	"github.com/coldog/sked/tools"
+	"testing"
 	"time"
 )
 
@@ -29,6 +29,6 @@ func TestQueue_Blocking(t *testing.T) {
 
 	l := make(chan interface{})
 	q.Pop(l)
-	val := <- l
+	val := <-l
 	tools.Assert(t, val.(string) == "hello2", "blocking didn't work")
 }

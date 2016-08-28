@@ -1,11 +1,11 @@
 package master
 
 import (
-	"testing"
-	"github.com/coldog/sked/api"
-	"github.com/coldog/sked/actions"
-	"github.com/coldog/sked/tools"
 	"fmt"
+	"github.com/coldog/sked/actions"
+	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/tools"
+	"testing"
 )
 
 func testScheduler(t *testing.T, clusterName, serviceName, file string, hosts int) {

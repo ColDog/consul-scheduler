@@ -1,8 +1,8 @@
 package master
 
 import (
-	"sync"
 	"github.com/coldog/sked/api"
+	"sync"
 )
 
 // scheduler implements the simple scheduler interface which should be able to handle getting a service and scheduling.

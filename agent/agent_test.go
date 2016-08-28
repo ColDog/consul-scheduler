@@ -3,11 +3,11 @@ package agent
 import (
 	log "github.com/Sirupsen/logrus"
 
+	"fmt"
 	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/tools"
 	"testing"
 	"time"
-	"github.com/coldog/sked/tools"
-	"fmt"
 )
 
 func init() {
@@ -32,7 +32,6 @@ func TestAgent_Syncing(t *testing.T) {
 	ag := NewAgent(a, &AgentConfig{})
 	ag.GetHostName()
 	ag.PublishState()
-
 
 	task := api.SampleTask()
 	task.Host = ag.Host

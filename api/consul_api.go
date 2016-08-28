@@ -6,9 +6,9 @@ import (
 
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 )
 
 var (
@@ -505,7 +505,7 @@ func (a *ConsulApi) TaskHealthy(t *Task) (bool, error) {
 }
 
 func (a *ConsulApi) RejectTask(t *Task, reason string) error {
-	return a.put(a.conf.TaskRejectionPrefix + t.Id(), []byte(reason))
+	return a.put(a.conf.TaskRejectionPrefix+t.Id(), []byte(reason))
 }
 
 func (a *ConsulApi) TaskRejected(t *Task) (bool, error) {

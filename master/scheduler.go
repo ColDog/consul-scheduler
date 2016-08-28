@@ -6,26 +6,26 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/hashicorp/go-multierror"
 
-	"sync"
-	"math/rand"
-	"time"
 	"fmt"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 func NewDefaultScheduler(a api.SchedulerApi) *DefaultScheduler {
 	return &DefaultScheduler{
-		api: a,
-		hosts: make(map[string]*api.Host),
+		api:     a,
+		hosts:   make(map[string]*api.Host),
 		maxPort: make(map[string]uint),
-		l: &sync.RWMutex{},
+		l:       &sync.RWMutex{},
 	}
 }
 
 type DefaultScheduler struct {
-	api     api.SchedulerApi
-	hosts   map[string]*api.Host
-	maxPort map[string]uint
-	l       *sync.RWMutex
+	api      api.SchedulerApi
+	hosts    map[string]*api.Host
+	maxPort  map[string]uint
+	l        *sync.RWMutex
 	lastSync time.Time
 }
 
@@ -92,7 +92,7 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 		}
 
 		// If the task is a lower version, and we are still above the min for this service, deschedule the task.
-		if (count - removed) > service.Min && t.TaskDefinition.Version != service.TaskVersion {
+		if (count-removed) > service.Min && t.TaskDefinition.Version != service.TaskVersion {
 			s.api.DeScheduleTask(t)
 			removed--
 			delete(taskMap, key)
@@ -165,15 +165,15 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 }
 
 func (s *DefaultScheduler) matchHost(maxDisk, maxCpu, maxMem uint64, t *api.Task, cand *api.Host) error {
-	if cand.Memory - maxMem < 0 {
+	if cand.Memory-maxMem < 0 {
 		return fmt.Errorf("host does not have enough memory")
 	}
 
-	if cand.CpuUnits - maxCpu < 0 {
+	if cand.CpuUnits-maxCpu < 0 {
 		return fmt.Errorf("host does not have enough cpu units")
 	}
 
-	if cand.DiskSpace - maxDisk < 0 {
+	if cand.DiskSpace-maxDisk < 0 {
 		return fmt.Errorf("host does not have enough disk space")
 	}
 

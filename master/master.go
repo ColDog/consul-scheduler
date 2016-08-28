@@ -4,9 +4,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/coldog/sked/api"
 
-	"time"
-	"sync"
 	"net/http"
+	"sync"
+	"time"
 )
 
 type scheduleReq struct {
@@ -16,13 +16,13 @@ type scheduleReq struct {
 
 func NewMaster(a api.SchedulerApi, conf *Config) *Master {
 	return &Master{
-		quit: make(chan struct{}, 1),
-		api: a,
-		queue: NewSchedulerQueue(),
-		locks: NewSchedulerLocks(a),
+		quit:   make(chan struct{}, 1),
+		api:    a,
+		queue:  NewSchedulerQueue(),
+		locks:  NewSchedulerLocks(a),
 		Config: conf,
 		schedulers: &Schedulers{
-			lock: &sync.RWMutex{},
+			lock:       &sync.RWMutex{},
 			schedulers: make(map[string]Scheduler),
 		},
 	}

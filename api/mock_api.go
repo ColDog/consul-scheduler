@@ -4,36 +4,36 @@ import "sync"
 
 func NewMockApi() *MockApi {
 	return &MockApi{
-		clusters: make(map[string]*Cluster),
-		services: make(map[string]*Service),
+		clusters:        make(map[string]*Cluster),
+		services:        make(map[string]*Service),
 		taskDefinitions: make(map[string]*TaskDefinition),
-		tasks: make(map[string]*Task),
-		hosts: make(map[string]*Host),
-		schedulings: make(map[string]bool),
-		rejections: make(map[string]bool),
-		listeners: make(map[string]struct{
+		tasks:           make(map[string]*Task),
+		hosts:           make(map[string]*Host),
+		schedulings:     make(map[string]bool),
+		rejections:      make(map[string]bool),
+		listeners: make(map[string]struct {
 			on string
 			ch chan string
 		}),
 		locks: make(map[string]bool),
-		lock: &sync.RWMutex{},
+		lock:  &sync.RWMutex{},
 	}
 }
 
 type MockApi struct {
-	clusters map[string]*Cluster
-	services map[string]*Service
+	clusters        map[string]*Cluster
+	services        map[string]*Service
 	taskDefinitions map[string]*TaskDefinition
-	tasks map[string]*Task
-	hosts map[string]*Host
-	schedulings map[string] bool
-	rejections map[string] bool
-	locks map[string] bool
-	listeners map[string] struct{
+	tasks           map[string]*Task
+	hosts           map[string]*Host
+	schedulings     map[string]bool
+	rejections      map[string]bool
+	locks           map[string]bool
+	listeners       map[string]struct {
 		on string
 		ch chan string
 	}
-	lock   *sync.RWMutex
+	lock *sync.RWMutex
 }
 
 func (a *MockApi) HostName() (string, error) {
@@ -145,7 +145,6 @@ func (a *MockApi) DelService(id string) error {
 	delete(a.services, id)
 	return nil
 }
-
 
 func (a *MockApi) ListTaskDefinitions() ([]*TaskDefinition, error) {
 	a.lock.RLock()
@@ -273,7 +272,6 @@ func (a *MockApi) DelTask(t *Task) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-
 	if _, ok := a.schedulings[t.Id()]; ok {
 		delete(a.schedulings, t.Id())
 	}
@@ -309,7 +307,6 @@ func (a *MockApi) TaskScheduled(t *Task) (bool, error) {
 
 	return a.schedulings[t.Id()], nil
 }
-
 
 func (a *MockApi) ListTasks(q *TaskQueryOpts) ([]*Task, error) {
 	a.lock.RLock()

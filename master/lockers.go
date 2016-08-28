@@ -1,15 +1,15 @@
 package master
 
 import (
-	"sync"
 	"github.com/coldog/sked/api"
+	"sync"
 )
 
 func NewSchedulerLocks(a api.SchedulerApi) *SchedulerLocks {
 	return &SchedulerLocks{
 		locks: make(map[string]api.Lockable),
-		lock: &sync.Mutex{},
-		api: a,
+		lock:  &sync.Mutex{},
+		api:   a,
 	}
 }
 
@@ -24,9 +24,9 @@ func (s *SchedulerLocks) Lock(serviceName string) (locker api.Lockable, err erro
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	locker, ok := s.locks[serviceName];
+	locker, ok := s.locks[serviceName]
 	if !ok {
-		locker, err = s.api.Lock(s.api.Conf().SchedulersPrefix + "-" + serviceName, false)
+		locker, err = s.api.Lock(s.api.Conf().SchedulersPrefix+"-"+serviceName, false)
 		if err != nil {
 			return locker, err
 		}

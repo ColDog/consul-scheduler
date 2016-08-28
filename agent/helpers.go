@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"time"
 	"syscall"
+	"time"
 )
 
 const (

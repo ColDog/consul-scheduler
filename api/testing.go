@@ -110,4 +110,3 @@ func SampleCluster() *Cluster {
 		Services:  []string{"test"},
 	}
 }
-
