@@ -6,7 +6,7 @@ func NewSchedulerQueue() *SchedulerQueue {
 		queue: make([]interface{}, 0, 200),
 		quit: make(chan struct{}),
 		enqueue: make(chan interface{}, 50),
-		dequeue: make(chan struct {res chan string}, 50),
+		dequeue: make(chan struct {res chan interface{}}, 50),
 	}
 
 	go q.listen()

@@ -6,8 +6,6 @@ import (
 
 	"time"
 	"sync"
-	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
@@ -23,8 +21,8 @@ func NewMaster(a api.SchedulerApi, conf *Config) *Master {
 		queue: NewSchedulerQueue(),
 		locks: NewSchedulerLocks(a),
 		Config: conf,
-		schedulers: Schedulers{
-			lock: sync.RWMutex{},
+		schedulers: &Schedulers{
+			lock: &sync.RWMutex{},
 			schedulers: make(map[string]Scheduler),
 		},
 	}

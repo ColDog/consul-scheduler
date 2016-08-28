@@ -35,10 +35,6 @@ tasks:
       - urlprefix-/helloworld
 
     provide_port: true
-    checks:
-      - http: http://127.0.0.1
-        interval: 10s
-        add_provided_port: true
 
     containers:
       - name: helloworld
@@ -47,3 +43,6 @@ tasks:
           name: helloworld
           image: tutum/hello-world
           container_port: 80
+        checks:
+          - http: http://127.0.0.1:$PROVIDED_PORT
+            interval: 10s

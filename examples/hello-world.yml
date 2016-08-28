@@ -1,6 +1,5 @@
 clusters:
   - name: default
-    scheduler: default
     services:
       - helloworld
 
@@ -9,8 +8,8 @@ services:
     task_name: helloworld
     task_version: 2
     min: 3
-    max: 50
-    desired: 50
+    max: 5
+    desired: 5
 
 tasks:
   - name: helloworld

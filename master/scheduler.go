@@ -2,13 +2,14 @@ package master
 
 import (
 	"github.com/coldog/sked/api"
+
 	log "github.com/Sirupsen/logrus"
+	"github.com/hashicorp/go-multierror"
+
 	"sync"
 	"math/rand"
 	"time"
 	"fmt"
-	"cmd/go/testdata/testinternal3"
-	"github.com/hashicorp/go-multierror"
 )
 
 func NewDefaultScheduler(a api.SchedulerApi) *DefaultScheduler {
@@ -16,6 +17,7 @@ func NewDefaultScheduler(a api.SchedulerApi) *DefaultScheduler {
 		api: a,
 		hosts: make(map[string]*api.Host),
 		maxPort: make(map[string]uint),
+		l: &sync.RWMutex{},
 	}
 }
 
@@ -23,10 +25,35 @@ type DefaultScheduler struct {
 	api     api.SchedulerApi
 	hosts   map[string]*api.Host
 	maxPort map[string]uint
-	l       *sync.Mutex
+	l       *sync.RWMutex
+	lastSync time.Time
+}
+
+func (s *DefaultScheduler) syncHosts() error {
+	s.l.Lock()
+	defer s.l.Unlock()
+
+	s.lastSync = time.Now()
+	hosts, err := s.api.ListHosts()
+	if err != nil {
+		return err
+	}
+
+	for _, h := range hosts {
+		s.hosts[h.Name] = h
+	}
+	return nil
 }
 
 func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) error {
+	err := s.syncHosts()
+	if err != nil {
+		return err
+	}
+
+	if len(s.hosts) == 0 {
+		return fmt.Errorf("no hosts to schedule on")
+	}
 
 	taskDefinition, err := s.api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if err != nil {
@@ -92,7 +119,7 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 				// make the task and schedule it
 				t := api.NewTask(cluster, taskDefinition, service, i)
 				selectedHost, err := s.selectHost(t)
-				if err != nil {
+				if selectedHost == "" {
 					log.WithField("error", err).Warnf("[scheduler-%s] could not find suitable host", service.Name)
 					continue
 				}
@@ -112,7 +139,7 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 				}
 
 				// we are good to schedule the task!
-				log.WithField("task", t.Id()).Debugf("[scheduler-%s] added task", service.Name)
+				log.WithField("host", selectedHost).WithField("task", t.Id()).Debugf("[scheduler-%s] added task", service.Name)
 				s.api.ScheduleTask(t)
 				taskMap[t.Id()] = t
 			}
@@ -166,6 +193,9 @@ func (s *DefaultScheduler) matchHost(maxDisk, maxCpu, maxMem uint64, t *api.Task
 }
 
 func (s *DefaultScheduler) selectHost(t *api.Task) (string, error) {
+	s.l.RLock()
+	defer s.l.RUnlock()
+
 	var errors *multierror.Error
 
 	rand.Seed(time.Now().Unix())
@@ -180,10 +210,8 @@ func (s *DefaultScheduler) selectHost(t *api.Task) (string, error) {
 		maxMem += c.Memory
 	}
 
-	for i := 0; i < len(s.hosts); i++ {
-		// todo: change this to be ranked, not random
-		sel := rand.Intn(len(s.hosts))
-		cand := s.hosts[sel]
+	// todo: should be ranked
+	for _, cand := range s.hosts {
 
 		err := s.matchHost(maxDisk, maxCpu, maxMem, t, cand)
 		if err != nil {
