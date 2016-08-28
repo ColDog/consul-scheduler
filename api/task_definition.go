@@ -18,6 +18,7 @@ type TaskDefinition struct {
 	Tags        []string      `json:"tags"`
 	Containers  []*Container  `json:"containers"`
 	GracePeriod time.Duration `json:"grace_period"`
+	MaxAttempts int           `json:"max_attempts"`
 }
 
 // all the ports this task needs to run
@@ -30,7 +31,7 @@ func (t *TaskDefinition) AllPorts() []uint {
 	for _, c := range t.Containers {
 		ex := c.GetExecutor()
 		if ex != nil {
-			ports = append(ports, ex.ReservedPorts())
+			ports = append(ports, ex.ReservedPorts()...)
 		}
 	}
 

@@ -150,7 +150,7 @@ func (s *Master) Use(name string, sked Scheduler) {
 }
 
 func (s *Master) Run() {
-	s.schedulers.Use("", &DefaultScheduler{})
+	s.schedulers.Use("", NewDefaultScheduler(s.api))
 	for i := 0; i < s.Config.Runners; i++ {
 		go s.worker(i)
 	}

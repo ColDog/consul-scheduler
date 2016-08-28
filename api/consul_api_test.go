@@ -66,10 +66,10 @@ func TestConsulApi_LockNoWait(t *testing.T) {
 //Register(t *Task) error
 func TestConsulApi_Register(t *testing.T) {
 	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.Register(sampleTask())
+		err := api.Register(SampleTask())
 		tools.Ok(t, err)
 
-		err = api.DeRegister(sampleTask().Id())
+		err = api.DeRegister(SampleTask().Id())
 		tools.Ok(t, err)
 	})
 }
@@ -80,18 +80,18 @@ func TestConsulApi_Register(t *testing.T) {
 //DelCluster(id string) error
 func TestConsulApi_Cluster(t *testing.T) {
 	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutCluster(sampleCluster())
+		err := api.PutCluster(SampleCluster())
 		tools.Ok(t, err)
 
-		c, err := api.GetCluster(sampleCluster().Name)
+		c, err := api.GetCluster(SampleCluster().Name)
 		tools.Ok(t, err)
-		tools.Equals(t, c.Name, sampleCluster().Name)
+		tools.Equals(t, c.Name, SampleCluster().Name)
 
 		cs, err := api.ListClusters()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no clusters to list")
 
-		errr := api.DelCluster(sampleCluster().Name)
+		errr := api.DelCluster(SampleCluster().Name)
 		tools.Ok(t, errr)
 	})
 }
@@ -102,18 +102,18 @@ func TestConsulApi_Cluster(t *testing.T) {
 //DelService(id string) (*Service, error)
 func TestConsulApi_Services(t *testing.T) {
 	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutService(sampleService())
+		err := api.PutService(SampleService())
 		tools.Ok(t, err)
 
-		c, err := api.GetService(sampleService().Name)
+		c, err := api.GetService(SampleService().Name)
 		tools.Ok(t, err)
-		tools.Equals(t, c.Name, sampleService().Name)
+		tools.Equals(t, c.Name, SampleService().Name)
 
 		cs, err := api.ListServices()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no services to list")
 
-		errr := api.DelService(sampleService().Name)
+		errr := api.DelService(SampleService().Name)
 		tools.Ok(t, errr)
 	})
 }
@@ -123,15 +123,15 @@ func TestConsulApi_Services(t *testing.T) {
 //PutTaskDefinition(t *TaskDefinition) error
 func TestConsulApi_TaskDefinitions(t *testing.T) {
 	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutTaskDefinition(sampleTaskDefinition())
+		err := api.PutTaskDefinition(SampleTaskDefinition())
 		tools.Ok(t, err)
 
-		c, err := api.GetTaskDefinition(sampleTaskDefinition().Name, sampleTaskDefinition().Version)
+		c, err := api.GetTaskDefinition(SampleTaskDefinition().Name, SampleTaskDefinition().Version)
 		tools.Ok(t, err)
 		tools.Assert(t, c != nil, "task definition is nil")
 
-		tools.Equals(t, c.Name, sampleTaskDefinition().Name)
-		tools.Equals(t, c.Version, sampleTaskDefinition().Version)
+		tools.Equals(t, c.Name, SampleTaskDefinition().Name)
+		tools.Equals(t, c.Version, SampleTaskDefinition().Version)
 
 		cs, err := api.ListTaskDefinitions()
 		tools.Ok(t, err)
@@ -148,18 +148,18 @@ func TestConsulApi_TaskDefinitions(t *testing.T) {
 //DelHost(id string) (error)
 func TestConsulApi_Hosts(t *testing.T) {
 	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutHost(sampleHost())
+		err := api.PutHost(SampleHost())
 		tools.Ok(t, err)
 
-		c, err := api.GetHost(sampleHost().Name)
+		c, err := api.GetHost(SampleHost().Name)
 		tools.Ok(t, err)
-		tools.Equals(t, c.Name, sampleHost().Name)
+		tools.Equals(t, c.Name, SampleHost().Name)
 
 		cs, err := api.ListHosts()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no services to list")
 
-		errr := api.DelHost(sampleHost().Name)
+		errr := api.DelHost(SampleHost().Name)
 		tools.Ok(t, errr)
 	})
 }

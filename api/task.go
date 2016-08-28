@@ -42,27 +42,27 @@ func (task *Task) Reset() {
 
 func (task *Task) Scheduled() (bool, error) {
 	if task.scheduled != nil {
-		return *task.scheduled
+		return *task.scheduled, nil
 	}
 
-	ok, err := task.api.TaskScheduled(task.Id())
+	ok, err := task.api.TaskScheduled(task)
 	if err != nil {
 		return false, err
 	}
-	task.scheduled = ok
+	task.scheduled = &ok
 	return ok, nil
 }
 
 func (task *Task) Healthy() (bool, error) {
 	if task.healthy != nil {
-		return *task.healthy
+		return *task.healthy, nil
 	}
 
-	ok, err := task.api.TaskHealthy(task.Id())
+	ok, err := task.api.TaskHealthy(task)
 	if err != nil {
 		return false, err
 	}
-	task.healthy = ok
+	task.healthy = &ok
 	return ok, nil
 }
 

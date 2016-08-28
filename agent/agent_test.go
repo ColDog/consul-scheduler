@@ -3,14 +3,11 @@ package agent
 import (
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/coldog/sked/actions"
 	"github.com/coldog/sked/api"
-	"github.com/coldog/sked/scheduler"
-	"github.com/coldog/sked/tools"
-
 	"testing"
-	"fmt"
 	"time"
+	"github.com/coldog/sked/tools"
+	"fmt"
 )
 
 func init() {
@@ -29,38 +26,27 @@ func TestAgent_GetsInfo(t *testing.T) {
 }
 
 func TestAgent_Syncing(t *testing.T) {
-	api.RunConsulApiTest(func(a *api.ConsulApi) {
-		err := actions.ApplyConfig("../examples/hello-world.yml", a)
-		tools.Ok(t, err)
 
-		ag := NewAgent(a, &AgentConfig{})
-		ag.GetHostName()
-		ag.RegisterAgent()
-		ag.PublishState()
+	a := api.NewMockApi()
 
-		fmt.Printf("%+v\n", ag.LastState)
+	ag := NewAgent(a, &AgentConfig{})
+	ag.GetHostName()
+	ag.PublishState()
 
-		c, err := a.GetCluster("default")
-		tools.Ok(t, err)
-		scheduler.RunDefaultScheduler(c, a, nil)
 
-		a.Debug()
-		ag.sync()
+	task := api.SampleTask()
+	task.Host = ag.Host
 
-		count := 0
-		for {
-			select {
-			case <-time.After(3 * time.Second):
-				t.Fatal("took too long")
+	a.PutService(api.SampleService())
+	a.PutCluster(api.SampleCluster())
+	a.ScheduleTask(task)
 
-			case act := <- ag.queue:
-				count++
-				fmt.Printf("%d %+v\n", count, act)
-				if count >= 4 {
-					return
-				}
+	go func() {
+		time.Sleep(1 * time.Second)
+		ag.Stop()
+	}()
 
-			}
-		}
-	})
+	ag.Run()
+
+	tools.Assert(t, len(ag.TaskState) > 0, "no tasks scheduled")
 }

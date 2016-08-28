@@ -57,7 +57,7 @@ func RunConsulApiTest(f ConsulApiTest) {
 	f(api)
 }
 
-func sampleContainer() *Container {
+func SampleContainer() *Container {
 	return &Container{
 		Name:     "test",
 		Type:     "bash",
@@ -65,19 +65,19 @@ func sampleContainer() *Container {
 	}
 }
 
-func sampleTaskDefinition() *TaskDefinition {
+func SampleTaskDefinition() *TaskDefinition {
 	return &TaskDefinition{
 		Name:        "test",
 		Version:     1,
 		ProvidePort: true,
 		Tags:        []string{"test"},
 		Containers: []*Container{
-			sampleContainer(),
+			SampleContainer(),
 		},
 	}
 }
 
-func sampleService() *Service {
+func SampleService() *Service {
 	return &Service{
 		Name:        "test",
 		TaskName:    "test",
@@ -87,7 +87,7 @@ func sampleService() *Service {
 	}
 }
 
-func sampleHost() *Host {
+func SampleHost() *Host {
 	return &Host{
 		Name:          "testinghost",
 		CpuUnits:      10000000,
@@ -99,11 +99,11 @@ func sampleHost() *Host {
 	}
 }
 
-func sampleTask() *Task {
-	return NewTask(sampleCluster(), sampleTaskDefinition(), sampleService(), 1)
+func SampleTask() *Task {
+	return NewTask(SampleCluster(), SampleTaskDefinition(), SampleService(), 1)
 }
 
-func sampleCluster() *Cluster {
+func SampleCluster() *Cluster {
 	return &Cluster{
 		Name:      "test",
 		Scheduler: "default",
@@ -111,6 +111,3 @@ func sampleCluster() *Cluster {
 	}
 }
 
-func SampleTask() *Task {
-	return sampleTask()
-}

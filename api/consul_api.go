@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"cmd/go/testdata/testinternal3"
+	"strings"
 )
 
 var (
@@ -171,14 +171,18 @@ func (a *ConsulApi) RegisterAgent(host, addr string, port int) error {
 func (a *ConsulApi) Register(t *Task) error {
 
 	checks := api.AgentServiceChecks{}
-	for _, check := range t.Checks {
-		checks = append(checks, &api.AgentServiceCheck{
-			Interval: check.Interval,
-			Script:   check.Script,
-			Timeout:  check.Timeout,
-			TCP:      check.TCP,
-			HTTP:     check.HTTP,
-		})
+	sp := fmt.Sprintf("%d", t.Port)
+
+	for _, cont := range t.TaskDefinition.Containers {
+		for _, check := range cont.Checks {
+			checks = append(checks, &api.AgentServiceCheck{
+				Interval: check.Interval,
+				Script:   check.Script,
+				Timeout:  check.Timeout,
+				TCP:      strings.Replace(check.TCP, "$PROVIDED_PORT", sp, 1),
+				HTTP:     strings.Replace(check.HTTP, "$PROVIDED_PORT", sp, 1),
+			})
+		}
 	}
 
 	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("host", t.Host).Debug("registering task")
@@ -485,22 +489,22 @@ func (a *ConsulApi) TaskScheduled(t *Task) (bool, error) {
 func (a *ConsulApi) TaskHealthy(t *Task) (bool, error) {
 	s, _, err := a.health.Checks(t.Name(), nil)
 	if err != nil {
-		return false
+		return false, err
 	}
 
 	for _, ch := range s {
 		if ch.ServiceID == t.Id() {
 			if ch.Status != "passing" {
-				return false
+				return false, nil
 			}
 		}
 	}
 
 	// if no checks are registered, tasks will always be healthy.
-	return true
+	return true, nil
 }
 
-func (a *ConsulApi) RejectTask(t *Task, reason string) {
+func (a *ConsulApi) RejectTask(t *Task, reason string) error {
 	return a.put(a.conf.TaskRejectionPrefix + t.Id(), []byte(reason))
 }
 

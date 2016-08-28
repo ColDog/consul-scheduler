@@ -11,7 +11,7 @@ func TestExecutors_Bash(t *testing.T) {
 		Stop:  []string{"echo stop"},
 	}
 
-	task := sampleTask()
+	task := SampleTask()
 	err := b.StartTask(task)
 	tools.Ok(t, err)
 
@@ -26,7 +26,7 @@ func TestExecutors_Docker(t *testing.T) {
 		Env:           []string{"HI=hello"},
 	}
 
-	task := sampleTask()
+	task := SampleTask()
 	err := b.StartTask(task)
 	tools.Ok(t, err)
 

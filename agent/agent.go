@@ -31,8 +31,7 @@ type AgentConfig struct {
 }
 
 var (
-	PassOnStartReqErr = errors.New("start request intervals too short")
-	NoExecutorErr     = errors.New("start task failed")
+	NoExecutorErr      = errors.New("start task failed")
 )
 
 type action struct {
@@ -85,7 +84,6 @@ type Agent struct {
 
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
 func (agent *Agent) start(t *api.Task) error {
-
 	agent.lock.RLock()
 	state, ok := agent.TaskState[t.Id()]
 	agent.lock.RUnlock()
@@ -204,24 +202,35 @@ func (agent *Agent) sync() {
 	}
 
 	for _, task := range tasks {
+		healthy, err := task.Healthy()
+		if err != nil {
+			log.WithField("error", err).Error("failed to sync")
+			return
+		}
 
-		log.WithField("task", task.Id()).WithField("healthy", task.Healthy()).WithField("scheduled", task.Scheduled).Debug("[agent] syncing task")
+		scheduled, err := task.Scheduled()
+		if err != nil {
+			log.WithField("error", err).Error("failed to sync")
+			return
+		}
+
+		log.WithField("task", task.Id()).WithField("healthy", healthy).WithField("scheduled", scheduled).Debug("[agent] syncing task")
 
 		agent.lock.RLock()
 		state, ok := agent.TaskState[task.Id()]
 		agent.lock.RUnlock()
 
 		if ok {
-			state.Healthy = task.Healthy()
+			state.Healthy = healthy
 		} else {
 			state = &TaskState{
 				Task: task,
-				Healthy: task.Healthy(),
+				Healthy: healthy,
 			}
 			agent.TaskState[task.Id()] = state
 		}
 
-		if task.Scheduled && !task.Healthy() {
+		if scheduled && healthy {
 
 			// leave some time in between restarting tasks, ie they may take a while before the health checks
 			// begin passing.
@@ -235,6 +244,12 @@ func (agent *Agent) sync() {
 				continue
 			}
 
+			if state.Attempts > task.TaskDefinition.MaxAttempts {
+				agent.api.RejectTask(task, "too many attempts")
+				log.WithField("task", task.Id()).Warn("[agent] too many attempts")
+				continue
+			}
+
 			log.Debug("[agent] triggering start!")
 
 			// restart the task since it is failing
@@ -245,7 +260,7 @@ func (agent *Agent) sync() {
 			}
 		}
 
-		if !task.Scheduled && task.Healthy() {
+		if !scheduled && healthy {
 			log.Debug("[agent] triggering stop!")
 
 			// stop the task since it shouldn't be running
@@ -256,7 +271,7 @@ func (agent *Agent) sync() {
 			}
 		}
 
-		if !task.Scheduled && !task.Healthy() {
+		if !scheduled && !healthy {
 			// perform some garbage collection
 			agent.api.DelTask(task)
 		}
@@ -326,7 +341,7 @@ func (agent *Agent) Run() {
 
 	// the server provides a basic health checking port to allow for the agent to provide consul with updates
 	defer agent.api.DelHost(agent.Host)
-	defer agent.api.DeRegister("consul-scheduler-"+agent.Host)
+	defer agent.api.DeRegister("sked-"+agent.Host)
 
 	agent.GetHostName()
 	agent.RegisterAgent()
