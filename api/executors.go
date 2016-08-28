@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func GetExecutor(c *Container) Executor {
+func (c *Container) GetExecutor() Executor {
 
 	if c.Type == "docker" {
 		if c.docker != nil {
@@ -97,7 +97,10 @@ type DockerExecutor struct {
 	Ports         []string `json:"ports"`
 	Env           []string `json:"env"`
 	WorkDir       string   `json:"work_dir"`
+	Net           string   `json:"net"`
+	NetAlias      string   `json:"net_alias"`
 	Volumes       []string `json:"volumes"`
+	VolumeDriver  string   `json:"volume_driver"`
 	Flags         []string `json:"flags"`
 }
 
@@ -126,6 +129,18 @@ func (docker *DockerExecutor) StartTask(t *Task) error {
 
 	if docker.WorkDir != "" {
 		main = append(main, "-w", docker.WorkDir)
+	}
+
+	if docker.VolumeDriver != "" {
+		main = append(main, "--volume-driver", docker.VolumeDriver)
+	}
+
+	if docker.NetAlias != "" {
+		main = append(main, "--net-alias", docker.NetAlias)
+	}
+
+	if docker.Net != "" {
+		main = append(main, "--net", docker.Net)
 	}
 
 	main = append(main, docker.Flags...)

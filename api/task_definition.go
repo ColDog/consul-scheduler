@@ -40,7 +40,7 @@ type Container struct {
 	Checks   []*Check        `json:"checks"`
 	Memory   uint64          `json:"memory"`
 	CpuUnits uint64          `json:"cpu_units"`
-	DiskUse  uint64          `json:"cpu_units"`
+	DiskUse  uint64          `json:"disk_use"`
 	bash     *BashExecutor
 	docker   *DockerExecutor
 }
