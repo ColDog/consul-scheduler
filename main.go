@@ -6,7 +6,7 @@ import (
 	"github.com/coldog/sked/actions"
 	"github.com/coldog/sked/agent"
 	"github.com/coldog/sked/api"
-	"github.com/coldog/sked/scheduler"
+	"github.com/coldog/sked/master"
 
 	log "github.com/Sirupsen/logrus"
 	consulApi "github.com/hashicorp/consul/api"
@@ -21,7 +21,6 @@ import (
 	"time"
 	"runtime"
 	"encoding/json"
-	"github.com/coldog/sked/skedb"
 )
 
 type AppConfig struct {
@@ -45,8 +44,7 @@ type App struct {
 	Api        api.SchedulerApi
 	Config     *AppConfig
 	Agent      *agent.Agent
-	Master     *scheduler.Master
-	SkedDB     *skedb.SkedDB
+	Master     *master.Master
 	atExit     ExitHandler
 	ConsulConf *consulApi.Config
 }
@@ -166,14 +164,10 @@ func (app *App) RegisterAgent(c *cli.Context) {
 }
 
 func (app *App) RegisterMaster(c *cli.Context) {
-	app.Master = scheduler.NewMaster(app.Api, &scheduler.MasterConfig{
-		SyncInterval:     c.Duration("master-sync-interval"),
-		DisabledClusters: c.StringSlice("master-disabled-clusters"),
+	app.Master = master.NewMaster(app.Api, &master.Config{
+		SyncInterval: c.Duration("master-sync-interval"),
+		Runners:      c.Int("master-workers"),
 	})
-}
-
-func (app *App) RegisterSkedDB(c *cli.Context) {
-	app.SkedDB = skedb.NewSkedDB(app.Api)
 }
 
 func (app *App) AgentCmd() (cmd cli.Command) {

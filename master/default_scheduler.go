@@ -11,10 +11,19 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
+func NewDefaultScheduler(a api.SchedulerApi) *DefaultScheduler {
+	return &DefaultScheduler{
+		api: a,
+		hosts: make(map[string]*api.Host),
+		maxPort: make(map[string]uint),
+	}
+}
+
 type DefaultScheduler struct {
 	api     api.SchedulerApi
 	hosts   map[string]*api.Host
 	maxPort map[string]uint
+	l       *sync.Mutex
 }
 
 func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) error {
@@ -90,16 +99,18 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 
 				t.Host = selectedHost
 
-				selectedPort, err := s.selectPort(t)
-				if err != nil {
-					// this should realistically never happen
-					log.WithField("error", err).Errorf("[scheduler-%s] could not find suitable port", service.Name)
-					continue
+				if t.ProvidePort {
+					selectedPort, err := s.selectPort(t)
+					if err != nil {
+						// this should realistically never happen
+						log.WithField("error", err).Errorf("[scheduler-%s] could not find suitable port", service.Name)
+						continue
+					}
+					t.Port = selectedPort
 				}
 
 				// we are good to schedule the task!
 				log.WithField("task", t.Id()).Debugf("[scheduler-%s] added task", service.Name)
-				t.Port = selectedPort
 				s.api.ScheduleTask(t)
 				taskMap[t.Id()] = t
 			}
@@ -109,13 +120,15 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 }
 
 func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
-	if t.ProvidePort {
-		host := s.hosts[t.Host]
+	s.l.Lock()
+	defer s.l.Unlock()
 
-		for _, p := range host.PortSelection {
-			if p > s.maxPort[host.Name] {
-				return p, nil
-			}
+	host := s.hosts[t.Host]
+
+	for _, p := range host.PortSelection {
+		if p > s.maxPort[host.Name] {
+			s.maxPort[host.Name] = p
+			return p, nil
 		}
 	}
 

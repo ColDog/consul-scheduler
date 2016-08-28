@@ -5,11 +5,29 @@ import (
 	"github.com/coldog/sked/api"
 
 	"time"
+	"sync"
+	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
 type scheduleReq struct {
 	cluster string
 	service string
+}
+
+func NewMaster(a api.SchedulerApi, conf *Config) *Master {
+	return &Master{
+		quit: make(chan struct{}, 1),
+		api: a,
+		queue: NewSchedulerQueue(),
+		locks: NewSchedulerLocks(a),
+		Config: conf,
+		schedulers: Schedulers{
+			lock: sync.RWMutex{},
+			schedulers: make(map[string]Scheduler),
+		},
+	}
 }
 
 type Config struct {
@@ -116,12 +134,23 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 	}
 }
 
+func (s *Master) RegisterRoutes() {
+	http.HandleFunc("/master/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK\n"))
+	})
+}
+
 func (s *Master) Stop() {
 	s.locks.Stop()
 	close(s.quit)
 }
 
+func (s *Master) Use(name string, sked Scheduler) {
+	s.schedulers.Use(name, sked)
+}
+
 func (s *Master) Run() {
+	s.schedulers.Use("", &DefaultScheduler{})
 	for i := 0; i < s.Config.Runners; i++ {
 		go s.worker(i)
 	}
