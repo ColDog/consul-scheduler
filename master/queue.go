@@ -3,9 +3,9 @@ package master
 
 func NewSchedulerQueue() *SchedulerQueue {
 	q := &SchedulerQueue{
-		queue: make([]string, 0, 200),
+		queue: make([]interface{}, 0, 200),
 		quit: make(chan struct{}),
-		enqueue: make(chan string, 50),
+		enqueue: make(chan interface{}, 50),
 		dequeue: make(chan struct {res chan string}, 50),
 	}
 
@@ -16,26 +16,26 @@ func NewSchedulerQueue() *SchedulerQueue {
 // The scheduler queue is a unique queue of strings where updates with the same value increase
 // the priority of the value in the queue.
 type SchedulerQueue struct {
-	queue   []string
+	queue   []interface{}
 	quit    chan struct{}
-	enqueue chan string
+	enqueue chan interface{}
 	dequeue chan struct{
-		res chan string
+		res chan interface{}
 	}
 }
 
-func (s *SchedulerQueue) Pop(l chan string) {
-	s.dequeue <- struct {res chan string} {l}
+func (s *SchedulerQueue) Pop(l chan interface{}) {
+	s.dequeue <- struct {res chan interface{}} {l}
 }
 
-func (s *SchedulerQueue) Push(val string) {
+func (s *SchedulerQueue) Push(val interface{}) {
 	s.enqueue <- val
 }
 
 // the queue is implemented as a slice of strings. Upon enqueuing a new string,
 // if the value already exists in the queue it is removed, then the value is
 // added to the end of the queue.
-func (s *SchedulerQueue) doEnqueue(val string) {
+func (s *SchedulerQueue) doEnqueue(val interface{}) {
 	for i, e := range s.queue {
 		// remove the latest element from the slice if it exists
 		if e == val {

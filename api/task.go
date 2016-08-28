@@ -16,25 +16,41 @@ func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instan
 type Task struct {
 	Cluster        *Cluster
 	TaskDefinition *TaskDefinition
-	Checks         []*Check
 	Service        string
 	Instance       int
 	Port           uint
 	Host           string
-	Passing        bool
-	Scheduled      bool
+	ProvidePort    bool
+
+	api       SchedulerApi
+	healthy   *bool
+	scheduled *bool
 }
 
-func (task *Task) State() TaskState {
-	if task.Scheduled {
-		if task.Passing {
-			return RUNNING
-		} else {
-			return FAILING
-		}
-	} else {
-		return STOPPED
+func (task *Task) Scheduled() (bool, error) {
+	if task.scheduled != nil {
+		return *task.scheduled
 	}
+
+	ok, err := task.api.TaskScheduled(task.Id())
+	if err != nil {
+		return false, err
+	}
+	task.scheduled = ok
+	return ok, nil
+}
+
+func (task *Task) Healthy() (bool, error) {
+	if task.healthy != nil {
+		return *task.healthy
+	}
+
+	ok, err := task.api.TaskHealthy(task.Id())
+	if err != nil {
+		return false, err
+	}
+	task.healthy = ok
+	return ok, nil
 }
 
 func (task *Task) Validate(api SchedulerApi) (errors []string) {

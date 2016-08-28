@@ -146,6 +146,9 @@ func (agent *Agent) stop(t *api.Task) error {
 		agent.lock.Unlock()
 	}
 
+	// delete the task from the state.
+	agent.api.DelTask(t)
+
 	return nil
 }
 

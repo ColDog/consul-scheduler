@@ -4,9 +4,9 @@ import (
 	"github.com/coldog/sked/tools"
 	"github.com/hashicorp/consul/api"
 
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 // HostName() (string, error)
@@ -53,7 +53,7 @@ func TestConsulApi_LockNoWait(t *testing.T) {
 		tools.Assert(t, c == nil, "lock is marked as held")
 		tools.Assert(t, !lock2.IsHeld(), "lock is marked as held")
 
-		fmt.Printf("waited: %v\n", float64(t2 - t1) / 1000.00)
+		fmt.Printf("waited: %v\n", float64(t2-t1)/1000.00)
 
 		err = lock2.Unlock()
 		tools.Assert(t, err == api.ErrLockNotHeld, "unlock did not error as expected")

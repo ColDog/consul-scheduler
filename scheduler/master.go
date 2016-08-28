@@ -84,7 +84,7 @@ func (master *Master) monitor(name string, stopCh chan struct{}) {
 	defer master.closeMonitor(name)
 
 LOCK:
-	lock, err := master.api.Lock(master.api.Conf().SchedulersPrefix + name)
+	lock, err := master.api.Lock(master.api.Conf().SchedulersPrefix + name, true)
 	if err != nil {
 		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return
@@ -101,7 +101,7 @@ LOCK:
 		master.locksLock.Unlock()
 	}()
 
-	lockFailCh, err := lock.Lock(master.stopCh)
+	lockFailCh, err := lock.Lock()
 	if err != nil {
 		log.WithField("cluster", name).WithField("error", err).Errorf("[monitor-%s]  failed to lock", name)
 		return

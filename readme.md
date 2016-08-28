@@ -148,11 +148,11 @@ Task ID's are comprised of the following schema:
 
 Tasks, making up the issued state are stored as follows:
 
-    tasks:          state/tasks/_/<id>
-    task by host:   state/tasks/<host>/<id>
+    tasks:          state/tasks/<cluster>/<service>/<task_id>
+    tasks:          state/hosts/<host_id>/<task_id>             # contains an empty body
 
-Note that tasks are stored both by ID as well as by host. This allows for efficient iteration over the tasks either by
-cluster and service or either by host.
+The tasks by host allow for efficient queries from the agent's perspective to get a quick picture of all the task ID's
+that should be under it's control.
 
 ## Configuring
 

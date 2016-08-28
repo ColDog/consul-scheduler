@@ -28,10 +28,14 @@ type StorageConfig struct {
 	TaskDefinitionsPrefix string
 	SchedulersPrefix      string
 	StatePrefix           string
+	TaskScheduledPrefix   string
+	TasksPrefix           string
+	TasksByHostPrefix     string
 }
 
 func DefaultStorageConfig() *StorageConfig {
 	confPrefix := "config/"
+	statePrefix := "state/"
 
 	return &StorageConfig{
 		ConfigPrefix:          confPrefix,
@@ -40,11 +44,15 @@ func DefaultStorageConfig() *StorageConfig {
 		HostsPrefix:           confPrefix + "hosts/",
 		TaskDefinitionsPrefix: confPrefix + "task_definitions/",
 		SchedulersPrefix:      "schedulers/",
-		StatePrefix:           "state/",
+		StatePrefix:           statePrefix,
+		TasksByHostPrefix:     statePrefix + "hosts/",
+		TasksPrefix:           statePrefix + "tasks/",
+		TaskScheduledPrefix:   statePrefix + "scheduling/",
 	}
 }
 
 type TaskQueryOpts struct {
+	ByCluster string
 	ByService string
 	ByHost    string
 	Running   bool
@@ -53,7 +61,6 @@ type TaskQueryOpts struct {
 }
 
 type SchedulerApi interface {
-
 	HostName() (string, error)
 
 	// acquire a lock on a resource from consul, does not block when the lock cannot be held, rather
@@ -91,12 +98,26 @@ type SchedulerApi interface {
 	PutHost(h *Host) error
 	DelHost(id string) error
 
-	// API Task Operations
-	ListTasks(q *TaskQueryOpts) ([]*Task, error)
+	// API Task Operations:
+	//
+	// storing tasks:
+	// => state/tasks/<cluster>/<service>/<task_id>  # stores a version of the task by cluster and service
+	// => state/hosts/<host_id>/<task_id>            # stores a version of the task by host
+	// => state/scheduling/<task_id>                 # marks the task as being scheduled or not scheduled
+	// => state/health/<task_id>                     # marks the task as being healthy or not (unnecessary in consul)
+	//
+	// Task queries can be executed with a set of options in the TaskQueryOpts, currently
+	// tasks can only be queried by using the ByHost or ByService and ByCluster parameters.
+	ListTasks(opts *TaskQueryOpts) ([]*Task, error)
+	ListTaskKeys(opts *TaskQueryOpts) ([]string, error)
+
 	GetTask(id string) (*Task, error)
 	ScheduleTask(task *Task) error
 	DeScheduleTask(task *Task) error
 	DelTask(task *Task) error
+
+	TaskHealthy(id string) (bool, error)
+	TaskScheduled(id string) (bool, error)
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.

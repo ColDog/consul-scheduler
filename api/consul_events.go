@@ -53,7 +53,6 @@ func (a *ConsulApi) monitorHealth() {
 				events = append(events, fmt.Sprintf("health::%s:%s", stat, check.ServiceID))
 			}
 			a.emit(events...)
-			time.Sleep(2 * time.Second)
 		} else {
 			// have not found any new results
 			time.Sleep(10 * time.Second)

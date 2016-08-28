@@ -6,15 +6,15 @@ import (
 	"github.com/hashicorp/go-memdb"
 
 	"fmt"
-	"time"
 	"net/http"
 	"encoding/json"
+	"strings"
 )
 
 var schema = &memdb.DBSchema{
 	Tables: map[string]*memdb.TableSchema{
-		"task": &memdb.TableSchema{
-			Name: "task",
+		"tasks": &memdb.TableSchema{
+			Name: "tasks",
 			Indexes: map[string]*memdb.IndexSchema{
 				"id": &memdb.IndexSchema{
 					Name:    "id",
@@ -51,20 +51,21 @@ var schema = &memdb.DBSchema{
 					Unique:  false,
 					Indexer: &memdb.StringFieldIndex{Field: "Version"},
 				},
-				"task_and_version": &memdb.IndexSchema{
-					Name:    "task_and_version",
-					Unique:  false,
-					Indexer: &memdb.StringFieldIndex{Field: "TaskAndVersion"},
-				},
-				"service_and_version": &memdb.IndexSchema{
-					Name:    "service_and_version",
-					Unique:  false,
-					Indexer: &memdb.StringFieldIndex{Field: "ServiceAndVersion"},
-				},
 				"scheduled": &memdb.IndexSchema{
 					Name:    "scheduled",
 					Unique:  false,
 					Indexer: &memdb.FieldSetIndex{Field: "Scheduled"},
+				},
+			},
+		},
+
+		"hosts": &memdb.TableSchema{
+			Name: "hosts",
+			Indexes: map[string]*memdb.IndexSchema{
+				"id": &memdb.IndexSchema{
+					Name: "id",
+					Unique: true,
+					Indexer: &memdb.StringFieldIndex{Field: "ID"},
 				},
 			},
 		},
@@ -85,11 +86,21 @@ type Task struct {
 	api               api.SchedulerApi
 }
 
+type Host struct {
+	ID          string
+	Memory        uint64
+	DiskSpace     uint64
+	CpuUnits      uint64
+	MemUsePercent float64
+	ReservedPorts []uint
+	PortSelection []uint
+}
+
 func (t Task) Task() (*api.Task, error) {
 	return t.api.GetTask(t.ID)
 }
 
-type Iterator func(t Task) error
+type Iterator func(raw interface{}) error
 
 func NewSkedDB(a api.SchedulerApi) *SkedDB {
 	db, err := memdb.NewMemDB(schema)
@@ -97,7 +108,9 @@ func NewSkedDB(a api.SchedulerApi) *SkedDB {
 		panic(err)
 	}
 
-	return &SkedDB{api: a, db: db}
+	s := &SkedDB{api: a, db: db}
+	go s.listener()
+	return s
 }
 
 // This keeps an up to date picture of all the scheduled tasks
@@ -106,18 +119,17 @@ type SkedDB struct {
 	db  *memdb.MemDB
 }
 
-func (db *SkedDB) ForEach(index string, value interface{}, iter Iterator) error {
+func (db *SkedDB) ForEach(table, index string, value interface{}, iter Iterator) error {
 	tx := db.db.Txn(false)
 	defer tx.Abort()
 
-	rs, err := tx.Get("task", index, value)
+	rs, err := tx.Get(table, index, value)
 	if err != nil {
 		return err
 	}
 
 	for raw := rs.Next(); raw != nil; raw = rs.Next() {
-		t := raw.(Task)
-		err := iter(t)
+		err := iter(raw)
 		if err != nil {
 			return err
 		}
@@ -126,9 +138,9 @@ func (db *SkedDB) ForEach(index string, value interface{}, iter Iterator) error 
 	return nil
 }
 
-func (db *SkedDB) Count(index string, value interface{}) (int, error) {
+func (db *SkedDB) Count(table, index string, value interface{}) (int, error) {
 	count := 0
-	err := db.ForEach(index, value, func(t Task) error {
+	err := db.ForEach(table, index, value, func(raw interface{}) error {
 		count++
 		return nil
 	})
@@ -136,17 +148,38 @@ func (db *SkedDB) Count(index string, value interface{}) (int, error) {
 	return count, err
 }
 
-func (db *SkedDB) All(index string, value interface{}) ([]Task, error) {
-	tasks := []Task{}
-	err := db.ForEach(index, value, func(t Task) error {
-		tasks = append(tasks, t)
+func (db *SkedDB) All(table, index string, value interface{}) ([]interface{}, error) {
+	results := make([]interface{}, 0)
+	err := db.ForEach(table, index, value, func(raw interface{}) error {
+		results = append(results, results)
 		return nil
 	})
-
-	return tasks, err
+	return results, err
 }
 
-func (db *SkedDB) Put(t *api.Task) error {
+func (db *SkedDB) PutHost(h *api.Host) error {
+	txn := db.db.Txn(true)
+
+	hi := Host{
+		ID: h.Name,
+		Memory: h.Memory,
+		CpuUnits: h.CpuUnits,
+		DiskSpace: h.DiskSpace,
+		MemUsePercent: h.MemUsePercent,
+		ReservedPorts: h.ReservedPorts,
+		PortSelection: h.PortSelection,
+	}
+
+	if err := txn.Insert("hosts", hi); err != nil {
+		txn.Abort()
+		return err
+	}
+
+	txn.Commit()
+	return nil
+}
+
+func (db *SkedDB) PutTask(t *api.Task) error {
 	txn := db.db.Txn(true)
 
 	ti := Task{
@@ -163,12 +196,23 @@ func (db *SkedDB) Put(t *api.Task) error {
 		api:               db.api,
 	}
 
-	if err := txn.Insert("task", ti); err != nil {
+	if err := txn.Insert("tasks", ti); err != nil {
 		txn.Abort()
 		return err
 	}
 
 	txn.Commit()
+	return nil
+}
+
+func (db *SkedDB) Del(table, id string) error {
+	tx := db.db.Txn(true)
+	err := tx.Delete(table, id)
+	if err != nil {
+		tx.Abort()
+		return err
+	}
+	tx.Commit()
 	return nil
 }
 
@@ -180,11 +224,11 @@ func (db *SkedDB) RegisterRoutes() {
 		for _, idx := range schema.Tables["task"].Indexes {
 			val := r.URL.Query().Get(idx.Name)
 			if val != "" {
-				tasks, err := db.All(idx.Name, val)
+				results, err := db.All("tasks", idx.Name, val)
 				if err != nil {
 					res = err
 				} else {
-					res = tasks
+					res = results
 				}
 
 				break
@@ -199,40 +243,21 @@ func (db *SkedDB) RegisterRoutes() {
 	})
 }
 
-func (db *SkedDB) Del(taskId string) error {
-	tx := db.db.Txn(true)
-	err := tx.Delete("task", taskId)
-	if err != nil {
-		tx.Abort()
-		return err
-	}
-	tx.Commit()
-	return nil
-}
-
-func (db *SkedDB) Sync() error {
-	t1 := time.Now().UnixNano()
-
-	tasks, err := db.api.ListTasks(&api.TaskQueryOpts{})
-	if err != nil {
-		return err
-	}
-
-	for _, t := range tasks {
-		db.Put(t)
-	}
-
-	t2 := time.Now().UnixNano()
-	log.WithField("time", t2-t1).WithField("seconds", float64(t2-t1)/1000000000.00).Info("[skedb] synced")
-	return nil
-}
-
-func (db *SkedDB) Listener() {
-	listen := make(chan string, 10)
-	db.api.Subscribe("skedb", "config::*", listen)
+func (db *SkedDB) listener() {
+	listen := make(chan string, 100)
+	db.api.Subscribe("skedb", "kv::*", listen)
 	defer db.api.UnSubscribe("skedb")
 
-	for range listen {
-		db.Sync()
+	log.Debug("[skedb] listening")
+	for key := range listen {
+		key = strings.Replace(key, "kv::", "", 1)
+		spl := strings.Split(key, "/")
+		fmt.Println("received", key, spl[1], spl[2])
+		if spl[1] == "hosts" {
+			log.WithField("root", spl[1]).WithField("key", spl[2]).Debug("[skeddb] loading")
+
+		} else if spl[1] == "tasks" {
+			log.WithField("root", spl[1]).WithField("key", spl[2]).Debug("[skeddb] loading")
+		}
 	}
 }

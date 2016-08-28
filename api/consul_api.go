@@ -142,7 +142,7 @@ func (a *ConsulApi) list(prefix string) (api.KVPairs, error) {
 
 func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
 	l, err := a.client.LockOpts(&api.LockOptions{
-		Key: key,
+		Key:         key,
 		LockTryOnce: !block,
 	})
 
@@ -351,25 +351,16 @@ func (a *ConsulApi) PutTaskDefinition(t *TaskDefinition) error {
 }
 
 // ==> TASK operations
-// tasks are stored under the following keys
-// > /state-prefix/<host-id>/<task-id>
-// > /state-prefix/<task-id>
-//
-// When a task is deleted, it is removed from the first key, but kept under the second key
-// with the 'scheduled' attribute set to false.
-
 func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
+
 	prefix := a.conf.StatePrefix
-
-	// add the host or service prefix to the task, which will scope in what is returned
 	if q.ByHost != "" {
-		prefix += q.ByHost
+		prefix += a.conf.TasksByHostPrefix + q.ByHost
+	} else if q.ByCluster != "" && q.ByService != "" {
+		prefix += a.conf.TasksPrefix + q.ByCluster + "/" + q.ByService
 	} else {
-		prefix += "_/"
-	}
-
-	if q.ByService != "" {
-		prefix += q.ByService
+		log.Warn("[consul-api] iterating all tasks")
+		prefix += a.conf.TasksPrefix
 	}
 
 	list, err := a.list(prefix)
@@ -381,21 +372,43 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 		t := &Task{}
 		decode(v.Value, t)
 
-		t.Passing = a.taskStatus(t)
+		if q.Failing || q.Running {
+			health, err := a.TaskHealthy(t)
+			if err != nil {
+				return ts, err
+			}
 
-		// handle the by state queries here.
-		if q.Failing && t.Passing {
+			if q.Failing && health {
+				continue
+			} else if q.Running && !health {
+				continue
+			}
+		}
+
+		if q.Scheduled {
+			scheduled, err := a.TaskScheduled(t)
+			if err != nil {
+				return ts, err
+			}
+
+			if !scheduled {
+				continue
+			}
+		}
+
+		if q.ByHost != "" && t.Host != q.ByHost {
 			continue
 		}
 
-		if q.Running && !t.Passing {
+		if q.ByCluster != "" && q.ByCluster != t.Cluster.Name {
 			continue
 		}
 
-		if q.Scheduled && !t.Scheduled {
+		if q.ByService != "" && q.ByService != t.Service {
 			continue
 		}
 
+		t.api = a
 		ts = append(ts, t)
 	}
 	return ts, nil
@@ -407,21 +420,23 @@ func (a *ConsulApi) GetTask(id string) (*Task, error) {
 	kv, err := a.get(a.conf.StatePrefix + "_/" + id)
 	if err == nil {
 		decode(kv.Value, t)
-		t.Passing = a.taskStatus(t)
 	}
 
+	t.api = a
 	return t, err
 }
 
 func (a *ConsulApi) ScheduleTask(t *Task) error {
-	t.Scheduled = true
+	err := a.put(a.conf.TaskScheduledPrefix+t.Id(), []byte(time.Now().String()))
+	if err != nil {
+		return err
+	}
+
 	return a.putTask(t)
 }
 
 func (a *ConsulApi) DeScheduleTask(t *Task) error {
-	// setting scheduled = false means this task won't be picked up by the query as running
-	t.Scheduled = false
-	return a.putTask(t)
+	return a.del(a.conf.TaskScheduledPrefix + t.Id())
 }
 
 func (a *ConsulApi) putTask(t *Task) error {
@@ -431,12 +446,12 @@ func (a *ConsulApi) putTask(t *Task) error {
 	// todo: should be in a transaction
 	// todo: task definition is serialized as well, this is probably overkill
 
-	err := a.put(a.conf.StatePrefix+"_/"+t.Id(), body)
+	err := a.put(a.conf.TasksPrefix+t.Id(), body)
 	if err != nil {
 		return err
 	}
 
-	err = a.put(a.conf.StatePrefix+t.Host+"/"+t.Id(), body)
+	err = a.put(a.conf.TasksByHostPrefix+t.Host+"/"+t.Id(), body)
 	if err != nil {
 		return err
 	}
@@ -444,16 +459,29 @@ func (a *ConsulApi) putTask(t *Task) error {
 }
 
 func (a *ConsulApi) DelTask(t *Task) error {
-	err := a.del(a.conf.StatePrefix + "_/" + t.Id())
+	err := a.del(a.conf.TasksPrefix + t.Id())
 	if err != nil {
 		return err
 	}
 
-	return a.del(a.conf.StatePrefix + t.Host + "/" + t.Id())
+	return a.del(a.conf.TasksByHostPrefix + t.Host + "/" + t.Id())
+}
+
+func (a *ConsulApi) TaskScheduled(t *Task) (bool, error) {
+	_, err := a.get(a.conf.TaskScheduledPrefix + t.Id())
+	if err == ErrNotFound {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // used to find out if a task is passing.
-func (a *ConsulApi) taskStatus(t *Task) bool {
+func (a *ConsulApi) TaskHealthy(t *Task) (bool, error) {
 	s, _, err := a.health.Checks(t.Name(), nil)
 	if err != nil {
 		return false
@@ -461,11 +489,14 @@ func (a *ConsulApi) taskStatus(t *Task) bool {
 
 	for _, ch := range s {
 		if ch.ServiceID == t.Id() {
-			return ch.Status == "passing"
+			if ch.Status != "passing" {
+				return false
+			}
 		}
 	}
 
-	return false
+	// if no checks are registered, tasks will always be healthy.
+	return true
 }
 
 func (a *ConsulApi) Debug() {

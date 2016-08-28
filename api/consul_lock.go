@@ -5,8 +5,8 @@ import (
 )
 
 type ConsulLockWrapper struct {
-	lock *api.Lock
-	held bool
+	lock   *api.Lock
+	held   bool
 	quitCh <-chan struct{}
 }
 

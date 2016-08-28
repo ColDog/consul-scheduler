@@ -27,8 +27,8 @@ func TestQueue_Blocking(t *testing.T) {
 		q.Push("hello2")
 	}()
 
-	l := make(chan string)
+	l := make(chan interface{})
 	q.Pop(l)
 	val := <- l
-	tools.Assert(t, val == "hello2", "blocking didn't work")
+	tools.Assert(t, val.(string) == "hello2", "blocking didn't work")
 }
