@@ -179,7 +179,13 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 		}
 	}
 
-	return 0, fmt.Errorf("cannot select a port for this task")
+	// take a guess if we cannot get there
+	p := s.maxPort[host.Name] + 1
+	if p == 1 {
+		p = 20000
+	}
+	s.maxPort[host.Name] = p
+	return p, nil
 }
 
 func (s *DefaultScheduler) matchHost(maxDisk, maxCpu, maxMem uint64, t *api.Task, cand *api.Host) error {

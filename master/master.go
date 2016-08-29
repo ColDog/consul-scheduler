@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-	"strings"
-	"github.com/coldog/mq/cluster"
 )
 
 type scheduleReq struct {
@@ -277,7 +275,7 @@ func (s *Master) Run() {
 	s.monitor()
 }
 
-func inArrayStr(key, arr []string) bool {
+func inArrayStr(key string, arr []string) bool {
 	for _, v := range arr {
 		if v == key {
 			return true
