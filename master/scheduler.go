@@ -179,7 +179,7 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 		}
 	}
 
-	// take a guess if we cannot get there
+	// take a guess if we cannot get a port from the provided portSelection list.
 	p := s.maxPort[host.Name] + 1
 	if p == 1 {
 		p = 20000
