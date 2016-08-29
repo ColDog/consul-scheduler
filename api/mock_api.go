@@ -68,6 +68,10 @@ func (a *MockApi) DeRegister(id string) error {
 	return nil
 }
 
+func (a *MockApi) AgentHealth(name string) (bool, error) {
+	return true, nil
+}
+
 func (a *MockApi) ListClusters() ([]*Cluster, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()

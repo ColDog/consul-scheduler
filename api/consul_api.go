@@ -75,7 +75,9 @@ func newConsulApi() *ConsulApi {
 }
 
 func (a *ConsulApi) Start() {
-	go a.monitor(a.conf.ConfigPrefix, "config")
+	go a.monitor(a.conf.TaskDefinitionsPrefix, "config")
+	go a.monitor(a.conf.ServicesPrefix, "config")
+	go a.monitor(a.conf.ClustersPrefix, "config")
 	go a.monitor(a.conf.StatePrefix, "state")
 	go a.monitorHealth()
 }
@@ -156,8 +158,8 @@ func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
 
 func (a *ConsulApi) RegisterAgent(host, addr string, port int) error {
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID:      "consul-scheduler-" + host,
-		Name:    "consul-scheduler",
+		ID:      "sked-" + host,
+		Name:    "sked",
 		Port:    port,
 		Address: addr,
 		Checks: api.AgentServiceChecks{
@@ -200,6 +202,21 @@ func (a *ConsulApi) Register(t *Task) error {
 
 func (a *ConsulApi) DeRegister(taskId string) error {
 	return a.agent.ServiceDeregister(taskId)
+}
+
+func (a *ConsulApi) AgentHealth(name string) (bool, error) {
+	checks, _, err := a.health.Node(name, nil)
+	if err != nil {
+		return false, err
+	}
+
+	for _, c := range checks {
+		if c.Status != "passing" {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // ==> CLUSTER operations
@@ -364,6 +381,8 @@ func (a *ConsulApi) CountTasks(q *TaskQueryOpts) (int, error) {
 		prefix += a.conf.TasksByHostPrefix + q.ByHost
 	} else if q.ByCluster != "" && q.ByService != "" {
 		prefix += a.conf.TasksPrefix + q.ByCluster + "-" + q.ByService
+	} else if q.ByCluster != "" {
+		prefix += a.conf.TasksPrefix + q.ByCluster + "-"
 	} else {
 		log.Warn("[consul-api] iterating all tasks")
 		prefix += a.conf.TasksPrefix

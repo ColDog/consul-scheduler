@@ -63,8 +63,8 @@ func TestConfigEventWaiting(t *testing.T) {
 
 	api.Start()
 
-	listener := make(chan string)
-	api.Subscribe("test-config", "config::*", listener)
+	listener := make(chan string, 30)
+	api.Subscribe("test-config", "*", listener)
 	defer api.UnSubscribe("test-config")
 
 	c := 0
@@ -73,6 +73,15 @@ func TestConfigEventWaiting(t *testing.T) {
 			fmt.Printf("event: %s\n", val)
 			c++
 		}
+	}()
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		fmt.Println("---> events sending")
+		api.PutCluster(SampleCluster())
+		api.PutService(SampleService())
+		api.PutTaskDefinition(SampleTaskDefinition())
+		api.GetService("test")
 	}()
 
 	time.Sleep(15 * time.Second)

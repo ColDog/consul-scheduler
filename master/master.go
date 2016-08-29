@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"strings"
+	"github.com/coldog/mq/cluster"
 )
 
 type scheduleReq struct {
@@ -17,6 +19,7 @@ type scheduleReq struct {
 func NewMaster(a api.SchedulerApi, conf *Config) *Master {
 	return &Master{
 		quit:   make(chan struct{}, 1),
+		runGc:  make(chan struct{}, 50),
 		api:    a,
 		queue:  NewSchedulerQueue(),
 		locks:  NewSchedulerLocks(a),
@@ -31,6 +34,7 @@ func NewMaster(a api.SchedulerApi, conf *Config) *Master {
 type Config struct {
 	Runners      int
 	SyncInterval time.Duration
+	Cluster      string
 }
 
 // The scheduler manages scheduling on a per service basis, dispatching requests for scheduling when needed.
@@ -41,27 +45,42 @@ type Master struct {
 	Config     *Config
 	hostCount  int
 	api        api.SchedulerApi
+	runGc      chan struct{}
 	quit       chan struct{}
+}
+
+func (s *Master) Cluster() (*api.Cluster, error) {
+	return s.api.GetCluster(s.Config.Cluster)
 }
 
 func (s *Master) monitor() {
 	log.Info("[master] starting")
 
-	listener := make(chan string, 100)
-	s.api.Subscribe("dispatch", "config::*", listener)
+	listenConfig := make(chan string, 100)
+	s.api.Subscribe("dispatch-config", "config::*", listenConfig)
+	defer s.api.UnSubscribe("dispatch")
+
+	listenHealth := make(chan string, 100)
+	s.api.Subscribe("dispatch-health", "health::node:failing:*", listenHealth)
 	defer s.api.UnSubscribe("dispatch")
 
 	for {
 		select {
-		case evt := <-listener:
-			log.WithField("evt", evt).Info("[master] received event")
-			err := s.dispatchAll()
+		case <-listenConfig:
+			err := s.dispatch()
+			if err != nil {
+				log.WithField("error", err).Warn("[master] failed to dispatch")
+			}
+			s.runGc <- struct {}{}
+
+		case <-listenHealth:
+			err := s.dispatch()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
 
 		case <-time.After(45 * time.Second):
-			err := s.dispatchAll()
+			err := s.dispatch()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
@@ -73,54 +92,58 @@ func (s *Master) monitor() {
 	}
 }
 
-func (s *Master) dispatchAll() error {
-	log.Debug("[master] calculating dispatch")
-	clusters, err := s.api.ListClusters()
+func (s *Master) dispatch() error {
+	cluster, err := s.Cluster()
 	if err != nil {
 		return err
 	}
 
-	list, err := s.api.ListHosts()
-	if err != nil {
-		return err
-	}
-
-	hostMismatch := false
-	if s.hostCount != len(list) {
-		hostMismatch = true
-	}
-	s.hostCount = len(list)
-
-	for _, c := range clusters {
-		for _, ser := range c.Services {
-			service, err := s.api.GetService(ser)
-			if err != nil {
-				return err
-			}
-
-			count, err := s.api.CountTasks(&api.TaskQueryOpts{
-				ByService: service.Name,
-				ByCluster: c.Name,
-			})
-
-			if err != nil {
-				return err
-			}
-
-			log.WithFields(log.Fields{
-				"count": count,
-				"desired": service.Desired,
-				"service": service.Name,
-				"cluster": c.Name,
-				"dispatching": count != service.Desired || hostMismatch,
-			}).Info("[master] dispatcher")
-
-			if count != service.Desired || hostMismatch {
-				s.queue.Push(scheduleReq{c.Name, service.Name})
-			}
+	for _, serviceName := range cluster.Services {
+		err := s.dispatchService(cluster, serviceName)
+		if err != nil {
+			log.WithField("err", err).Error("[master] error while dispatching service")
 		}
 	}
 
+	return nil
+}
+
+func (s *Master) dispatchService(cluster *api.Cluster, serviceName string) error {
+	service, err := s.api.GetService(serviceName)
+	if err != nil {
+		return err
+	}
+
+	tasks, err := s.api.ListTasks(&api.TaskQueryOpts{
+		ByCluster: cluster.Name,
+		ByService: service.Name,
+	})
+
+
+	unhealthyHost := ""
+	for _, task := range tasks {
+		ok, err := s.api.AgentHealth(task.Host)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			unhealthyHost = task.Host
+			break
+		}
+	}
+
+	log.WithFields(log.Fields{
+		"count": len(tasks),
+		"desired": service.Desired,
+		"service": service.Name,
+		"cluster": cluster.Name,
+		"problem_host": unhealthyHost,
+	}).Info("[master] dispatch")
+
+	if unhealthyHost != "" || len(tasks) != service.Desired {
+		s.queue.Push(scheduleReq{cluster.Name, service.Name})
+	}
 	return nil
 }
 
@@ -193,6 +216,36 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 	}
 }
 
+func (s *Master) garbageCollector() {
+	for {
+		select {
+		case <-s.runGc:
+			cluster, err := s.Cluster()
+			if err != nil {
+				log.WithField("err", err).Error("[master-gc] error while gc getting cluster")
+			}
+
+			tasks, err := s.api.ListTasks(&api.TaskQueryOpts{
+				ByCluster: s.Config.Cluster,
+			})
+
+			if err != nil {
+				log.WithField("err", err).Error("[master-gc] error while gc getting tasks")
+			}
+
+			for _, task := range tasks {
+				if !inArrayStr(task.Service, cluster.Services) {
+					s.api.DeScheduleTask(task)
+				}
+			}
+
+		case <-s.quit:
+			log.Warn("[master-gc] exiting")
+			return
+		}
+	}
+}
+
 func (s *Master) RegisterRoutes() {
 	http.HandleFunc("/master/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK\n"))
@@ -213,9 +266,22 @@ func (s *Master) Run() {
 		s.Config.Runners = 3
 	}
 
+	if s.Config.Cluster == "" {
+		s.Config.Cluster = "default"
+	}
+
 	s.schedulers.Use("", NewDefaultScheduler(s.api))
 	for i := 0; i < s.Config.Runners; i++ {
 		go s.worker(i)
 	}
 	s.monitor()
+}
+
+func inArrayStr(key, arr []string) bool {
+	for _, v := range arr {
+		if v == key {
+			return true
+		}
+	}
+	return false
 }

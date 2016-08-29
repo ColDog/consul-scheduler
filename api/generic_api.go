@@ -41,7 +41,7 @@ func DefaultStorageConfig() *StorageConfig {
 	return &StorageConfig{
 		ConfigPrefix:          confPrefix,
 		ClustersPrefix:        confPrefix + "clusters/",
-		ServicesPrefix:        confPrefix + "service/",
+		ServicesPrefix:        confPrefix + "services/",
 		HostsPrefix:           confPrefix + "hosts/",
 		TaskDefinitionsPrefix: confPrefix + "task_definitions/",
 		SchedulersPrefix:      "schedulers/",
@@ -76,6 +76,7 @@ type SchedulerApi interface {
 	RegisterAgent(host, addr string, port int) error
 	Register(t *Task) error
 	DeRegister(id string) error
+	AgentHealth(name string) (bool, error)
 
 	// API Cluster Operations
 	ListClusters() ([]*Cluster, error)
@@ -112,7 +113,6 @@ type SchedulerApi interface {
 	// Task queries can be executed with a set of options in the TaskQueryOpts, currently
 	// tasks can only be queried by using the ByHost or ByService and ByCluster parameters.
 	ListTasks(opts *TaskQueryOpts) ([]*Task, error)
-	CountTasks(opts *TaskQueryOpts) (int, error)
 
 	GetTask(id string) (*Task, error)
 	ScheduleTask(t *Task) error
@@ -126,9 +126,11 @@ type SchedulerApi interface {
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.
-	// Events that should be emitted on change:
-	// health:<status (failing|passing)>:<task_id>
-	// config:<resource (service|task_definition|host|cluster)>/<resource_id>
+	// Events that should be emitted on change of a key:
+	// => health::task:<node>:<status>:<task_id>
+	// => health::host:<status>:<host_id>
+	// => config::<resource (service|task_definition|host|cluster)>/<resource_id>
+	// => state::host:<task_id>
 	Subscribe(key, evt string, listener chan string)
 	UnSubscribe(key string)
 

@@ -6,6 +6,7 @@ import (
 
 	"fmt"
 	"time"
+	"strings"
 )
 
 func (a *ConsulApi) Subscribe(key, on string, ch chan string) {
@@ -31,6 +32,7 @@ func (a *ConsulApi) monitorHealth() {
 		checks, meta, err := a.health.State("any", &api.QueryOptions{
 			WaitIndex: lastId,
 			WaitTime:  3 * time.Minute,
+			AllowStale: true,
 		})
 
 		if err != nil {
@@ -50,12 +52,14 @@ func (a *ConsulApi) monitorHealth() {
 					stat = "failing"
 				}
 
-				events = append(events, fmt.Sprintf("health::%s:%s", stat, check.ServiceID))
+				if check.ServiceID == "" {
+					events = append(events, fmt.Sprintf("health::node:%s:%s", stat, check.Node))
+				} else {
+					events = append(events, fmt.Sprintf("health::task:%s:%s:%s", check.Node, stat, check.ServiceID))
+				}
+
 			}
 			a.emit(events...)
-		} else {
-			// have not found any new results
-			time.Sleep(2 * time.Second)
 		}
 
 		lastId = meta.LastIndex
@@ -66,9 +70,10 @@ func (a *ConsulApi) monitorHealth() {
 func (a *ConsulApi) monitor(key, name string) {
 	lastId := uint64(0)
 	for {
-		list, meta, err := a.kv.Keys(key, "/", &api.QueryOptions{
+		list, meta, err := a.kv.List(key, &api.QueryOptions{
 			WaitIndex: lastId,
 			WaitTime:  3 * time.Minute,
+			AllowStale: true,
 		})
 
 		if err != nil {
@@ -79,16 +84,14 @@ func (a *ConsulApi) monitor(key, name string) {
 		if meta.LastIndex > lastId {
 
 			events := make([]string, 0, len(list))
-			for _, key := range list {
-				events = append(events, fmt.Sprintf("%s::%s", name, key))
+			for _, kv := range list {
+				if kv.ModifyIndex == meta.LastIndex {
+					events = append(events, fmt.Sprintf("%s::%s", name, strings.Replace(kv.Key, "config/", "", 1)))
+				}
 			}
 
-			log.WithField("lastId", lastId).WithField("name", name).Debug("[consul-api] sending events")
 			a.emit(events...)
-			time.Sleep(2 * time.Second)
-		} else {
-			// have not found any new results
-			time.Sleep(2 * time.Second)
+			//time.Sleep(2 * time.Second)
 		}
 
 		lastId = meta.LastIndex
@@ -108,7 +111,6 @@ func (a *ConsulApi) emit(events ...string) {
 				case listener.ch <- evt:
 				default:
 				}
-				break
 			}
 		}
 	}

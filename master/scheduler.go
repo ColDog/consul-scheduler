@@ -40,7 +40,14 @@ func (s *DefaultScheduler) syncHosts() error {
 	}
 
 	for _, h := range hosts {
-		s.hosts[h.Name] = h
+		ok, err := s.api.AgentHealth(h.Name)
+		if err != nil {
+			return err
+		}
+
+		if ok {
+			s.hosts[h.Name] = h
+		}
 	}
 	return nil
 }
