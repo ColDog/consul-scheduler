@@ -6,8 +6,17 @@ import (
 	"os/exec"
 	"time"
 	"strings"
-	"os"
+	"fmt"
 )
+
+type ExecErr struct {
+	Output string
+	Err    error
+}
+
+func (e *ExecErr) Error() string {
+	return fmt.Sprintf("%s: %s", e.Err.Error(), e.Output)
+}
 
 func Exec(env []string, timeout time.Duration, main string, cmds ...string) error {
 	cmdName := main + " " + strings.Join(cmds, " ")
@@ -31,23 +40,14 @@ func Exec(env []string, timeout time.Duration, main string, cmds ...string) erro
 
 	}()
 
-	if log.GetLevel() == log.DebugLevel {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
 
-	err := cmd.Start()
-	if err != nil {
-		done <- struct{}{}
-		return err
-	}
-
-	err = cmd.Wait()
+	out, err := cmd.CombinedOutput()
 	done <- struct{}{}
 
 	if err != nil {
 		log.WithField("cmd", cmdName).WithField("err", err).WithField("env", env).Warn("exec failed")
+		return &ExecErr{string(out), err}
 	}
 
-	return err
+	return nil
 }

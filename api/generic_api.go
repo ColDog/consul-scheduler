@@ -130,7 +130,7 @@ type SchedulerApi interface {
 	// => health::task:<node>:<status>:<task_id>
 	// => health::host:<status>:<host_id>
 	// => config::<resource (service|task_definition|host|cluster)>/<resource_id>
-	// => state::host:<task_id>
+	// => state::<host_id>:<task_id>
 	Subscribe(key, evt string, listener chan string)
 	UnSubscribe(key string)
 

@@ -16,13 +16,13 @@ import (
 )
 
 type TaskState struct {
-	StartedAt time.Time
-	Attempts  int
-	Failure   error
-	Rejected  bool
-	Healthy   bool
-	Scheduled bool
-	Task      *api.Task
+	StartedAt time.Time `json:"started_at"`
+	Attempts  int       `json:"attempts"`
+	Failure   error     `json:"failure"`
+	Rejected  bool      `json:"rejected"`
+	Healthy   bool      `json:"healthy"`
+	Scheduled bool      `json:"scheduled"`
+	Task      *api.Task `json:"task"`
 }
 
 type AgentConfig struct {
@@ -73,11 +73,11 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 
 type Agent struct {
 	api       api.SchedulerApi
-	Host      string
-	LastSync  time.Time
-	LastState *api.Host
-	TaskState map[string]*TaskState
-	Config    *AgentConfig
+	Host      string                `json:"host"`
+	LastSync  time.Time             `json:"last_sync"`
+	LastState *api.Host             `json:"last_state"`
+	TaskState map[string]*TaskState `json:"task_state"`
+	Config    *AgentConfig          `json:"config"`
 	lock      *sync.RWMutex
 	queue     chan action
 	stopCh    chan struct{}
@@ -166,13 +166,27 @@ func (agent *Agent) PublishState() {
 	})
 	ports := make([]uint, 0)
 
+	var max uint
 	for _, task := range desired {
 		ports = append(ports, task.Port)
+		if task.Port > max {
+			max = task.Port + 1
+		}
 
 		for _, c := range task.TaskDefinition.Containers {
 			for _, p := range c.GetExecutor().ReservedPorts() {
 				ports = append(ports, p)
+				if p > max {
+					max = p + 1
+				}
 			}
+		}
+	}
+
+	avail := []uint{}
+	for i := max; i < (max + 30); i++ {
+		if IsTCPPortAvailable(int(i)) {
+			avail = append(avail, i)
 		}
 	}
 
@@ -183,7 +197,7 @@ func (agent *Agent) PublishState() {
 		MemUsePercent: m.UsedPercent,
 		CpuUnits:      uint64(runtime.NumCPU()),
 		ReservedPorts: ports,
-		PortSelection: AvailablePortList(50),
+		PortSelection: avail,
 	}
 
 	agent.LastState = h
@@ -237,11 +251,11 @@ func (agent *Agent) sync() {
 		}
 
 		log.WithFields(log.Fields{
-			"task": task.Id(),
-			"attempts": state.Attempts,
-			"failure": state.Failure,
-			"health": state.Healthy,
-			"scheduled": scheduled,
+			"task":         task.Id(),
+			"attempts":     state.Attempts,
+			"failure":      state.Failure,
+			"health":       state.Healthy,
+			"scheduled":    scheduled,
 			"last_started": state.StartedAt,
 		}).Info("[agent] task state")
 
@@ -307,7 +321,7 @@ func (agent *Agent) sync() {
 	}
 
 	t2 := time.Now().UnixNano()
-	log.WithField("time", t2-t1).WithField("secs", float64(t2 - t1) / 1000000000.0).Info("[agent] finished sync")
+	log.WithField("time", t2-t1).WithField("secs", float64(t2-t1)/1000000000.0).Info("[agent] finished sync")
 
 	agent.LastSync = time.Now()
 }
@@ -380,12 +394,12 @@ func (agent *Agent) Run() {
 	}
 
 	listenState := make(chan string)
-	agent.api.Subscribe("agent-state", "state::*", listenState)
+	agent.api.Subscribe("agent-state", "state::state/hosts/"+agent.Host, listenState)
 	defer agent.api.UnSubscribe("agent-state")
 	defer close(listenState)
 
 	listenHealth := make(chan string)
-	agent.api.Subscribe("agent-health", "health::*", listenHealth)
+	agent.api.Subscribe("agent-health", "health::task:"+agent.Host+":failing:*", listenHealth)
 	defer agent.api.UnSubscribe("agent-health")
 	defer close(listenHealth)
 
@@ -440,12 +454,12 @@ func (agent *Agent) RegisterRoutes() {
 // the runner handles starting processes. It listens to a queue of processes to start and starts them as needed.
 // it will only start a task if it hasn't already attemted to start a task in the last minute.
 func (agent *Agent) runner(id int) {
-	log.Debugf("[runner-%d] starting", id)
+	log.Infof("[agent-runner-%d] starting", id)
 
 	for {
 		select {
 		case act := <-agent.queue:
-			log.WithField("task", act.task.Id()).Debugf("[runner-%d] begin %s", id, act.name())
+			log.WithField("task", act.task.Id()).Debugf("[agent-runner-%d] begin %s", id, act.name())
 
 			var err error
 			if act.start {
@@ -455,11 +469,11 @@ func (agent *Agent) runner(id int) {
 			}
 
 			if err != nil {
-				log.WithField("err", err).Warnf("[runner-%d] failure to %s task", id, act.name())
+				log.WithField("err", err).Warnf("[agent-runner-%d] failure to %s task", id, act.name())
 			}
 
 		case <-agent.stopCh:
-			log.Warnf("[runner-%d] exiting", id)
+			log.Warnf("[agent-runner-%d] exiting", id)
 			return
 		}
 	}

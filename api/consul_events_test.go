@@ -81,6 +81,9 @@ func TestConfigEventWaiting(t *testing.T) {
 		api.PutCluster(SampleCluster())
 		api.PutService(SampleService())
 		api.PutTaskDefinition(SampleTaskDefinition())
+		t := SampleTask()
+		t.Host = "local-1"
+		api.ScheduleTask(t)
 		api.GetService("test")
 	}()
 

@@ -12,15 +12,15 @@ import (
 	consulApi "github.com/hashicorp/consul/api"
 	"github.com/urfave/cli"
 
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
-	"runtime"
-	"encoding/json"
 )
 
 type AppConfig struct {
@@ -286,21 +286,20 @@ func (app *App) Stats() map[string]interface{} {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
-
-	return map[string]interface{} {
+	return map[string]interface{}{
 		"version": VERSION,
-		"name": "sked",
-		"go": runtime.Version(),
-		"runtime": map[string]interface{} {
-			"goroutines": runtime.NumGoroutine(),
-			"alloc": mem.Alloc,
-			"total_alloc": mem.TotalAlloc,
-			"heap_alloc": mem.HeapAlloc,
-			"heap_sys": mem.HeapSys,
+		"name":    "sked",
+		"go":      runtime.Version(),
+		"runtime": map[string]interface{}{
+			"goroutines":    runtime.NumGoroutine(),
+			"alloc":         mem.Alloc,
+			"total_alloc":   mem.TotalAlloc,
+			"heap_alloc":    mem.HeapAlloc,
+			"heap_sys":      mem.HeapSys,
 			"heap_released": mem.HeapReleased,
-			"heap_objects": mem.HeapObjects,
-			"cgo_calls": runtime.NumCgoCall(),
-			"num_cpu": runtime.NumCPU(),
+			"heap_objects":  mem.HeapObjects,
+			"cgo_calls":     runtime.NumCgoCall(),
+			"num_cpu":       runtime.NumCPU(),
 		},
 	}
 }

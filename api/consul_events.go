@@ -5,8 +5,8 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"fmt"
-	"time"
 	"strings"
+	"time"
 )
 
 func (a *ConsulApi) Subscribe(key, on string, ch chan string) {
@@ -30,8 +30,8 @@ func (a *ConsulApi) monitorHealth() {
 		log.WithField("lastId", lastId).Debug("[consul-api] monitoring health")
 
 		checks, meta, err := a.health.State("any", &api.QueryOptions{
-			WaitIndex: lastId,
-			WaitTime:  3 * time.Minute,
+			WaitIndex:  lastId,
+			WaitTime:   3 * time.Minute,
 			AllowStale: true,
 		})
 
@@ -60,6 +60,8 @@ func (a *ConsulApi) monitorHealth() {
 
 			}
 			a.emit(events...)
+		} else {
+			time.Sleep(2 * time.Second)
 		}
 
 		lastId = meta.LastIndex
@@ -71,8 +73,8 @@ func (a *ConsulApi) monitor(key, name string) {
 	lastId := uint64(0)
 	for {
 		list, meta, err := a.kv.List(key, &api.QueryOptions{
-			WaitIndex: lastId,
-			WaitTime:  3 * time.Minute,
+			WaitIndex:  lastId,
+			WaitTime:   3 * time.Minute,
 			AllowStale: true,
 		})
 
@@ -91,14 +93,14 @@ func (a *ConsulApi) monitor(key, name string) {
 			}
 
 			a.emit(events...)
-			//time.Sleep(2 * time.Second)
+
+		} else {
+			time.Sleep(2 * time.Second)
 		}
 
 		lastId = meta.LastIndex
 	}
 }
-
-
 
 func (a *ConsulApi) emit(events ...string) {
 	a.eventLock.RLock()

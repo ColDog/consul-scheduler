@@ -8,8 +8,8 @@ services:
     task_name: helloworld
     task_version: 2
     min: 3
-    max: 5
-    desired: 5
+    max: 7
+    desired: 7
 
 tasks:
   - name: helloworld

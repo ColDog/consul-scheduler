@@ -109,7 +109,7 @@ func SampleTask() *Task {
 
 func SampleCluster() *Cluster {
 	return &Cluster{
-		Name:      "test",
-		Services:  []string{"test"},
+		Name:     "test",
+		Services: []string{"test"},
 	}
 }

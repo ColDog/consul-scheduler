@@ -53,6 +53,8 @@ func (s *DefaultScheduler) syncHosts() error {
 }
 
 func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) error {
+	log.Infof("[scheduler-%s] starting", cluster.Name)
+
 	err := s.syncHosts()
 	if err != nil {
 		return err
@@ -70,6 +72,7 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 	tasks, err := s.api.ListTasks(&api.TaskQueryOpts{
 		ByCluster: cluster.Name,
 		ByService: service.Name,
+		Scheduled: true,
 	})
 
 	if err != nil {
@@ -85,12 +88,19 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 	removed := 0
 	added := 0
 
+	log.WithFields(log.Fields{
+		"count": count,
+		"service": service.Name,
+		"cluster": cluster.Name,
+		"desired": service.Desired,
+	}).Infof("[scheduler-%s] beginning", cluster.Name)
+
 	// cleanup, should be implemented by every scheduler realistically
 	for key, t := range taskMap {
 
 		// garbage collection, remove tasks from hosts that don't exist
 		host, err := s.api.GetHost(t.Host)
-		if err != api.ErrNotFound {
+		if err != nil && err != api.ErrNotFound {
 			return err
 		}
 		if err == api.ErrNotFound || host == nil {
@@ -162,7 +172,6 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 		"added": added,
 		"total": count + added - removed,
 	}).Infof("[scheduler-%s] done", service.Name)
-
 	return nil
 }
 

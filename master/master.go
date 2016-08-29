@@ -77,7 +77,7 @@ func (s *Master) monitor() {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
 
-		case <-time.After(45 * time.Second):
+		case <-time.After(20 * time.Second):
 			err := s.dispatch()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
@@ -115,6 +115,7 @@ func (s *Master) dispatchService(cluster *api.Cluster, serviceName string) error
 	tasks, err := s.api.ListTasks(&api.TaskQueryOpts{
 		ByCluster: cluster.Name,
 		ByService: service.Name,
+		Scheduled: true,
 	})
 
 
@@ -155,7 +156,7 @@ func (s *Master) worker(i int) {
 		select {
 		case item := <-listen:
 			val := item.(scheduleReq)
-			log.WithField("req", val).Infof("[worker-%d] scheduling", i)
+			log.WithField("req", val).Infof("[master-worker-%d] scheduling", i)
 			t1 := time.Now().UnixNano()
 			s.schedule(val.cluster, val.service, i)
 			t2 := time.Now().UnixNano()
@@ -203,9 +204,9 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 			return
 		}
 
-		log.WithField("service", serviceName).Debugf("[master-worker-%d] scheduling", i)
-		err = scheduler.Schedule(cluster, service)
+		log.WithField("service", serviceName).WithField("cluster", clusterName).Infof("[master-worker-%d] scheduling", i)
 
+		err = scheduler.Schedule(cluster, service)
 		if err != nil {
 			log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] scheduler errord", i)
 		}
@@ -272,6 +273,8 @@ func (s *Master) Run() {
 	for i := 0; i < s.Config.Runners; i++ {
 		go s.worker(i)
 	}
+
+	go s.garbageCollector()
 	s.monitor()
 }
 

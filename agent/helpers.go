@@ -42,28 +42,6 @@ func IsTCPPortAvailable(port int) bool {
 	return true
 }
 
-// RandomTCPPort gets a free, random TCP port between 1025-65535. If no free
-// ports are available -1 is returned.
-func RandomTCPPort() int {
-	for i := maxReservedTCPPort; i < maxTCPPort; i++ {
-		p := tcpPortRand.Intn(maxRandTCPPort) + maxReservedTCPPort + 1
-		if IsTCPPortAvailable(p) {
-			return p
-		}
-	}
-	return -1
-}
-
-func AvailablePortList(count int) (res []uint) {
-	for i := startListingPort; i < maxTCPPort && count > 0; i++ {
-		if IsTCPPortAvailable(i) {
-			count--
-			res = append(res, uint(i))
-		}
-	}
-	return res
-}
-
 func AvailableDiskSpace() (uint64, error) {
 	var stat syscall.Statfs_t
 	err := syscall.Statfs("/", &stat)

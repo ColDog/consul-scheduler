@@ -1,11 +1,11 @@
 package api
 
 type Host struct {
-	Name          string
-	Memory        uint64
-	DiskSpace     uint64
-	CpuUnits      uint64
-	MemUsePercent float64
-	ReservedPorts []uint
-	PortSelection []uint
+	Name          string  `json:"name"`
+	Memory        uint64  `json:"memory"`
+	DiskSpace     uint64  `json:"disk_space"`
+	CpuUnits      uint64  `json:"cpu_units"`
+	MemUsePercent float64 `json:"mem_use_percent"`
+	ReservedPorts []uint  `json:"reserved_ports"`
+	PortSelection []uint  `json:"port_selection"`
 }

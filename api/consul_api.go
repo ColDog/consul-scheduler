@@ -518,7 +518,7 @@ func (a *ConsulApi) putTask(t *Task) error {
 	// todo: should be in a transaction
 	// todo: task definition is serialized as well, this is probably overkill
 
-	err := a.put(a.conf.TasksPrefix + t.Id(), body)
+	err := a.put(a.conf.TasksPrefix+t.Id(), body)
 	if err != nil {
 		return err
 	}
@@ -531,7 +531,7 @@ func (a *ConsulApi) putTask(t *Task) error {
 }
 
 func (a *ConsulApi) DelTask(t *Task) error {
-	err := a.del(a.conf.TasksPrefix)
+	err := a.del(a.conf.TasksPrefix + t.Id())
 	if err != nil {
 		return err
 	}
