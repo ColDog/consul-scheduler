@@ -118,15 +118,20 @@ func (s *Master) dispatchService(cluster *api.Cluster, serviceName string) error
 		Scheduled: true,
 	})
 
-
+	cache := make(map[string]bool)
 	unhealthyHost := ""
 	for _, task := range tasks {
-		ok, err := s.api.AgentHealth(task.Host)
-		if err != nil {
-			return err
+		val, ok := cache[task.Host]
+		if !ok {
+			hostOk, err := s.api.AgentHealth(task.Host)
+			if err != nil {
+				return err
+			}
+			cache[task.Host] = hostOk
+			val = hostOk
 		}
 
-		if !ok {
+		if !val {
 			unhealthyHost = task.Host
 			break
 		}

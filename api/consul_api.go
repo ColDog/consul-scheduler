@@ -22,15 +22,15 @@ type listener struct {
 }
 
 type ConsulApi struct {
-	kv         *api.KV
-	agent      *api.Agent
-	catalog    *api.Catalog
-	health     *api.Health
-	client     *api.Client
-	ConsulConf *api.Config
-	conf       *StorageConfig
-	listeners  map[string]*listener
-	eventLock  *sync.RWMutex
+	kv          *api.KV
+	agent       *api.Agent
+	catalog     *api.Catalog
+	health      *api.Health
+	client      *api.Client
+	ConsulConf  *api.Config
+	conf        *StorageConfig
+	listeners   map[string]*listener
+	eventLock   *sync.RWMutex
 }
 
 func NewConsulApi(conf *StorageConfig, apiConf *api.Config) *ConsulApi {
@@ -212,12 +212,13 @@ func (a *ConsulApi) AgentHealth(name string) (bool, error) {
 	}
 
 	for _, c := range checks {
-		if c.Status != "passing" {
-			return false, nil
+		if c.CheckID == "serfHealth" {
+			return c.Status == "passing", nil
+			break
 		}
 	}
 
-	return true, nil
+	return false, nil
 }
 
 // ==> CLUSTER operations
