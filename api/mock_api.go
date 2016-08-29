@@ -9,8 +9,6 @@ func NewMockApi() *MockApi {
 		taskDefinitions: make(map[string]*TaskDefinition),
 		tasks:           make(map[string]*Task),
 		hosts:           make(map[string]*Host),
-		schedulings:     make(map[string]bool),
-		rejections:      make(map[string]bool),
 		listeners: make(map[string]struct {
 			on string
 			ch chan string
@@ -26,8 +24,6 @@ type MockApi struct {
 	taskDefinitions map[string]*TaskDefinition
 	tasks           map[string]*Task
 	hosts           map[string]*Host
-	schedulings     map[string]bool
-	rejections      map[string]bool
 	locks           map[string]bool
 	listeners       map[string]struct {
 		on string
@@ -254,21 +250,12 @@ func (a *MockApi) GetTask(id string) (*Task, error) {
 	return c, nil
 }
 
-func (a *MockApi) ScheduleTask(t *Task) error {
+func (a *MockApi) PutTask(t *Task) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
 	a.tasks[t.Id()] = t
-	a.schedulings[t.Id()] = true
 	a.emit(a.Conf().TasksPrefix + t.Id())
-	return nil
-}
-
-func (a *MockApi) DeScheduleTask(t *Task) error {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-
-	a.schedulings[t.Id()] = false
 	return nil
 }
 
@@ -276,9 +263,6 @@ func (a *MockApi) DelTask(t *Task) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	if _, ok := a.schedulings[t.Id()]; ok {
-		delete(a.schedulings, t.Id())
-	}
 	if _, ok := a.tasks[t.Id()]; ok {
 		delete(a.tasks, t.Id())
 	}
@@ -286,30 +270,8 @@ func (a *MockApi) DelTask(t *Task) error {
 	return nil
 }
 
-func (a *MockApi) RejectTask(t *Task, reason string) error {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-
-	a.rejections[t.Id()] = true
-	return nil
-}
-
 func (a *MockApi) TaskHealthy(t *Task) (bool, error) {
 	return true, nil
-}
-
-func (a *MockApi) TaskRejected(t *Task) (bool, error) {
-	a.lock.RLock()
-	defer a.lock.RUnlock()
-
-	return a.rejections[t.Id()], nil
-}
-
-func (a *MockApi) TaskScheduled(t *Task) (bool, error) {
-	a.lock.RLock()
-	defer a.lock.RUnlock()
-
-	return a.schedulings[t.Id()], nil
 }
 
 func (a *MockApi) ListTasks(q *TaskQueryOpts) ([]*Task, error) {
@@ -332,15 +294,12 @@ func (a *MockApi) ListTasks(q *TaskQueryOpts) ([]*Task, error) {
 			}
 		}
 
-		if q.Scheduled {
-			scheduled, err := a.TaskScheduled(t)
-			if err != nil {
-				return ts, err
-			}
+		if q.Scheduled && !t.Scheduled {
+			continue
+		}
 
-			if !scheduled {
-				continue
-			}
+		if q.Rejected && !t.Rejected {
+			continue
 		}
 
 		if q.ByHost != "" && t.Host != q.ByHost {
@@ -360,11 +319,6 @@ func (a *MockApi) ListTasks(q *TaskQueryOpts) ([]*Task, error) {
 	}
 
 	return ts, nil
-}
-
-func (a *MockApi) CountTasks(q *TaskQueryOpts) (int, error) {
-	tasks, _ := a.ListTasks(q)
-	return len(tasks), nil
 }
 
 func (a *MockApi) Subscribe(key, evt string, listener chan string) {

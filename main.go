@@ -165,8 +165,9 @@ func (app *App) RegisterAgent(c *cli.Context) {
 
 func (app *App) RegisterMaster(c *cli.Context) {
 	app.Master = master.NewMaster(app.Api, &master.Config{
-		SyncInterval: c.Duration("master-sync-interval"),
-		Runners:      c.Int("master-runners"),
+		SyncInterval: c.Duration("scheduler-sync-interval"),
+		Runners:      c.Int("scheduler-runners"),
+		Cluster:      c.String("scheduler-cluster"),
 	})
 }
 
@@ -200,8 +201,9 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Name = "scheduler"
 	cmd.Usage = "start the scheduler service"
 	cmd.Flags = []cli.Flag{
-		cli.DurationFlag{Name: "master-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
-		cli.IntFlag{Name: "master-runners", Usage: "amount of schedulers to run in parallel"},
+		cli.DurationFlag{Name: "scheduler-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
+		cli.IntFlag{Name: "scheduler-runners", Usage: "amount of schedulers to run in parallel"},
+		cli.StringFlag{Name: "scheduler-cluster", Usage: "the cluster to monitor for scheduling"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")
@@ -228,8 +230,9 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 	cmd.Flags = []cli.Flag{
 		cli.DurationFlag{Name: "agent-sync-interval", Value: 30 * time.Second, Usage: "interval to sync agent"},
 		cli.IntFlag{Name: "agent-runners", Value: 3, Usage: "amount of tasks to start in parallel on the agent"},
-		cli.DurationFlag{Name: "master-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
-		cli.StringSliceFlag{Name: "disabled-clusters", Usage: "don't attempt to schedule these clusters"},
+		cli.DurationFlag{Name: "scheduler-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
+		cli.IntFlag{Name: "scheduler-runners", Usage: "amount of schedulers to run in parallel"},
+		cli.StringFlag{Name: "scheduler-cluster", Usage: "the cluster to monitor for scheduling"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("combined")

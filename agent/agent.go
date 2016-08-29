@@ -15,16 +15,6 @@ import (
 	"time"
 )
 
-type TaskState struct {
-	StartedAt time.Time `json:"started_at"`
-	Attempts  int       `json:"attempts"`
-	Failure   error     `json:"failure"`
-	Rejected  bool      `json:"rejected"`
-	Healthy   bool      `json:"healthy"`
-	Scheduled bool      `json:"scheduled"`
-	Task      *api.Task `json:"task"`
-}
-
 type AgentConfig struct {
 	Runners      int           `json:"runners"`
 	SyncInterval time.Duration `json:"sync_interval"`
@@ -61,24 +51,25 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 	}
 
 	return &Agent{
-		api:       a,
-		queue:     make(chan action, 500),
-		stopCh:    make(chan struct{}, 1),
-		TaskState: make(map[string]*TaskState),
-		readyCh:   make(chan struct{}),
-		lock:      &sync.RWMutex{},
-		Config:    conf,
+		api:     a,
+		queue:   make(chan action, 500),
+		stopCh:  make(chan struct{}, 1),
+		readyCh: make(chan struct{}),
+		Config:  conf,
+		TaskState: &AgentState{
+			State: make(map[string]*TaskState),
+			l:     &sync.RWMutex{},
+		},
 	}
 }
 
 type Agent struct {
 	api       api.SchedulerApi
-	Host      string                `json:"host"`
-	LastSync  time.Time             `json:"last_sync"`
-	LastState *api.Host             `json:"last_state"`
-	TaskState map[string]*TaskState `json:"task_state"`
-	Config    *AgentConfig          `json:"config"`
-	lock      *sync.RWMutex
+	Host      string       `json:"host"`
+	LastSync  time.Time    `json:"last_sync"`
+	LastState *api.Host    `json:"last_state"`
+	TaskState *AgentState  `json:"task_state"`
+	Config    *AgentConfig `json:"config"`
 	queue     chan action
 	stopCh    chan struct{}
 	readyCh   chan struct{}
@@ -86,26 +77,9 @@ type Agent struct {
 
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
 func (agent *Agent) start(t *api.Task) error {
-	agent.lock.RLock()
-	state, ok := agent.TaskState[t.Id()]
-	agent.lock.RUnlock()
-
-	if ok {
-		// if we add 3 minutes to the started at time, and it's after the current
-		// time we skip this loop
-		state.StartedAt = time.Now()
-		state.Attempts += 1
-	} else {
-		state = &TaskState{
-			Task:      t,
-			StartedAt: time.Now(),
-			Attempts:  1,
-		}
-
-		agent.lock.Lock()
-		agent.TaskState[t.Id()] = state
-		agent.lock.Unlock()
-	}
+	state := agent.TaskState.get(t.Id(), t)
+	state.StartedAt = time.Now()
+	state.Attempts += 1
 
 	for _, cont := range t.TaskDefinition.Containers {
 		executor := cont.GetExecutor()
@@ -142,14 +116,9 @@ func (agent *Agent) stop(t *api.Task) error {
 		}
 	}
 
-	if _, ok := agent.TaskState[t.Id()]; ok {
-		agent.lock.Lock()
-		delete(agent.TaskState, t.Id())
-		agent.lock.Unlock()
-	}
-
 	// delete the task from the state.
 	agent.api.DelTask(t)
+	agent.TaskState.del(t.Id())
 
 	return nil
 }
@@ -224,28 +193,8 @@ func (agent *Agent) sync() {
 			return
 		}
 
-		scheduled, err := task.Scheduled()
-		if err != nil {
-			log.WithField("error", err).Error("failed to sync")
-			return
-		}
-
-		agent.lock.RLock()
-		state, ok := agent.TaskState[task.Id()]
-		agent.lock.RUnlock()
-
-		if ok {
-			state.Healthy = healthy
-			state.Scheduled = scheduled
-		} else {
-			state = &TaskState{
-				Task:      task,
-				Healthy:   healthy,
-				Scheduled: scheduled,
-			}
-			agent.TaskState[task.Id()] = state
-		}
-
+		state := agent.TaskState.get(task.Id(), task)
+		state.Healthy = healthy
 		if state.Healthy {
 			state.Failure = nil
 		}
@@ -255,11 +204,11 @@ func (agent *Agent) sync() {
 			"attempts":     state.Attempts,
 			"failure":      state.Failure,
 			"health":       state.Healthy,
-			"scheduled":    scheduled,
+			"scheduled":    task.Scheduled,
 			"last_started": state.StartedAt,
 		}).Info("[agent] task state")
 
-		if scheduled && !state.Rejected && !healthy {
+		if task.Scheduled && !task.Rejected && !healthy {
 			// if the task does not have any checks, then we just rely on the attempts number since state.Health
 			// will always be false.
 			if !task.HasChecks() && state.Attempts > 0 {
@@ -274,19 +223,20 @@ func (agent *Agent) sync() {
 			}
 
 			if state.Attempts > task.TaskDefinition.MaxAttempts {
-				agent.api.RejectTask(task, "too many attempts")
-				state.Rejected = true
-				state.Failure = fmt.Errorf("too many attempts")
+				task.RejectReason = "too many attempts"
+				task.Rejected = true
+				state.Failure = errors.New(task.RejectReason)
+				agent.api.PutTask(task)
 				log.WithField("task", task.Id()).Warn("[agent] too many attempts")
 				continue
 			}
 
 			for _, p := range task.AllPorts() {
 				if !IsTCPPortAvailable(int(p)) {
-					s := fmt.Sprintf("port not available: %d", p)
-					agent.api.RejectTask(task, s)
-					state.Rejected = true
-					state.Failure = errors.New(s)
+					task.RejectReason = fmt.Sprintf("port not available: %d", p)
+					task.Rejected = true
+					state.Failure = errors.New(task.RejectReason)
+					agent.api.PutTask(task)
 					log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
 					continue
 				}
@@ -297,25 +247,20 @@ func (agent *Agent) sync() {
 			// restart the task since it is failing
 			select {
 			case agent.queue <- action{start: true, task: task}:
-			default:
+			case <-time.After(5 * time.Second):
 				log.Error("[agent] queue is full")
 			}
 		}
 
-		if !scheduled && healthy {
+		if !task.Scheduled {
 			log.Debug("[agent] triggering stop!")
 
 			// stop the task since it shouldn't be running
 			select {
 			case agent.queue <- action{stop: true, task: task}:
-			default:
+			case <-time.After(5 * time.Second):
 				log.Error("[agent] queue is full")
 			}
-		}
-
-		if !scheduled && !healthy {
-			// perform some garbage collection
-			agent.api.DelTask(task)
 		}
 
 	}
@@ -380,6 +325,9 @@ func (agent *Agent) Wait() {
 // keep an eye one changes in consul and tell the syncer when to run the sync function.
 func (agent *Agent) Run() {
 	log.Info("[agent] starting")
+
+	agent.TaskState.load()
+	defer agent.TaskState.save()
 
 	// the server provides a basic health checking port to allow for the agent to provide consul with updates
 	defer agent.api.DelHost(agent.Host)

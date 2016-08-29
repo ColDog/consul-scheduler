@@ -95,23 +95,30 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 		"desired": service.Desired,
 	}).Infof("[scheduler-%s] beginning", cluster.Name)
 
-	// cleanup, should be implemented by every scheduler realistically
+	// cleanup, should be implemented by every scheduler
 	for key, t := range taskMap {
 
-		// garbage collection, remove tasks from hosts that don't exist
-		host, err := s.api.GetHost(t.Host)
-		if err != nil && err != api.ErrNotFound {
-			return err
+		// remove the task if the host doesn't exits
+		if _, ok := s.hosts[t.Host]; !ok {
+			t.Scheduled = false
+			s.api.PutTask(t)
+			removed--
+			delete(taskMap, key)
 		}
-		if err == api.ErrNotFound || host == nil {
-			s.api.DeScheduleTask(t)
+
+		// remove a task if if was rejected
+		if t.Rejected {
+			log.WithField("reason", t.RejectReason).WithField("error", err).Warnf("[scheduler-%s] task was rejected", service.Name)
+			t.Scheduled = false
+			s.api.PutTask(t)
 			removed--
 			delete(taskMap, key)
 		}
 
 		// If the task is a lower version, and we are still above the min for this service, deschedule the task.
 		if (count-removed) > service.Min && t.TaskDefinition.Version != service.TaskVersion {
-			s.api.DeScheduleTask(t)
+			t.Scheduled = false
+			s.api.PutTask(t)
 			removed--
 			delete(taskMap, key)
 		}
@@ -122,7 +129,8 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 		for i := (count - removed) - 1; i > service.Desired-1; i-- {
 			id := api.MakeTaskId(cluster, service, i)
 			if t, ok := taskMap[id]; ok {
-				s.api.DeScheduleTask(t)
+				t.Scheduled = false
+				s.api.PutTask(t)
 				removed--
 				delete(taskMap, id)
 			}
@@ -160,7 +168,9 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 
 				// we are good to schedule the task!
 				log.WithField("host", selectedHost).WithField("port", t.Port).WithField("task", t.Id()).Debugf("[scheduler-%s] added task", service.Name)
-				s.api.ScheduleTask(t)
+
+				t.Scheduled = true
+				s.api.PutTask(t)
 				added++
 				taskMap[t.Id()] = t
 			}
@@ -197,16 +207,17 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 	return p, nil
 }
 
-func (s *DefaultScheduler) matchHost(maxDisk, maxCpu, maxMem uint64, t *api.Task, cand *api.Host) error {
-	if cand.Memory-maxMem < 0 {
+func (s *DefaultScheduler) matchHost(t *api.Task, cand *api.Host) error {
+	counts := t.TaskDefinition.Counts()
+	if cand.Memory-counts.Memory < 0 {
 		return fmt.Errorf("host does not have enough memory")
 	}
 
-	if cand.CpuUnits-maxCpu < 0 {
+	if cand.CpuUnits-counts.CpuUnits < 0 {
 		return fmt.Errorf("host does not have enough cpu units")
 	}
 
-	if cand.DiskSpace-maxDisk < 0 {
+	if cand.DiskSpace-counts.DiskUse < 0 {
 		return fmt.Errorf("host does not have enough disk space")
 	}
 
@@ -233,20 +244,10 @@ func (s *DefaultScheduler) selectHost(t *api.Task) (string, error) {
 
 	rand.Seed(time.Now().Unix())
 
-	var maxDisk uint64
-	var maxCpu uint64
-	var maxMem uint64
-
-	for _, c := range t.TaskDefinition.Containers {
-		maxDisk += c.DiskUse
-		maxCpu += c.CpuUnits
-		maxMem += c.Memory
-	}
-
 	// todo: should be ranked
 	for _, cand := range s.hosts {
 
-		err := s.matchHost(maxDisk, maxCpu, maxMem, t, cand)
+		err := s.matchHost(t, cand)
 		if err != nil {
 			multierror.Append(errors, err)
 			continue

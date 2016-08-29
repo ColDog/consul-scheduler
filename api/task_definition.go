@@ -1,8 +1,9 @@
 package api
 
 import (
-	"encoding/json"
 	"github.com/coldog/sked/tools"
+
+	"encoding/json"
 	"time"
 )
 
@@ -36,6 +37,24 @@ func (t *TaskDefinition) AllPorts() []uint {
 	}
 
 	return ports
+}
+
+type Counts struct {
+	Memory   uint64          `json:"memory"`
+	CpuUnits uint64          `json:"cpu_units"`
+	DiskUse  uint64          `json:"disk_use"`
+}
+
+func (t *TaskDefinition) Counts() Counts {
+	c := Counts{}
+
+	for _, c := range t.Containers {
+		c.DiskUse += c.DiskUse
+		c.CpuUnits += c.CpuUnits
+		c.Memory += c.Memory
+	}
+
+	return c
 }
 
 func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {

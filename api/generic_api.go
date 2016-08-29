@@ -28,10 +28,8 @@ type StorageConfig struct {
 	TaskDefinitionsPrefix string
 	SchedulersPrefix      string
 	StatePrefix           string
-	TaskScheduledPrefix   string
 	TasksPrefix           string
 	TasksByHostPrefix     string
-	TaskRejectionPrefix   string
 }
 
 func DefaultStorageConfig() *StorageConfig {
@@ -48,8 +46,6 @@ func DefaultStorageConfig() *StorageConfig {
 		StatePrefix:           statePrefix,
 		TasksByHostPrefix:     statePrefix + "hosts/",
 		TasksPrefix:           statePrefix + "tasks/",
-		TaskScheduledPrefix:   statePrefix + "scheduling/",
-		TaskRejectionPrefix:   statePrefix + "rejections/",
 	}
 }
 
@@ -60,6 +56,7 @@ type TaskQueryOpts struct {
 	Running   bool
 	Scheduled bool
 	Failing   bool
+	Rejected  bool
 }
 
 type SchedulerApi interface {
@@ -104,25 +101,16 @@ type SchedulerApi interface {
 	// API Task Operations:
 	//
 	// storing tasks:
-	// => state/tasks/<cluster>/<service>/<task_id>  # stores a version of the task by cluster and service
+	// => state/tasks/<task_id>                      # stores a version of the task by cluster and service
 	// => state/hosts/<host_id>/<task_id>            # stores a version of the task by host
-	// => state/scheduling/<task_id>                 # marks the task as being scheduled or not scheduled
-	// => state/rejections/<task_id>                 # marks the task as being rejected by the agent
 	// => state/health/<task_id>                     # marks the task as being healthy or not (unnecessary in consul)
 	//
 	// Task queries can be executed with a set of options in the TaskQueryOpts, currently
 	// tasks can only be queried by using the ByHost or ByService and ByCluster parameters.
 	ListTasks(opts *TaskQueryOpts) ([]*Task, error)
-
-	GetTask(id string) (*Task, error)
-	ScheduleTask(t *Task) error
-	DeScheduleTask(t *Task) error
+	PutTask(t *Task) error
 	DelTask(t *Task) error
-	RejectTask(t *Task, reason string) error
-
 	TaskHealthy(t *Task) (bool, error)
-	TaskScheduled(t *Task) (bool, error)
-	TaskRejected(t *Task) (bool, error)
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.

@@ -11,15 +11,15 @@ services:
     task_name: helloworld
     task_version: 2
     min: 3
-    max: 10000
-    desired: 10000
+    max: 1000
+    desired: 1000
 
   - name: helloworld2
     task_name: helloworld
     task_version: 2
     min: 3
-    max: 10000
-    desired: 10000
+    max: 1000
+    desired: 1000
 
   - name: helloworld3
     task_name: helloworld

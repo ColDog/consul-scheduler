@@ -234,7 +234,8 @@ func (s *Master) garbageCollector() {
 
 			for _, task := range tasks {
 				if !inArrayStr(task.Service, cluster.Services) {
-					s.api.DeScheduleTask(task)
+					task.Scheduled = false
+					s.api.PutTask(task)
 				}
 			}
 

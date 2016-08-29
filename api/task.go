@@ -20,9 +20,11 @@ type Task struct {
 	Instance       int             `json:"instance"`
 	Port           uint            `json:"port"`
 	Host           string          `json:"host"`
+	Scheduled      bool            `json:"scheduled"`
+	Rejected       bool            `json:"rejected"`
+	RejectReason   string          `json:"reject_reason"`
 	api            SchedulerApi
 	healthy        *bool
-	scheduled      *bool
 }
 
 func (task *Task) AllPorts() []uint {
@@ -31,24 +33,6 @@ func (task *Task) AllPorts() []uint {
 	} else {
 		return task.TaskDefinition.AllPorts()
 	}
-}
-
-func (task *Task) Reset() {
-	task.healthy = nil
-	task.scheduled = nil
-}
-
-func (task *Task) Scheduled() (bool, error) {
-	if task.scheduled != nil {
-		return *task.scheduled, nil
-	}
-
-	ok, err := task.api.TaskScheduled(task)
-	if err != nil {
-		return false, err
-	}
-	task.scheduled = &ok
-	return ok, nil
 }
 
 func (task *Task) HasChecks() bool {
