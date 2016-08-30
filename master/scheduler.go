@@ -18,6 +18,11 @@ func NewDefaultScheduler(a api.SchedulerApi) *DefaultScheduler {
 		hosts:   make(map[string]*api.Host),
 		maxPort: make(map[string]uint),
 		l:       &sync.RWMutex{},
+		rankers: map[string]Ranker{
+			"": SpreadRanker,
+			"spread": SpreadRanker,
+			"binpack": PackRanker,
+		},
 	}
 }
 
@@ -280,8 +285,8 @@ func (s *DefaultScheduler) selectHost(name string, t *api.Task) (string, error) 
 	}
 
 	ranking := ranker(s.hosts)
-	for _, key := range ranking {
-		cand, ok := s.hosts[key]
+	for _, r := range ranking {
+		cand, ok := s.hosts[r.Name]
 		if !ok {
 			continue
 		}

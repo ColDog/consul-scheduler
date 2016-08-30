@@ -10,7 +10,7 @@ type Scheduler interface {
 	Schedule(name string, cluster *api.Cluster, service *api.Service) error
 }
 
-type Ranker func(hosts map[string]*api.Host) []string
+type Ranker func(hosts map[string]*api.Host) []RankedHost
 
 type RankedHost struct {
 	Name  string

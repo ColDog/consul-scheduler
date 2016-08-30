@@ -1,6 +1,8 @@
 package master
 
-import "github.com/coldog/sked/api"
+import (
+	"github.com/coldog/sked/api"
+)
 
 const (
 	spreadMemWeight  = 8
@@ -12,24 +14,20 @@ const (
 func rank(hosts map[string]*api.Host, rank func(h *api.Host) int) []RankedHost {
 	rs := make([]RankedHost, 0, len(hosts))
 
-	ALL_HOSTS:
 	for _, h := range hosts {
 		r := RankedHost{h.Name, rank(h)}
 		if len(rs) > 0 {
 			if r.Score >= rs[0].Score {
 				rs = append([]RankedHost{r}, rs...)
-				continue
-			}
-
-			for i := 0; i < len(rs) - 1; i++ {
-				if r.Score >= rs[i].Score && r.Score <= rs[i+1].Score {
-					rs = append(rs[0:i], append([]RankedHost{r}, rs[i:]...)...)
-					continue ALL_HOSTS
-				}
-			}
-
-			if r.Score <= rs[len(rs) - 1].Score {
+			} else if r.Score <= rs[len(rs) - 1].Score {
 				rs = append(rs, r)
+			} else {
+				for i := 0; i < len(rs) - 1; i++ {
+					if r.Score <= rs[i].Score && r.Score >= rs[i+1].Score {
+						rs = append(rs[0:i], append([]RankedHost{r}, rs[i:]...)...)
+						break
+					}
+				}
 			}
 		} else {
 			rs = append(rs, r)

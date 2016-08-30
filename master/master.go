@@ -275,7 +275,11 @@ func (s *Master) Run() {
 		s.Config.Cluster = "default"
 	}
 
-	s.schedulers.Use("", NewDefaultScheduler(s.api))
+	sked := NewDefaultScheduler(s.api)
+	s.schedulers.Use("", sked)
+	s.schedulers.Use("spread", sked)
+	s.schedulers.Use("binpack", sked)
+
 	for i := 0; i < s.Config.Runners; i++ {
 		go s.worker(i)
 	}
