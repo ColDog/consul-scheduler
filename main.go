@@ -125,6 +125,7 @@ func (app *App) setup() {
 		app.SchedulerCmd(),
 		app.CombinedCmd(),
 		app.ApplyCmd(),
+		app.ScaleCmd(),
 	}
 }
 
@@ -284,6 +285,40 @@ func (app *App) ApplyCmd() (cmd cli.Command) {
 	}
 	return cmd
 }
+
+func (app *App) ScaleCmd() (cmd cli.Command) {
+	cmd.Name = "scale"
+	cmd.Usage = "scale the service"
+	cmd.ArgsUsage = "service"
+	cmd.Flags = []cli.Flag{
+		cli.IntFlag{Name: "desired, d", Usage: "service count"},
+	}
+	cmd.Action = func(c *cli.Context) error {
+		service := c.Args().First()
+		if service == "" {
+			return fmt.Errorf("no service to scale")
+		}
+
+		return actions.Scale(service, c.Int("desired"), app.Api)
+	}
+	return cmd
+}
+
+func (app *App) DrainCmd() (cmd cli.Command) {
+	cmd.Name = "drain"
+	cmd.Usage = "drain a host of containers"
+	cmd.ArgsUsage = "host"
+	cmd.Action = func(c *cli.Context) error {
+		host := c.Args().First()
+		if host == "" {
+			return fmt.Errorf("no host to scale")
+		}
+
+		return actions.Drain(host, app.Api)
+	}
+	return cmd
+}
+
 
 func (app *App) Stats() map[string]interface{} {
 	var mem runtime.MemStats

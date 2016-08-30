@@ -45,6 +45,10 @@ func (s *DefaultScheduler) syncHosts() error {
 			return err
 		}
 
+		if h.Draining {
+			continue
+		}
+
 		if ok {
 			s.hosts[h.Name] = h
 		}

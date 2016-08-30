@@ -2,20 +2,9 @@
 # vi: set ft=ruby :
 
 $install_consul = <<SCRIPT
-if ! type "consul" > /dev/null; then
-  echo 'must install consul';
-  sudo apt-get update
   sudo apt-get install -y unzip curl
-  echo Fetching Consul...
-  cd /tmp/
-  curl https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip -o consul.zip
-  echo Installing Consul...
-  unzip consul.zip
-  sudo chmod +x consul
-  sudo mv consul /usr/bin/consul
-  sudo mkdir /etc/consul.d
-  sudo chmod a+w /etc/consul.d
-fi
+  sudo curl https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip -o consul.zip
+  unzip consul.zip && sudo chmod +x consul && sudo mv consul /usr/bin/consul
 SCRIPT
 
 Vagrant.configure(2) do |config|
@@ -29,6 +18,7 @@ Vagrant.configure(2) do |config|
     v.customize [ "modifyvm", :id, "--memory", "512" ]
   end
 
+  config.vm.provision :shell, inline: 'sudo apt-get update'
   config.vm.provision :shell, inline: $install_consul
   config.vm.provision :shell, inline: 'docker pull coldog/sked'
   config.vm.provision :shell, inline: 'docker pull consul'
