@@ -36,7 +36,6 @@ func NewApp() *App {
 	return app
 }
 
-type ExitHandler func()
 type AppCmd func(app *App) cli.Command
 
 type App struct {
@@ -45,7 +44,7 @@ type App struct {
 	Config     *AppConfig
 	Agent      *agent.Agent
 	Master     *master.Master
-	atExit     ExitHandler
+	atExit     func()
 	ConsulConf *consulApi.Config
 }
 
@@ -126,11 +125,12 @@ func (app *App) setup() {
 		app.CombinedCmd(),
 		app.ApplyCmd(),
 		app.ScaleCmd(),
+		app.DrainCmd(),
 	}
 }
 
 // Registers a listener for SIGTERM and sets the function to run being the 'ExitHandler' function.
-func (app *App) AtExit(e ExitHandler) {
+func (app *App) AtExit(e func()) {
 	app.atExit = e
 
 	killCh := make(chan os.Signal, 2)

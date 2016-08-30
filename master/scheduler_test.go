@@ -27,7 +27,7 @@ func testScheduler(t *testing.T, clusterName, serviceName, file string, hosts in
 	service, err := a.GetService(serviceName)
 	tools.Ok(t, err)
 
-	tools.Ok(t, s.Schedule(cluster, service))
+	tools.Ok(t, s.Schedule("", cluster, service))
 }
 
 func TestDefaultScheduler_Simple(t *testing.T) {

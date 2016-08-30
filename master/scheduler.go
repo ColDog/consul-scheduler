@@ -27,6 +27,7 @@ type DefaultScheduler struct {
 	maxPort  map[string]uint
 	l        *sync.RWMutex
 	lastSync time.Time
+	rankers  map[string]Ranker
 }
 
 func (s *DefaultScheduler) syncHosts() error {
@@ -56,7 +57,7 @@ func (s *DefaultScheduler) syncHosts() error {
 	return nil
 }
 
-func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) error {
+func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *api.Service) error {
 	log.Infof("[scheduler-%s] starting", cluster.Name)
 
 	err := s.syncHosts()
@@ -148,7 +149,7 @@ func (s *DefaultScheduler) Schedule(cluster *api.Cluster, service *api.Service) 
 			if _, ok := taskMap[id]; !ok {
 				// make the task and schedule it
 				t := api.NewTask(cluster, taskDefinition, service, i)
-				selectedHost, err := s.selectHost(t)
+				selectedHost, err := s.selectHost(name, t)
 				if selectedHost == "" {
 					log.WithField("error", err).Warnf("[scheduler-%s] could not find suitable host", service.Name)
 					continue
@@ -240,7 +241,7 @@ func (s *DefaultScheduler) matchHost(t *api.Task, cand *api.Host) error {
 	return nil
 }
 
-func (s *DefaultScheduler) selectHost(t *api.Task) (string, error) {
+func (s *DefaultScheduler) selectHost(name string, t *api.Task) (string, error) {
 	s.l.RLock()
 	defer s.l.RUnlock()
 
@@ -248,8 +249,13 @@ func (s *DefaultScheduler) selectHost(t *api.Task) (string, error) {
 
 	rand.Seed(time.Now().Unix())
 
-	// todo: should be ranked
-	for _, cand := range s.hosts {
+	ranking := s.rankers[name](s.hosts)
+
+	for _, key := range ranking {
+		cand, ok := s.hosts[key]
+		if !ok {
+			continue
+		}
 
 		err := s.matchHost(t, cand)
 		if err != nil {
@@ -257,6 +263,10 @@ func (s *DefaultScheduler) selectHost(t *api.Task) (string, error) {
 			continue
 		}
 
+		c := t.TaskDefinition.Counts()
+		cand.Memory = cand.Memory - c.Memory
+		cand.DiskSpace = cand.DiskSpace - c.DiskUse
+		cand.CpuUnits = cand.CpuUnits - c.CpuUnits
 		return cand.Name, nil
 	}
 

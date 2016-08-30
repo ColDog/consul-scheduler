@@ -211,7 +211,7 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 
 		log.WithField("service", serviceName).WithField("cluster", clusterName).Infof("[master-worker-%d] scheduling", i)
 
-		err = scheduler.Schedule(cluster, service)
+		err = scheduler.Schedule(service.Scheduler, cluster, service)
 		if err != nil {
 			log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] scheduler errord", i)
 		}

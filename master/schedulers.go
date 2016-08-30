@@ -7,7 +7,14 @@ import (
 
 // scheduler implements the simple scheduler interface which should be able to handle getting a service and scheduling.
 type Scheduler interface {
-	Schedule(cluster *api.Cluster, service *api.Service) error
+	Schedule(name string, cluster *api.Cluster, service *api.Service) error
+}
+
+type Ranker func(hosts map[string]*api.Host) []string
+
+type RankedHost struct {
+	Name  string
+	Score int
 }
 
 type Schedulers struct {
