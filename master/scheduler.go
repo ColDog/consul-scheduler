@@ -175,6 +175,9 @@ func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *
 				log.WithField("host", selectedHost).WithField("port", t.Port).WithField("task", t.Id()).Debugf("[scheduler-%s] added task", service.Name)
 
 				t.Scheduled = true
+
+				s.updateHost(t)
+
 				s.api.PutTask(t)
 				added++
 				taskMap[t.Id()] = t
@@ -208,7 +211,15 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 	if p == 1 {
 		p = 20000
 	}
-	s.maxPort[host.Name] = p
+
+	for {
+		if inArray(p, host.ReservedPorts) {
+			p += 1
+			continue
+		}
+
+		s.maxPort[host.Name] = p
+	}
 	return p, nil
 }
 
@@ -241,6 +252,20 @@ func (s *DefaultScheduler) matchHost(t *api.Task, cand *api.Host) error {
 	return nil
 }
 
+func (s *DefaultScheduler) updateHost(t *api.Task) {
+	s.l.Lock()
+	defer s.l.Unlock()
+
+	c := t.TaskDefinition.Counts()
+
+	h := s.hosts[t.Host]
+
+	h.Memory -= c.Memory
+	h.DiskSpace -= c.DiskUse
+	h.CpuUnits -= c.CpuUnits
+	h.ReservedPorts = append(h.ReservedPorts, t.AllPorts()...)
+}
+
 func (s *DefaultScheduler) selectHost(name string, t *api.Task) (string, error) {
 	s.l.RLock()
 	defer s.l.RUnlock()
@@ -263,10 +288,6 @@ func (s *DefaultScheduler) selectHost(name string, t *api.Task) (string, error) 
 			continue
 		}
 
-		c := t.TaskDefinition.Counts()
-		cand.Memory = cand.Memory - c.Memory
-		cand.DiskSpace = cand.DiskSpace - c.DiskUse
-		cand.CpuUnits = cand.CpuUnits - c.CpuUnits
 		return cand.Name, nil
 	}
 
