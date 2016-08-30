@@ -274,8 +274,12 @@ func (s *DefaultScheduler) selectHost(name string, t *api.Task) (string, error) 
 
 	rand.Seed(time.Now().Unix())
 
-	ranking := s.rankers[name](s.hosts)
+	ranker, ok := s.rankers[name]
+	if !ok {
+		ranker = s.rankers[""]
+	}
 
+	ranking := ranker(s.hosts)
 	for _, key := range ranking {
 		cand, ok := s.hosts[key]
 		if !ok {
