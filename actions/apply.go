@@ -5,8 +5,8 @@ import (
 	"github.com/ghodss/yaml"
 
 	"fmt"
-	"errors"
 	"io/ioutil"
+	"errors"
 )
 
 var ErrValidationFailure error = errors.New("Validation Failed")

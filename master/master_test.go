@@ -1,12 +1,13 @@
 package master
 
 import (
-	"testing"
 	"github.com/coldog/sked/api"
-	"time"
-	"github.com/coldog/sked/actions"
-	"fmt"
 	"github.com/coldog/sked/tools"
+	"github.com/coldog/sked/cli"
+
+	"testing"
+	"time"
+	"fmt"
 )
 
 func TestMaster_WillSchedule(t *testing.T) {
@@ -28,7 +29,7 @@ func TestMaster_WillSchedule(t *testing.T) {
 			tools.Ok(t, err)
 		}
 
-		actions.ApplyConfig("../examples/hello-world.yml", a)
+		cli.ApplyConfig("../examples/hello-world.yml", a)
 
 		m.Run()
 	})
