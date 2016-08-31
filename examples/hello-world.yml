@@ -11,6 +11,13 @@ services:
     max: 7
     desired: 7
 
+    # experimental
+    # constraints:
+    #  - host.name = 'x'
+    #  - unique host.name
+    #  - host.tags.x = 'y'
+    #  - group_by host.tags.x
+
 tasks:
   - name: helloworld
     version: 2

@@ -1,0 +1,28 @@
+clusters:
+  - name: default
+    services:
+      - bashworld-service
+
+services:
+  - name: bashworld-service
+    task_name: bashworld
+    task_version: 2
+    min: 3
+    max: 7
+    desired: 7
+
+tasks:
+  - name: bashworld
+    version: 2
+    provide_port: true
+
+    containers:
+      - name: bashworld
+        type: bash
+        memory: 1000
+        cpu_units: 200
+        executor:
+          start:
+            - sleep 180
+          stop:
+            - echo 'stopping'

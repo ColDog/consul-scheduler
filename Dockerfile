@@ -1,5 +1,5 @@
 FROM alpine:3.4
 
-ADD dist/sked_linux-arm64-latest /usr/local/bin/sked
+ADD dist/sked_linux-amd64-latest /usr/local/bin/sked
 
-ENTRYPOINT ["sked", "combined"]
+CMD ["sked", "combined"]

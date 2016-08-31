@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+docker network create --subnet 172.25.0.0/16 sked-net
+
+for i in 1 2 3 4 5 6 7
+do
+    consul_id=consul-${i}
+    addr=172.25.0.1${i}
+    serve=""
+    expect=""
+    ui=""
+    ports=""
+
+    if [ ${i} = "1" ]; then
+        ui="-ui"
+        ports="-p=8500:8500"
+    fi
+
+    if (( $i < 4 )); then
+        serve="-server"
+    fi
+
+    if (( $i < 4 )); then
+        expect="-bootstrap-expect=3"
+    fi
+
+    docker run \
+        -d -e 'CONSUL_LOCAL_CONFIG={"leave_on_terminate": true}' \
+        --net=sked-net \
+        --net-alias=${consul_id} \
+        --ip=${addr} \
+        --name=${consul_id} \
+        ${ports} \
+        consul agent ${serve} -node=${consul_id} -advertise=${addr} ${ui} -client=0.0.0.0 ${expect}
+done
+
+docker exec -it consul-1 consul join 172.25.0.12 172.25.0.13 172.25.0.14 172.25.0.15 172.25.0.16 172.25.0.17
+
+for i in 1 2 3 4 5 6 7
+do
+    docker run -d --net=sked-net --name=sked-${i} --net-alias=sked-${i} -e CONSUL_API=172.25.0.1${i}:8500 \
+        coldog/sked:test sked combined
+done

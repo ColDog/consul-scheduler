@@ -70,7 +70,7 @@ func (app *App) setup() {
 
 	app.cli.Flags = []cli.Flag{
 		cli.StringFlag{Name: "log-level, l", Value: "debug", Usage: "log level [debug, info, warn, error]"},
-		cli.StringFlag{Name: "consul-api", Value: "", Usage: "consul api"},
+		cli.StringFlag{Name: "consul-api", Value: "", EnvVar: "CONSUL_API", Usage: "consul api"},
 		cli.StringFlag{Name: "consul-dc", Value: "", Usage: "consul dc"},
 		cli.StringFlag{Name: "consul-token", Value: "", Usage: "consul token"},
 		cli.StringFlag{Name: "bind, b", Value: "0.0.0.0", Usage: "address to bind to"},
@@ -209,8 +209,9 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")
 
-		app.Api.Start()
 		app.Api.Wait()
+		app.Api.Start()
+
 
 		app.RegisterMaster(c)
 		app.AtExit(func() {
