@@ -46,10 +46,23 @@ checking and service discovery.
 
 1. Download Consul: https://www.consul.io/intro/getting-started/install.html
 3. Start Consul: `consul agent -dev -ui -bind=127.0.0.1`
-3. Download Sked: https://github.com/ColDog/sked/releases and `cd` into the directory
-4. Start Sked: `./sked combined` (start in combined mode)
-5. Load an example: `./sked apply -f examples/hello-world.yml`
-6. Watch the output and see it schedule the tasks!
+3. Download Sked: https://github.com/ColDog/sked/releases
+4. Run the binary: `./sked combined` (start in combined mode)
+5. Watch the output and see it schedule the tasks!
+
+## Rationale
+
+Why build another scheduler? Currently there are quite a few projects that come to mind as being production ready solutions
+for scheduling containers. Kubernetes is probably the oldest and most well known out of these projects, Amazon's offering
+ECS is also a fully managed solution that is being widely used while Hashicorp has released a scheduler called Nomad which
+can scale to over 1 million containers in their tests.
+
+Sked is designed with simplicity in mind. It is an exercise in making the simplest scheduler possible while involving the
+least amount of setup and importantly a very basic operational understanding. Sked is completely stateless and refers to
+consul or etcd (forthcoming) to store all state. The bare state is exposed to the operator allowing the operator to make
+on the fly changes and get total introspection into the cluster state with their own tools. Sked is also distributed, it
+uses the locking inherit in the chosen backend to avoid scheduling conflicts but ultimately uses a version of optimistic
+concurrency to allow for fast, fault tolerant and distributed scheduling.
 
 
 ## Definitions
@@ -105,24 +118,34 @@ As a result they are very simple to run in production. They also offer parallel 
 fast and responsive to changes in configuration and health.
 
 The agent will also broadcast it's state to the storage provider to be used by the scheduler in making scheduling decisions.
-this includes an overview of the
+this includes an overview of the memory available, ports currently allocated and disk space used by the host machine. Agents
+also have the power to reject a task scheduled by the scheduler. If, for example, a port conflict was accidentally created,
+an agent will reject the task, triggering the scheduler which will have a second shot at scheduling the conflicting task.
 
 ### Scheduling
 
-Schedulers are set up to provide parallel execution and fault tolerance as well as the ability to write your own scheduler
-very easily. The scheduler process first maintains a lock through the storage provider (ie. Consul) on a particular cluster
-that it wants to schedule. Cluster's are scheduled independently. The scheduler can then begin creating and removing tasks
-inside the storage provider and the agents will pick up these changes and execute start and stop requests. Through this
-model the scheduler is highly decoupled from the agents. Any process that can write to the storage provider can become a
-scheduler.
+When the `scheduler` command is passed to the binary this will start a process that monitors various states and metrics
+throughout the cluster and dispatches schedule requests. Scheduling is done on a per service and cluster basis. You can
+specify which cluster to monitor in the command line arguments. Service's tell this process what scheduler they would like
+to be scheduled with and this process takes care of executing that scheduler on the service at the right time.
 
-Concurrent modifications are handled through using the locking provided by the storage provider. You can run multiple
-scheduler processes but only one should be able to handle scheduling for a cluster at a given point in time, this enables
-a few of the scheduler processes to fail before the cluster cannot be scheduled.
+You can run multiple scheduler processes, this is due to the fact that the scheduler process will maintain a lock on each
+service before it begins scheduling to avoid conflicting with another process.
 
-Writing your own scheduler is easy. Name your scheduler and update the configuration in your clusters to use this name.
-Then retrieve a lock on the `schedulers/<cluster_name>` key and begin scheduling if you have the lock. Every object is
-json serialized so if your scheduler keeps to the same schema the agent will be able to decode and use your issued tasks.
+#### Writing Your Own Scheduler
+
+Your own scheduling system can be implemented using the same format. A process can run and monitor the cluster state while
+creating and removing tasks as needed. Fundamentally, the agent's and the schedulers are separate processes and can run
+entirely independently. All the agent cares about is that the json posted to the backend is readable and conforms to the
+same key mapping.
+
+Overall, all your scheduler needs to do is create tasks readable by the agent under the following key:
+
+    /state/hosts/<host_name>/<task_id> => {task}
+
+All of the locking and monitoring of the cluster is ancillary and necessary to get distributed fault tolerant scheduling,
+however if you want to quickly hand roll a solution or have specific scheduling requirements this could be a viable
+alternative.
 
 ## Storage
 
@@ -148,8 +171,8 @@ Task ID's are comprised of the following schema:
 
 Tasks, making up the issued state are stored as follows:
 
-    tasks:          state/tasks/<cluster>/<service>/<task_id>
-    tasks:          state/hosts/<host_id>/<task_id>             # contains an empty body
+    tasks:          state/tasks/<task_id>
+    tasks:          state/hosts/<host_id>/<task_id>
 
 The tasks by host allow for efficient queries from the agent's perspective to get a quick picture of all the task ID's
 that should be under it's control.
@@ -179,7 +202,6 @@ task_definitions:
 ```javascript
 {
   "name": "default",          // a unique name for this cluster
-  "scheduler": "default",     // the name of the scheduler to use
   "services": ["helloworld"]  // a list of services that this cluster should run
 }
 ```
@@ -189,6 +211,7 @@ task_definitions:
 {
   "name": "helloworld",       // a unique name for this service
   "task_name": "helloworld",  // the task name this service should run
+  "scheduler": "default",     // the scheduler that should be used
   "task_version": 2,          // the task version this service should run
   "desired": 4,               // the desired amount of tasks
   "min": 3,                   // the minimum amount the scheduler can drop to
@@ -215,31 +238,92 @@ task_definitions:
       "type": "docker",                   // the type of executor currently: docker, bash
       "setup": ["echo setup"],            // a list of bash commands to setup a container
       "executor": {                       // individual configuration for the executore
-        "container_port": 80,
-        "image": "tutum/hello-world",
-        "name": "helloworld"
-      }
-    }
-  ],
+              // see executor object
+      },
 
-  // checks is an array of health checks that should be passed onto consul, these use the same schema
-  // as a consul health check, the only addition is the "add_provided_port" field which will tell the
-  // scheduler to add the provided port for a task to the end of the tcp or http health check upon
-  // scheduling.
-  "checks": [
-    {
-      "name": null,
-      "http": "http://127.0.0.1",
-      "tcp": null,
-      "script": null,
-      "add_provided_port": true,
-      "interval": "10s",
-      "timeout": null,
-      "ttl": null
+      // checks is an array of health checks that should be passed onto consul, these use the same schema
+      // as a consul health check, the only addition is the $PROVIDED_PORT variable which will tell the
+      // scheduler to add the provided port for a task to the end of the tcp or http health check upon
+      // scheduling.
+      "checks": [
+          {
+            "name": null,
+            "http": "http://127.0.0.1:$PROVIDED_PORT",
+            "tcp": null,
+            "script": null,
+            "interval": "10s",
+            "timeout": null,
+            "ttl": null
+          }
+        ]
     }
   ]
 }
 ```
+
+#### Tasks
+
+Tasks are serialized with the full task definition.
+
+```javascript
+{
+  "cluster": {
+    "name": "default",
+    "datacenter": "",
+    "services": [
+      "helloworld"
+    ],
+    "hosts": null
+  },
+  "task_definition": {
+    "name": "helloworld",
+    "version": 2,
+    "provide_port": true,
+    "port": 0,
+    "tags": [
+      "urlprefix-\/helloworld"
+    ],
+    "containers": [
+      {
+        "name": "helloworld",
+        "type": "docker",
+        "executor": {
+          "container_port": 80,
+          "image": "tutum\/hello-world",
+          "name": "helloworld"
+        },
+        "setup": null,
+        "checks": [
+          {
+            "id": "",
+            "name": "",
+            "http": "http:\/\/127.0.0.1:$PROVIDED_PORT",
+            "tcp": "",
+            "script": "",
+            "interval": "10s",
+            "timeout": "",
+            "ttl": ""
+          }
+        ],
+        "memory": 0,
+        "cpu_units": 0,
+        "disk_use": 0
+      }
+    ],
+    "grace_period": 60000000000,
+    "max_attempts": 10
+  },
+  "service": "helloworld",
+  "instance": 0,
+  "port": 20000,
+  "host": "Colins-MacBook-Pro-2.local",
+  "scheduled": true,
+  "rejected": false,
+  "reject_reason": ""
+}
+```
+
+#### Executors
 
 ##### Docker Executor
 ```javascript
