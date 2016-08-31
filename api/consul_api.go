@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"net/url"
 )
 
 var (
@@ -157,16 +158,15 @@ func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
 
 // ==> REGISTER & DEREGISTER
 
-func (a *ConsulApi) RegisterAgent(host, addr string, port int) error {
+func (a *ConsulApi) RegisterAgent(host, addr string) error {
+
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID:      "sked-" + host,
 		Name:    "sked",
-		Port:    port,
-		Address: addr,
 		Checks: api.AgentServiceChecks{
 			&api.AgentServiceCheck{
 				Interval: "30s",
-				HTTP:     fmt.Sprintf("http://%s:%d/agent/health", addr, port),
+				HTTP:     addr,
 			},
 		},
 	})

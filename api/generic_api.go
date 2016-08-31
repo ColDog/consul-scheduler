@@ -70,7 +70,7 @@ type SchedulerApi interface {
 	Start()
 
 	// Register With Generic API
-	RegisterAgent(host, addr string, port int) error
+	RegisterAgent(host, addr string) error
 	Register(t *Task) error
 	DeRegister(id string) error
 	AgentHealth(name string) (bool, error)

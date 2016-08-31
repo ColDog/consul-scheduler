@@ -1,3 +1,3 @@
-package version
+package config
 
 const VERSION = "0.1.1"

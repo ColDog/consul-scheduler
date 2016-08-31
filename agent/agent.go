@@ -2,9 +2,10 @@ package agent
 
 import (
 	log "github.com/Sirupsen/logrus"
+	"github.com/shirou/gopsutil/mem"
 
 	"github.com/coldog/sked/api"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/coldog/sked/config"
 
 	"encoding/json"
 	"errors"
@@ -16,10 +17,9 @@ import (
 )
 
 type AgentConfig struct {
-	Runners      int           `json:"runners"`
-	SyncInterval time.Duration `json:"sync_interval"`
-	Port         int           `json:"port"`
-	Addr         string        `json:"addr"`
+	Runners      int            `json:"runners"`
+	SyncInterval time.Duration  `json:"sync_interval"`
+	AppConfig    *config.Config `json:"app_config"`
 }
 
 var (
@@ -302,7 +302,7 @@ func (agent *Agent) RegisterAgent() {
 		default:
 		}
 
-		err := agent.api.RegisterAgent(agent.Host, agent.Config.Addr, agent.Config.Port)
+		err := agent.api.RegisterAgent(agent.Host, "http://" + agent.Config.AppConfig.Advertise + "/agent/health")
 		if err == nil {
 			log.Info("[agent] registered agent")
 			break

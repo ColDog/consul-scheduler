@@ -40,3 +40,19 @@ func (app *App) DrainCmd() (cmd cli.Command) {
 	}
 	return cmd
 }
+
+
+func (app *App) TasksCmd() (cmd cli.Command) {
+	cmd.Name = "tasks"
+	cmd.Usage = "drain a host of containers"
+	cmd.ArgsUsage = "host"
+	cmd.Flags = []cli.Flag{
+		cli.StringFlag{Name: "by-host", Usage: "filter by host"},
+		cli.StringFlag{Name: "by-cluster", Usage: "filter by cluster"},
+		cli.StringFlag{Name: "by-service", Usage: "filter by service"},
+	}
+	cmd.Action = func(c *cli.Context) error {
+		return actions.ListTasks(app.Api, c.String("by-host"), c.String("by-cluster"), c.String("by-service"))
+	}
+	return cmd
+}

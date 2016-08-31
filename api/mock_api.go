@@ -48,7 +48,7 @@ func (a *MockApi) Start() {
 
 }
 
-func (a *MockApi) RegisterAgent(host, addr string, port int) error {
+func (a *MockApi) RegisterAgent(host, addr string) error {
 	return nil
 }
 

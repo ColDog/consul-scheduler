@@ -2,7 +2,9 @@ package master
 
 import (
 	log "github.com/Sirupsen/logrus"
+
 	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/config"
 
 	"net/http"
 	"sync"
@@ -33,6 +35,7 @@ type Config struct {
 	Runners      int
 	SyncInterval time.Duration
 	Cluster      string
+	AppConfig    *config.Config
 }
 
 // The scheduler manages scheduling on a per service basis, dispatching requests for scheduling when needed.

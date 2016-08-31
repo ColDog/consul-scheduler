@@ -86,7 +86,7 @@ func row(items []interface{}) string {
 
 func pad(x string) string {
 	c := utf8.RuneCountInString(x)
-	for i := 0; i < (15 - c); i++ {
+	for i := 0; i < (20 - c); i++ {
 		x += " "
 	}
 	return x
