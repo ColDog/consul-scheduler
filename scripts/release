@@ -25,7 +25,7 @@ if git tag -l | grep -Fxq ${version}; then
     exit 1
 fi
 
-> version.go && printf "package main\nconst VERSION = \"${version}\"\n" >> version.go
+> config/version.go && printf "package config\nconst VERSION = \"${version}\"\n" >> version.go
 
 # handle git stuff
 git add -A && git commit -m "${message}"

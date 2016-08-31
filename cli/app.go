@@ -3,14 +3,14 @@ package cli
 import (
 	_ "net/http/pprof"
 
-	"github.com/coldog/sked/actions"
+	log "github.com/Sirupsen/logrus"
+	"github.com/urfave/cli"
+
 	"github.com/coldog/sked/agent"
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/master"
+	"github.com/coldog/sked/config"
 
-	log "github.com/Sirupsen/logrus"
-	consulApi "github.com/hashicorp/consul/api"
-	"github.com/urfave/cli"
 
 	"encoding/json"
 	"fmt"
@@ -18,11 +18,8 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sync"
 	"syscall"
 	"time"
-	"github.com/coldog/sked/version"
-	"github.com/coldog/sked/config"
 )
 
 func NewApp() *App {
@@ -75,8 +72,8 @@ func (app *App) setup() {
 	}
 	app.cli.Before = func(c *cli.Context) error {
 		app.Config.Port = c.GlobalInt("port")
-		app.Config.Addr = c.GlobalInt("bind")
-		app.Config.Advertise = c.GlobalInt("advertise")
+		app.Config.Addr = c.GlobalString("bind")
+		app.Config.Advertise = c.GlobalString("advertise")
 		app.Config.LogLevel = c.GlobalString("log-level")
 
 

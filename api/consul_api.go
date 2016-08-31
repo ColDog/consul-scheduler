@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"net/url"
 )
 
 var (
