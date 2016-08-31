@@ -52,3 +52,16 @@ func TestAgent_Stop(t *testing.T) {
 	_, err = a.GetTask(tk.Id())
 	tools.Assert(t, err == api.ErrNotFound, "task was found")
 }
+
+func TestAgent_PublishState(t *testing.T) {
+	a := api.NewMockApi()
+	ag := NewAgent(a, &AgentConfig{})
+	ag.Host = "local"
+
+
+	ag.PublishState()
+
+	h, err := a.GetHost("local")
+	tools.Ok(t, err)
+	tools.Equals(t, h.Name, "local")
+}
