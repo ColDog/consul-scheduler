@@ -207,13 +207,7 @@ func (agent *Agent) sync() {
 			"last_started": state.StartedAt,
 		}).Info("[agent] task state")
 
-		if task.Scheduled && !task.Rejected && !healthy {
-			// if the task does not have any checks, then we just rely on the attempts number since state.Health
-			// will always be false.
-			if !task.HasChecks() && state.Attempts > 0 {
-				continue
-			}
-
+		if task.Scheduled && !task.Rejected && (!healthy || (!task.HasChecks() && state.Attempts == 0)) {
 			// leave some time in between restarting tasks, ie they may take a while before the health checks
 			// begin passing.
 			if state.StartedAt.Add(task.TaskDefinition.GracePeriod).After(time.Now()) {
@@ -252,7 +246,7 @@ func (agent *Agent) sync() {
 		}
 
 		if !task.Scheduled {
-			log.Debug("[agent] triggering stop!")
+			log.Info("[agent] triggering stop")
 
 			// stop the task since it shouldn't be running
 			select {
