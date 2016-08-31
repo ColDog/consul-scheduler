@@ -43,13 +43,12 @@ func assertCountServices(t *testing.T, a *api.MockApi, service string, count int
 
 func assertCountScheduledOn(t *testing.T, a *api.MockApi, host string, count int) {
 	l, _ := a.ListTasks(&api.TaskQueryOpts{
-		ByHost: host,
+		ByHost:    host,
 		Scheduled: true,
 	})
 
 	tools.Assert(t, len(l) == count, fmt.Sprintf("running tasks on host: %s - actual: %d, expected: %d", host, len(l), count))
 }
-
 
 func TestDefaultScheduler_Simple(t *testing.T) {
 	testScheduler(t, "default", "helloworld", "../examples/hello-world.yml", 5)
@@ -185,7 +184,6 @@ func TestScheduler_DrainingHost(t *testing.T) {
 func TestScheduler_GC(t *testing.T) {
 	a := api.NewMockApi()
 	s := NewDefaultScheduler(a)
-
 
 	h := api.SampleHost()
 	h.Name = "local"

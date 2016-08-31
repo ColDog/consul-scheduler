@@ -2,18 +2,17 @@ package master
 
 import (
 	"github.com/coldog/sked/api"
-	"github.com/coldog/sked/tools"
 	"github.com/coldog/sked/cli"
+	"github.com/coldog/sked/tools"
 
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 func TestMaster_WillSchedule(t *testing.T) {
 	api.RunConsulApiTest(func(a *api.ConsulApi) {
 		m := NewMaster(a, &Config{Runners: 2})
-
 
 		go func() {
 			time.Sleep(1 * time.Second)

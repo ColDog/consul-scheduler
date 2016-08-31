@@ -1,10 +1,10 @@
 package master
 
 import (
-	"testing"
-	"github.com/coldog/sked/api"
 	"fmt"
+	"github.com/coldog/sked/api"
 	"math/rand"
+	"testing"
 	"time"
 )
 

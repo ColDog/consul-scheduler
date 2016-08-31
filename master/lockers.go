@@ -1,8 +1,8 @@
 package master
 
 import (
-	"github.com/coldog/sked/api"
 	log "github.com/Sirupsen/logrus"
+	"github.com/coldog/sked/api"
 	"sync"
 )
 

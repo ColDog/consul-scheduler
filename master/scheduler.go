@@ -19,8 +19,8 @@ func NewDefaultScheduler(a api.SchedulerApi) *DefaultScheduler {
 		maxPort: make(map[string]uint),
 		l:       &sync.RWMutex{},
 		rankers: map[string]Ranker{
-			"": SpreadRanker,
-			"spread": SpreadRanker,
+			"":        SpreadRanker,
+			"spread":  SpreadRanker,
 			"binpack": PackRanker,
 		},
 	}
@@ -99,7 +99,7 @@ func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *
 	added := 0
 
 	log.WithFields(log.Fields{
-		"count": count,
+		"count":   count,
 		"service": service.Name,
 		"cluster": cluster.Name,
 		"desired": service.Desired,
@@ -195,8 +195,8 @@ func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *
 
 	log.WithFields(log.Fields{
 		"removed": removed,
-		"added": added,
-		"total": count + added - removed,
+		"added":   added,
+		"total":   count + added - removed,
 	}).Infof("[scheduler-%s] done", service.Name)
 	return nil
 }

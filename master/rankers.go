@@ -19,10 +19,10 @@ func rank(hosts map[string]*api.Host, rank func(h *api.Host) int) []RankedHost {
 		if len(rs) > 0 {
 			if r.Score >= rs[0].Score {
 				rs = append([]RankedHost{r}, rs...)
-			} else if r.Score <= rs[len(rs) - 1].Score {
+			} else if r.Score <= rs[len(rs)-1].Score {
 				rs = append(rs, r)
 			} else {
-				for i := 0; i < len(rs) - 1; i++ {
+				for i := 0; i < len(rs)-1; i++ {
 					if r.Score <= rs[i].Score && r.Score >= rs[i+1].Score {
 						rs = append(rs[0:i], append([]RankedHost{r}, rs[i:]...)...)
 						break

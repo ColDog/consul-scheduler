@@ -44,7 +44,7 @@ func Scale(a api.SchedulerApi, serviceName string, desired int) error {
 
 func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 	tasks, err := a.ListTasks(&api.TaskQueryOpts{
-		ByHost: byHost,
+		ByHost:    byHost,
 		ByService: byService,
 		ByCluster: byCluster,
 		Scheduled: true,
@@ -61,7 +61,7 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 	return nil
 }
 
-func tableHeader(items ...interface{})  {
+func tableHeader(items ...interface{}) {
 	r := row(items)
 	c := utf8.RuneCountInString(r)
 	p := ""

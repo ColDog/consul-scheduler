@@ -3,9 +3,9 @@ package actions
 import (
 	"github.com/coldog/sked/api"
 
-	"testing"
-	"math/rand"
 	"fmt"
+	"math/rand"
+	"testing"
 )
 
 func TestApplyPrint(t *testing.T) {

@@ -72,7 +72,7 @@ func (s *Master) monitor() {
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
-			s.runGc <- struct {}{}
+			s.runGc <- struct{}{}
 
 		case <-listenHealth:
 			err := s.dispatch()
@@ -141,10 +141,10 @@ func (s *Master) dispatchService(cluster *api.Cluster, serviceName string) error
 	}
 
 	log.WithFields(log.Fields{
-		"count": len(tasks),
-		"desired": service.Desired,
-		"service": service.Name,
-		"cluster": cluster.Name,
+		"count":        len(tasks),
+		"desired":      service.Desired,
+		"service":      service.Name,
+		"cluster":      cluster.Name,
 		"problem_host": unhealthyHost,
 	}).Info("[master] dispatch")
 
@@ -170,10 +170,10 @@ func (s *Master) worker(i int) {
 			t2 := time.Now().UnixNano()
 
 			log.WithFields(log.Fields{
-				"time": t2 - t1,
+				"time":    t2 - t1,
 				"cluster": val.cluster,
 				"service": val.service,
-				"secs": float64(t2 - t1) / 1000000000.0,
+				"secs":    float64(t2-t1) / 1000000000.0,
 			}).Infof("[master-worker-%d] done", i)
 
 		case <-s.quit:
@@ -224,7 +224,7 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 }
 
 func (s *Master) GC() {
-	s.runGc <- struct {}{}
+	s.runGc <- struct{}{}
 }
 
 func (s *Master) garbageCollector() {
@@ -271,7 +271,7 @@ func (s *Master) runGarbageCollect() error {
 }
 
 func (s *Master) RegisterRoutes() {
-	http.HandleFunc("/master/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/scheduler/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK\n"))
 	})
 }

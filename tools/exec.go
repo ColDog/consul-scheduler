@@ -3,10 +3,10 @@ package tools
 import (
 	log "github.com/Sirupsen/logrus"
 
-	"os/exec"
-	"time"
-	"strings"
 	"fmt"
+	"os/exec"
+	"strings"
+	"time"
 )
 
 type ExecErr struct {
@@ -39,7 +39,6 @@ func Exec(env []string, timeout time.Duration, main string, cmds ...string) erro
 		}
 
 	}()
-
 
 	out, err := cmd.CombinedOutput()
 	done <- struct{}{}

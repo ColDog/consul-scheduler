@@ -160,8 +160,8 @@ func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
 func (a *ConsulApi) RegisterAgent(host, addr string) error {
 
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID:      "sked-" + host,
-		Name:    "sked",
+		ID:   "sked-" + host,
+		Name: "sked",
 		Checks: api.AgentServiceChecks{
 			&api.AgentServiceCheck{
 				Interval: "30s",

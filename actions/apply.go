@@ -4,9 +4,9 @@ import (
 	"github.com/coldog/sked/api"
 	"github.com/ghodss/yaml"
 
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"errors"
 )
 
 var ErrValidationFailure error = errors.New("Validation Failed")
@@ -33,9 +33,9 @@ func readYml(file string, res interface{}) error {
 
 func ApplyConfig(arg string, a api.SchedulerApi) error {
 	obj := struct {
-		Clusters []*api.Cluster `json:"clusters"`
-		Services []*api.Service `json:"services"`
-		Tasks []*api.TaskDefinition `json:"tasks"`
+		Clusters []*api.Cluster        `json:"clusters"`
+		Services []*api.Service        `json:"services"`
+		Tasks    []*api.TaskDefinition `json:"tasks"`
 	}{}
 
 	err := readYml(arg, &obj)
