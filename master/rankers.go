@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	spreadMemWeight  = 8
-	spreadDiskWeight = 1
-	spreadCpuWeight  = 4
-	packMaxScore     = 1000000
+	memWeight    = 8
+	diskWeight   = 1
+	cpuWeight    = 4
+	packMaxScore = 1000000
 )
 
 func rank(hosts map[string]*api.Host, rank func(h *api.Host) int) []RankedHost {
@@ -40,14 +40,17 @@ func rank(hosts map[string]*api.Host, rank func(h *api.Host) int) []RankedHost {
 // returns an int that is higher the more resources the machine has.
 func SpreadRanker(hosts map[string]*api.Host) []RankedHost {
 	return rank(hosts, func(h *api.Host) int {
-		return (int(h.CpuUnits) * spreadCpuWeight) + (int(h.DiskSpace) * spreadDiskWeight) + (int(h.Memory) * spreadMemWeight)
+		return score(h)
 	})
 }
 
 // returns an int that is smaller the more resources the machine has.
 func PackRanker(hosts map[string]*api.Host) []RankedHost {
 	return rank(hosts, func(h *api.Host) int {
-		w := (int(h.CpuUnits) * spreadCpuWeight) + (int(h.DiskSpace) * spreadDiskWeight) + (int(h.Memory) * spreadMemWeight)
-		return packMaxScore - w
+		return packMaxScore - score(h)
 	})
+}
+
+func score(h *api.Host) int {
+	return (int(h.CpuUnits) * cpuWeight) + (int(h.DiskSpace) * diskWeight) + (int(h.Memory) * memWeight)
 }
