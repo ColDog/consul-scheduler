@@ -4,7 +4,7 @@ import "fmt"
 
 func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instance int) *Task {
 	return &Task{
-		Cluster:        cluster,
+		Cluster:        cluster.Name,
 		TaskDefinition: taskDef,
 		Service:        service.Name,
 		Instance:       instance,
@@ -14,7 +14,7 @@ func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instan
 
 // a depiction of a running task definition
 type Task struct {
-	Cluster        *Cluster        `json:"cluster"`
+	Cluster        string          `json:"cluster"`
 	TaskDefinition *TaskDefinition `json:"task_definition"`
 	Service        string          `json:"service"`
 	Instance       int             `json:"instance"`
@@ -81,5 +81,5 @@ func (task *Task) Id() string {
 }
 
 func (task *Task) Name() string {
-	return fmt.Sprintf("%s-%s", task.Cluster.Name, task.Service)
+	return fmt.Sprintf("%s-%s", task.Cluster, task.Service)
 }

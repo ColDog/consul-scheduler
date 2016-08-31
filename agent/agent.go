@@ -166,7 +166,6 @@ func (agent *Agent) PublishState() {
 		MemUsePercent: m.UsedPercent,
 		CpuUnits:      uint64(runtime.NumCPU()),
 		ReservedPorts: ports,
-		PortSelection: avail,
 	}
 
 	agent.LastState = h

@@ -306,7 +306,7 @@ func (a *MockApi) ListTasks(q *TaskQueryOpts) ([]*Task, error) {
 			continue
 		}
 
-		if q.ByCluster != "" && q.ByCluster != t.Cluster.Name {
+		if q.ByCluster != "" && q.ByCluster != t.Cluster {
 			continue
 		}
 

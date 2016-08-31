@@ -56,7 +56,7 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 
 	tableHeader("id", "host", "rejected", "cluster", "service", "task definition", "version")
 	for _, t := range tasks {
-		tableRow(t.Id(), t.Host, t.Rejected, t.Cluster.Name, t.Service, t.TaskDefinition.Name, t.TaskDefinition.Version)
+		tableRow(t.Id(), t.Host, t.Rejected, t.Cluster, t.Service, t.TaskDefinition.Name, t.TaskDefinition.Version)
 	}
 	return nil
 }

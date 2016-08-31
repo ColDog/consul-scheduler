@@ -99,7 +99,6 @@ func SampleHost() *Host {
 		Memory:        100000,
 		DiskSpace:     1000000,
 		ReservedPorts: []uint{1000, 1001, 1002, 1003, 1004, 1005, 1006},
-		PortSelection: []uint{2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010},
 	}
 }
 

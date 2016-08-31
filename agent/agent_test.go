@@ -65,3 +65,5 @@ func TestAgent_PublishState(t *testing.T) {
 	tools.Ok(t, err)
 	tools.Equals(t, h.Name, "local")
 }
+
+

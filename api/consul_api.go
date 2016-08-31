@@ -193,7 +193,7 @@ func (a *ConsulApi) Register(t *Task) error {
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID:      t.Id(),
 		Name:    t.Name(),
-		Tags:    append(t.TaskDefinition.Tags, t.Cluster.Name, t.Service),
+		Tags:    append(t.TaskDefinition.Tags, t.Cluster, t.Service),
 		Port:    int(t.Port),
 		Address: t.Host,
 		Checks:  checks,
@@ -425,7 +425,7 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 			continue
 		}
 
-		if q.ByCluster != "" && q.ByCluster != t.Cluster.Name {
+		if q.ByCluster != "" && q.ByCluster != t.Cluster {
 			continue
 		}
 
