@@ -3,11 +3,11 @@ package agent
 import (
 	log "github.com/Sirupsen/logrus"
 
-	"fmt"
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
+
+	"fmt"
 	"testing"
-	"time"
 )
 
 func init() {
@@ -25,27 +25,30 @@ func TestAgent_GetsInfo(t *testing.T) {
 	})
 }
 
-func TestAgent_Syncing(t *testing.T) {
+func TestAgent_Start(t *testing.T) {
+	tk := api.SampleTask()
 
 	a := api.NewMockApi()
-
 	ag := NewAgent(a, &AgentConfig{})
-	ag.GetHostName()
-	ag.PublishState()
 
-	task := api.SampleTask()
-	task.Host = ag.Host
+	err := ag.start(tk)
+	tools.Ok(t, err)
 
-	a.PutService(api.SampleService())
-	a.PutCluster(api.SampleCluster())
-	a.ScheduleTask(task)
+	st := ag.TaskState.get(tk.Id())
+	tools.Equals(t, st.Attempts, 1)
+	tools.Equals(t, st.Healthy, false)
+	tools.Equals(t, st.Failure, nil)
+}
 
-	go func() {
-		time.Sleep(1 * time.Second)
-		ag.Stop()
-	}()
+func TestAgent_Stop(t *testing.T) {
+	tk := api.SampleTask()
 
-	ag.Run()
+	a := api.NewMockApi()
+	ag := NewAgent(a, &AgentConfig{})
 
-	tools.Assert(t, len(ag.TaskState) > 0, "no tasks scheduled")
+	err := ag.stop(tk)
+	tools.Ok(t, err)
+
+	_, err = a.GetTask(tk.Id())
+	tools.Assert(t, err == api.ErrNotFound, "task was found")
 }
