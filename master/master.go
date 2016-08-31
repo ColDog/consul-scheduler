@@ -220,28 +220,17 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 	}
 }
 
+func (s *Master) GC() {
+	s.runGc <- struct {}{}
+}
+
 func (s *Master) garbageCollector() {
 	for {
 		select {
 		case <-s.runGc:
-			cluster, err := s.Cluster()
+			err := s.runGarbageCollect()
 			if err != nil {
-				log.WithField("err", err).Error("[master-gc] error while gc getting cluster")
-			}
-
-			tasks, err := s.api.ListTasks(&api.TaskQueryOpts{
-				ByCluster: s.Config.Cluster,
-			})
-
-			if err != nil {
-				log.WithField("err", err).Error("[master-gc] error while gc getting tasks")
-			}
-
-			for _, task := range tasks {
-				if !inArrayStr(task.Service, cluster.Services) {
-					task.Scheduled = false
-					s.api.PutTask(task)
-				}
+				log.WithField("error", err).Error("[master-gc] error while gc")
 			}
 
 		case <-s.quit:
@@ -251,6 +240,33 @@ func (s *Master) garbageCollector() {
 	}
 }
 
+func (s *Master) runGarbageCollect() error {
+	cluster, err := s.Cluster()
+	if err != nil {
+		return err
+	}
+
+	tasks, err := s.api.ListTasks(&api.TaskQueryOpts{
+		ByCluster: s.Config.Cluster,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	removed := 0
+	for _, task := range tasks {
+		if !inArrayStr(task.Service, cluster.Services) {
+			task.Scheduled = false
+			s.api.PutTask(task)
+			removed++
+		}
+	}
+
+	log.WithField("removed", removed).Info("[master-gc] ran successfully")
+	return nil
+}
+
 func (s *Master) RegisterRoutes() {
 	http.HandleFunc("/master/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK\n"))
@@ -258,6 +274,7 @@ func (s *Master) RegisterRoutes() {
 }
 
 func (s *Master) Stop() {
+	log.Warn("[master] attemting stop")
 	s.locks.Stop()
 	close(s.quit)
 }

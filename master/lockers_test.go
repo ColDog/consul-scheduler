@@ -18,7 +18,6 @@ func TestLockers(t *testing.T) {
 		tools.Assert(t, lock1.IsHeld(), "lock 1 is not held")
 
 		lock2, err := lockers.Lock("testing")
-		tools.Ok(t, err)
 
 		tools.Assert(t, lock2.IsHeld(), "lock 2 is not held")
 

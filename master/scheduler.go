@@ -110,9 +110,10 @@ func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *
 
 		// remove the task if the host doesn't exits
 		if _, ok := s.hosts[t.Host]; !ok {
+			log.WithField("task", t.Id()).Debugf("[scheduler-%s] removing due to host not existing", service.Name)
 			t.Scheduled = false
 			s.api.PutTask(t)
-			removed--
+			removed++
 			delete(taskMap, key)
 		}
 
@@ -121,15 +122,16 @@ func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *
 			log.WithField("reason", t.RejectReason).WithField("error", err).Warnf("[scheduler-%s] task was rejected", service.Name)
 			t.Scheduled = false
 			s.api.PutTask(t)
-			removed--
+			removed++
 			delete(taskMap, key)
 		}
 
 		// If the task is a lower version, and we are still above the min for this service, deschedule the task.
 		if (count-removed) > service.Min && t.TaskDefinition.Version != service.TaskVersion {
+			log.WithField("task", t.Id()).Debugf("[scheduler-%s] removing due to lower version", service.Name)
 			t.Scheduled = false
 			s.api.PutTask(t)
-			removed--
+			removed++
 			delete(taskMap, key)
 		}
 	}
@@ -139,9 +141,10 @@ func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *
 		for i := (count - removed) - 1; i > service.Desired-1; i-- {
 			id := api.MakeTaskId(cluster, service, i)
 			if t, ok := taskMap[id]; ok {
+				log.WithField("task", t.Id()).Debugf("[scheduler-%s] removing due to scaling", service.Name)
 				t.Scheduled = false
 				s.api.PutTask(t)
-				removed--
+				removed++
 				delete(taskMap, id)
 			}
 		}
@@ -202,19 +205,15 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 	s.l.Lock()
 	defer s.l.Unlock()
 
+	rand.Seed(time.Now().UnixNano())
+
 	host := s.hosts[t.Host]
 
-	for _, p := range host.PortSelection {
-		if p > s.maxPort[host.Name] {
-			s.maxPort[host.Name] = p
-			return p, nil
-		}
-	}
-
 	// take a guess if we cannot get a port from the provided portSelection list.
-	p := s.maxPort[host.Name] + 1
-	if p == 1 {
-		p = 20000
+	p := s.maxPort[host.Name] + uint(rand.Intn(2000))
+	if p < 9000 {
+		// keep a sufficiently high port range, people usually like things in the 8000 range alot...
+		p += 9000
 	}
 
 	for {
@@ -224,8 +223,8 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 		}
 
 		s.maxPort[host.Name] = p
+		return p, nil
 	}
-	return p, nil
 }
 
 func (s *DefaultScheduler) matchHost(t *api.Task, cand *api.Host) error {

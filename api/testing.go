@@ -86,8 +86,8 @@ func SampleService() *Service {
 		Name:        "test",
 		TaskName:    "test",
 		TaskVersion: 0,
-		Desired:     1,
-		Max:         1,
+		Desired:     5,
+		Max:         5,
 	}
 }
 
