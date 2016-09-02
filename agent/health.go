@@ -63,6 +63,7 @@ type Monitor struct {
 	Check       *api.Check
 	Type        string
 	quit        chan struct{}
+	api         api.SchedulerApi
 }
 
 func (m *Monitor) Run() {
@@ -90,6 +91,10 @@ func (m *Monitor) Run() {
 			}
 
 			log.WithField("error", m.LastFailure).WithField("status", m.Status).Infof("[monitor-%s] in status", m.Check.ID)
+			err := m.api.PutTaskHealth(m.Check.TaskID, m.Status)
+			if err != nil {
+				log.WithField("error", err).Warnf("[monitor-%s] errord while checking in", m.Check.ID)
+			}
 
 		case <-m.quit:
 			return

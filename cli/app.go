@@ -160,6 +160,7 @@ func (app *App) RegisterAgent(c *cli.Context) {
 		Runners:      c.Int("agent-runners"),
 		SyncInterval: c.Duration("agent-sync-interval"),
 		AppConfig:    app.Config,
+		CheckHealth:  c.Bool("agent-check-health"),
 	})
 }
 

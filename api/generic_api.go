@@ -4,14 +4,6 @@ import (
 	"encoding/json"
 )
 
-type TaskState int
-
-const (
-	STOPPED TaskState = iota
-	RUNNING
-	FAILING
-)
-
 // any lockable interface should implement the same functionality.
 type Lockable interface {
 	Lock() (<-chan struct{}, error)
@@ -118,6 +110,9 @@ type SchedulerApi interface {
 
 	// Deregister a service with the backend
 	DeRegister(id string) error
+
+	// 
+	PutTaskHealth(taskId, status string) error
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.

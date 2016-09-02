@@ -13,12 +13,12 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Flags = []cli.Flag{
 		cli.DurationFlag{Name: "agent-sync-interval", Value: 30 * time.Second, Usage: "interval to sync agent"},
 		cli.IntFlag{Name: "agent-runners", Value: 3, Usage: "amount of tasks to start in parallel on the agent"},
+		cli.BoolFlag{Name: "agent-check-health, h", Usage: "start the health checker"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("agent")
 
 		app.Api.Start()
-		app.Api.Wait()
 
 		app.RegisterAgent(c)
 		app.AtExit(func() {
@@ -44,7 +44,6 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("scheduler")
 
-		app.Api.Wait()
 		app.Api.Start()
 
 
@@ -70,12 +69,12 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 		cli.DurationFlag{Name: "scheduler-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
 		cli.IntFlag{Name: "scheduler-runners", Usage: "amount of schedulers to run in parallel"},
 		cli.StringFlag{Name: "scheduler-cluster", Usage: "the cluster to monitor for scheduling"},
+		cli.BoolFlag{Name: "agent-check-health, h", Usage: "start the health checker"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("combined")
 
 		app.Api.Start()
-		app.Api.Wait()
 
 		app.RegisterMaster(c)
 		app.RegisterAgent(c)

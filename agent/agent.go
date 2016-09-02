@@ -20,6 +20,7 @@ type AgentConfig struct {
 	Runners      int            `json:"runners"`
 	SyncInterval time.Duration  `json:"sync_interval"`
 	AppConfig    *config.Config `json:"app_config"`
+	CheckHealth  bool           `json:"check_health"`
 }
 
 var (
@@ -317,6 +318,10 @@ func (agent *Agent) Run() {
 
 	for i := 0; i < agent.Config.Runners; i++ {
 		go agent.runner(i)
+	}
+
+	if agent.Config.CheckHealth {
+		go agent.monitors()
 	}
 
 	listenState := make(chan string)
