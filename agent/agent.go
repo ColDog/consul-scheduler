@@ -65,11 +65,12 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 
 type Agent struct {
 	api       api.SchedulerApi
-	Host      string       `json:"host"`
-	LastSync  time.Time    `json:"last_sync"`
-	LastState *api.Host    `json:"last_state"`
-	TaskState *AgentState  `json:"task_state"`
-	Config    *AgentConfig `json:"config"`
+	Host      string              `json:"host"`
+	LastSync  time.Time           `json:"last_sync"`
+	LastState *api.Host           `json:"last_state"`
+	TaskState *AgentState         `json:"task_state"`
+	Config    *AgentConfig        `json:"config"`
+	Monitors  map[string]*Monitor `json:"monitors"`
 	queue     chan action
 	stopCh    chan struct{}
 	readyCh   chan struct{}
@@ -399,6 +400,41 @@ func (agent *Agent) runner(id int) {
 
 		case <-agent.stopCh:
 			log.Warnf("[agent-runner-%d] exiting", id)
+			return
+		}
+	}
+}
+
+func (agent *Agent) monitors() {
+	for {
+		select {
+		case <-time.After(30 * time.Second):
+
+			// ensure a monitor is running for all
+			agent.TaskState.each(func(ts *TaskState) error {
+				for _, c := range ts.Task.TaskDefinition.Containers {
+					for _, check := range c.Checks {
+						if _, ok := agent.Monitors[check.ID]; !ok {
+							agent.Monitors[check.ID] = NewMonitor(check)
+						}
+					}
+				}
+				return nil
+			})
+
+			// garbage collect old monitors
+			for key, m := range agent.Monitors {
+				if !agent.TaskState.has(key) {
+					m.Stop()
+					delete(agent.Monitors, key)
+				}
+			}
+
+		case <-agent.stopCh:
+			log.Warn("[agent-monitor] exiting")
+			for _, m := range agent.Monitors {
+				m.Stop()
+			}
 			return
 		}
 	}

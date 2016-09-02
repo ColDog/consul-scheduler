@@ -42,16 +42,17 @@ func checkScript(c *api.Check) error {
 }
 
 func checkDocker(c *api.Check) error {
-	return tools.Exec(nil, c.Timeout, "docker", "exec", "-i", c.DockerID, "sh", "-c", c.Script)
+	return tools.Exec(nil, c.Timeout, "docker", "exec", "-i", c.TaskID, "sh", "-c", c.Script)
 }
 
-func NewMonitor(t *api.Task, c *api.Check) *Monitor {
-	c.DockerID = t.Id()
-	return &Monitor{
+func NewMonitor(c *api.Check) *Monitor {
+	m := &Monitor{
 		Check: c,
 		Type:  checkType(c),
 		quit:  make(chan struct{}),
 	}
+	go m.Run()
+	return m
 }
 
 type Monitor struct {

@@ -109,6 +109,8 @@ type SchedulerApi interface {
 	ListTasks(opts *TaskQueryOpts) ([]*Task, error)
 	PutTask(t *Task) error
 	DelTask(t *Task) error
+
+	// Check if a given task is healthy
 	TaskHealthy(t *Task) (bool, error)
 
 	// Register a service with the backend
@@ -127,6 +129,7 @@ type SchedulerApi interface {
 	Subscribe(key, evt string, listener chan string)
 	UnSubscribe(key string)
 
+	// Get the configuration for this storage
 	Conf() *StorageConfig
 }
 

@@ -101,6 +101,7 @@ type Container struct {
 	Memory   uint64          `json:"memory"`
 	CpuUnits uint64          `json:"cpu_units"`
 	DiskUse  uint64          `json:"disk_use"`
+	TaskID   string          `json:"task_id"`
 	bash     *BashExecutor
 	docker   *DockerExecutor
 }
@@ -138,5 +139,5 @@ type Check struct {
 	Timeout  time.Duration `json:"timeout"`
 	TTL      string        `json:"ttl"`
 	Docker   string        `json:"docker"`
-	DockerID string        `json:"docker_id"`
+	TaskID   string        `json:"task_id"`
 }

@@ -3,13 +3,21 @@ package api
 import "fmt"
 
 func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instance int) *Task {
-	return &Task{
+	t := &Task{
 		Cluster:        cluster.Name,
 		TaskDefinition: taskDef,
 		Service:        service.Name,
 		Instance:       instance,
 		Port:           taskDef.Port,
 	}
+
+	for _, cont := range t.TaskDefinition.Containers {
+		for _, chk := range cont.Checks {
+			chk.TaskID = t.Id()
+		}
+	}
+
+	return t
 }
 
 // a depiction of a running task definition

@@ -64,6 +64,13 @@ func (a *AgentState) del(key string) {
 	}
 }
 
+func (a *AgentState) has(key string) bool {
+	a.l.RLock()
+	defer a.l.RUnlock()
+	_, ok := a.State[key]
+	return ok
+}
+
 func (a *AgentState) save() error {
 	res, err := json.Marshal(a.State)
 	if err != nil {
