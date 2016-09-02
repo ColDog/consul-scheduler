@@ -8,5 +8,6 @@ type Host struct {
 	CpuUnits      uint64            `json:"cpu_units"`
 	MemUsePercent float64           `json:"mem_use_percent"`
 	ReservedPorts []uint            `json:"reserved_ports"`
+	HealthCheck   string            `json:"health_check"`
 	Tags          map[string]string `json:"tags"`
 }

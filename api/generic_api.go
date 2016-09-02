@@ -60,19 +60,18 @@ type TaskQueryOpts struct {
 }
 
 type SchedulerApi interface {
+
+	// Certain backends, ie. Consul, should know the hostname to give to the agent.
 	HostName() (string, error)
+
+	// Start should perform the necessary setup tasks for the api.
+	Start()
 
 	// acquire a lock on a resource from consul, does not block when the lock cannot be held, rather
 	// it should return immediately
 	Lock(key string, block bool) (Lockable, error)
 
-	Wait() error
-	Start()
-
-	// Register With Generic API
-	RegisterAgent(host, addr string) error
-	Register(t *Task) error
-	DeRegister(id string) error
+	// Returns whether the agent is responding to health checks.
 	AgentHealth(name string) (bool, error)
 
 	// API Cluster Operations
@@ -111,6 +110,12 @@ type SchedulerApi interface {
 	PutTask(t *Task) error
 	DelTask(t *Task) error
 	TaskHealthy(t *Task) (bool, error)
+
+	// Register a service with the backend
+	Register(t *Task) error
+
+	// Deregister a service with the backend
+	DeRegister(id string) error
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.

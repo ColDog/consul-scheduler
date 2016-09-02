@@ -5,6 +5,7 @@ import (
 
 	"encoding/json"
 	"time"
+	"fmt"
 )
 
 // a runnable task description
@@ -71,6 +72,18 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 		task.GracePeriod = 60 * time.Second
 	}
 
+	for _, c := range task.Containers {
+		for i, check := range c.Checks {
+			check.ID = fmt.Sprintf("%s_%s-%s-%d", task.Name, c.Name, check.Name, i)
+
+			if check.Interval == 0 {
+				check.Interval = 30 * time.Second
+			}
+
+			if check.Timeout
+		}
+	}
+
 	return errors
 }
 
@@ -83,6 +96,7 @@ type Container struct {
 	Type     string          `json:"type"`
 	Executor json.RawMessage `json:"executor"`
 	Setup    []string        `json:"setup"`
+	Teardown []string        `json:"teardown"`
 	Checks   []*Check        `json:"checks"`
 	Memory   uint64          `json:"memory"`
 	CpuUnits uint64          `json:"cpu_units"`
@@ -93,7 +107,18 @@ type Container struct {
 
 func (c *Container) RunSetup() error {
 	for _, cmd := range c.Setup {
-		err := tools.Exec(nil, 20*time.Second, "/bin/bash", "-c", cmd)
+		err := tools.Exec(nil, 20*time.Second, "sh", "-c", cmd)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Container) RunTeardown() error {
+	for _, cmd := range c.Setup {
+		err := tools.Exec(nil, 20*time.Second, "sh", "-c", cmd)
 		if err != nil {
 			return err
 		}
@@ -104,12 +129,14 @@ func (c *Container) RunSetup() error {
 
 // a check passed along to consul
 type Check struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	HTTP     string `json:"http"`
-	TCP      string `json:"tcp"`
-	Script   string `json:"script"`
-	Interval string `json:"interval"`
-	Timeout  string `json:"timeout"`
-	TTL      string `json:"ttl"`
+	ID       string        `json:"id"`
+	Name     string        `json:"name"`
+	HTTP     string        `json:"http"`
+	TCP      string        `json:"tcp"`
+	Script   string        `json:"script"`
+	Interval time.Duration `json:"interval"`
+	Timeout  time.Duration `json:"timeout"`
+	TTL      string        `json:"ttl"`
+	Docker   string        `json:"docker"`
+	DockerID string        `json:"docker_id"`
 }

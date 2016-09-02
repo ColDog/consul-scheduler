@@ -21,6 +21,20 @@ type AgentState struct {
 	l     *sync.RWMutex
 }
 
+func (a *AgentState) each(f func(t *TaskState) error) error {
+	a.l.RLock()
+	defer a.l.RUnlock()
+
+	for _, t := range a.State {
+		err := f(t)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (a *AgentState) get(key string, tasks ...*api.Task) *TaskState {
 	a.l.RLock()
 	t, ok := a.State[key]

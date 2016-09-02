@@ -361,9 +361,8 @@ To deploy the scheduler, download a release on each machine
 
 - [x] examples with basic tests
 - [x] basic documentation
-- [ ] ci setup
 - [ ] full api documentation
 - [ ] full test coverage
 - [ ] additional scheduler example
-- [ ] another backend (ie etcd or zookeeper)
+- [ ] etcd backend
 - [ ] large scale testing 1000s of hosts

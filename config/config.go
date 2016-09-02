@@ -29,5 +29,5 @@ type Config struct {
 	LogLevel     string      `json:"log_level"`
 	Version      string      `json:"version"`
 	Backend      Backend     `json:"backend"`
-	ConsulConfig *api.Config `json:"consul_config"`
+	ConsulConfig *api.Config `json:"-"`
 }

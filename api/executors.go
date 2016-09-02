@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+type ExecutorBuilder func(c *Container) Executor
+var ExecutorBuilders = make(map[string]ExecutorBuilder)
+
+func UseExecutor(name string, b ExecutorBuilder)  {
+	ExecutorBuilders[name] = b
+}
+
 func (c *Container) GetExecutor() Executor {
 
 	if c.Type == "docker" {
@@ -70,7 +77,7 @@ func (bash *BashExecutor) StartTask(t *Task) error {
 	}
 
 	for _, cmd := range bash.Start {
-		err := tools.Exec(bash.Env, bash.AllowedStartTime, "/bin/bash", "-c", cmd)
+		err := tools.Exec(bash.Env, bash.AllowedStartTime, "sh", "-c", cmd)
 		if err != nil {
 			return err
 		}
@@ -81,7 +88,7 @@ func (bash *BashExecutor) StartTask(t *Task) error {
 
 func (bash *BashExecutor) StopTask(t *Task) (err error) {
 	for _, cmd := range bash.Start {
-		err = tools.Exec(bash.Env, 20*time.Second, "/bin/bash", "-c", cmd)
+		err = tools.Exec(bash.Env, 20*time.Second, "sh", "-c", cmd)
 	}
 	return err
 }

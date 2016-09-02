@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/coldog/sked/actions"
 	"github.com/urfave/cli"
+	"strconv"
 )
 
 func (app *App) ApplyCmd() (cmd cli.Command) {
@@ -21,12 +22,15 @@ func (app *App) ApplyCmd() (cmd cli.Command) {
 func (app *App) ScaleCmd() (cmd cli.Command) {
 	cmd.Name = "scale"
 	cmd.Usage = "scale the service"
-	cmd.ArgsUsage = "service"
-	cmd.Flags = []cli.Flag{
-		cli.IntFlag{Name: "desired, d", Usage: "service count"},
-	}
+	cmd.ArgsUsage = "[service] [scale]"
 	cmd.Action = func(c *cli.Context) error {
-		return actions.Scale(app.Api, c.Args().First(), c.Int("desired"))
+		des := c.Args().Get(1)
+		i, err := strconv.ParseInt(des, 8, 64)
+		if err != nil {
+			return err
+		}
+
+		return actions.Scale(app.Api, c.Args().First(), int(i))
 	}
 	return cmd
 }

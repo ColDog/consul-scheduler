@@ -31,6 +31,7 @@ type ConsulApi struct {
 	conf       *StorageConfig
 	listeners  map[string]*listener
 	eventLock  *sync.RWMutex
+	registered bool
 }
 
 func NewConsulApi(conf *StorageConfig, apiConf *api.Config) *ConsulApi {
@@ -75,6 +76,16 @@ func newConsulApi() *ConsulApi {
 }
 
 func (a *ConsulApi) Start() {
+	for {
+		_, _, err := a.kv.Get("test", nil)
+		if err == nil {
+			log.Warn("[consul-api] waiting for consul...")
+			break
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
 	go a.monitor(a.conf.TaskDefinitionsPrefix, "config")
 	go a.monitor(a.conf.ServicesPrefix, "config")
 	go a.monitor(a.conf.ClustersPrefix, "config")
@@ -88,18 +99,6 @@ func (a *ConsulApi) HostName() (string, error) {
 
 func (a *ConsulApi) Conf() *StorageConfig {
 	return a.conf
-}
-
-func (a *ConsulApi) Wait() error {
-	for {
-		_, _, err := a.kv.Get("test", nil)
-		if err == nil {
-			log.Warn("[consul-api] waiting for consul...")
-			return nil
-		}
-
-		time.Sleep(5 * time.Second)
-	}
 }
 
 func (a *ConsulApi) put(key string, value []byte, flags ...uint64) error {
@@ -156,20 +155,6 @@ func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
 }
 
 // ==> REGISTER & DEREGISTER
-
-func (a *ConsulApi) RegisterAgent(host, addr string) error {
-
-	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID:   "sked-" + host,
-		Name: "sked",
-		Checks: api.AgentServiceChecks{
-			&api.AgentServiceCheck{
-				Interval: "30s",
-				HTTP:     addr,
-			},
-		},
-	})
-}
 
 func (a *ConsulApi) Register(t *Task) error {
 
@@ -330,7 +315,31 @@ func (a *ConsulApi) GetHost(name string) (*Host, error) {
 }
 
 func (a *ConsulApi) PutHost(h *Host) error {
-	return a.put(a.conf.HostsPrefix+h.Name, encode(h))
+	err := a.put(a.conf.HostsPrefix+h.Name, encode(h))
+	if err != nil {
+		return err
+	}
+
+	if a.registered {
+		return nil
+	}
+
+	err = a.agent.ServiceRegister(&api.AgentServiceRegistration{
+		ID:   "sked-" + h.Name,
+		Name: "sked",
+		Checks: api.AgentServiceChecks{
+			&api.AgentServiceCheck{
+				Interval: "30s",
+				HTTP:     h.HealthCheck,
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	a.registered = true
+	return nil
 }
 
 func (a *ConsulApi) DelHost(name string) error {
@@ -385,7 +394,7 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 	} else if q.ByCluster != "" {
 		prefix += a.conf.TasksPrefix + q.ByCluster + "-"
 	} else {
-		log.Warn("[consul-api] iterating all tasks")
+		// log.Warn("[consul-api] iterating all tasks")
 		prefix += a.conf.TasksPrefix
 	}
 
@@ -394,7 +403,7 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 		return ts, err
 	}
 
-	log.WithField("prefix", prefix).WithField("count", len(list)).Debug("[consul-api] query tasks")
+	// log.WithField("prefix", prefix).WithField("count", len(list)).Debug("[consul-api] query tasks")
 
 	for _, v := range list {
 		t := &Task{}

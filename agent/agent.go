@@ -113,6 +113,8 @@ func (agent *Agent) stop(t *api.Task) error {
 			if err != nil {
 				return err
 			}
+
+			cont.RunTeardown()
 		}
 	}
 
@@ -159,17 +161,20 @@ func (agent *Agent) PublishState() {
 		}
 	}
 
-	h := &api.Host{
-		Name:          agent.Host,
-		Memory:        ToMb(m.Available),
-		DiskSpace:     ToMb(d),
-		MemUsePercent: m.UsedPercent,
-		CpuUnits:      uint64(runtime.NumCPU()),
-		ReservedPorts: ports,
+	if agent.LastState == nil {
+		agent.LastState = &api.Host{
+			Name:        agent.Host,
+			HealthCheck: "http://" + agent.Config.AppConfig.Advertise + "/agent/health",
+		}
 	}
 
-	agent.LastState = h
-	agent.api.PutHost(h)
+	agent.LastState.Memory = ToMb(m.Available)
+	agent.LastState.DiskSpace = ToMb(d)
+	agent.LastState.MemUsePercent = m.UsedPercent
+	agent.LastState.CpuUnits = uint64(runtime.NumCPU() * 1024)
+	agent.LastState.ReservedPorts = ports
+
+	agent.api.PutHost(agent.LastState)
 }
 
 // This function syncs the agent with consul and the provided state from the scheduler it compares the desired tasks for
@@ -285,26 +290,6 @@ func (agent *Agent) GetHostName() {
 	}
 }
 
-// register the agent in consul, this will block.
-func (agent *Agent) RegisterAgent() {
-	for {
-		select {
-		case <-agent.stopCh:
-			log.Warn("[agent] exiting")
-			return
-		default:
-		}
-
-		err := agent.api.RegisterAgent(agent.Host, "http://" + agent.Config.AppConfig.Advertise + "/agent/health")
-		if err == nil {
-			log.Info("[agent] registered agent")
-			break
-		}
-
-		log.WithField("error", err).Error("[agent] could not register")
-		time.Sleep(5 * time.Second)
-	}
-}
 
 func (agent *Agent) Stop() {
 	close(agent.stopCh)
@@ -327,7 +312,6 @@ func (agent *Agent) Run() {
 	defer agent.api.DeRegister("sked-" + agent.Host)
 
 	agent.GetHostName()
-	agent.RegisterAgent()
 	agent.PublishState()
 
 	for i := 0; i < agent.Config.Runners; i++ {
