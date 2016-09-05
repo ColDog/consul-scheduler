@@ -19,6 +19,7 @@ func init() {
 func testConfig() *AgentConfig {
 	return &AgentConfig{
 		AppConfig: config.NewConfig(),
+		Resources: &api.Resources{},
 	}
 }
 

@@ -55,6 +55,10 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 	m, _ := mem.VirtualMemory()
 	d, _ := AvailableDiskSpace()
 
+	if conf.Resources == nil {
+		conf.Resources = &api.Resources{}
+	}
+
 	if conf.Resources.Memory == 0 {
 		conf.Resources.Memory = ToMb(m.Available)
 	}
@@ -246,7 +250,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 		// check if there is a port conflict. This actually attempts to bind to the port which gives us a better
 		// picture overall.
 		for _, p := range task.AllPorts() {
-			if !IsTCPPortAvailable(int(p)) {
+			if !IsTCPPortAvailable(p) {
 				task.RejectReason = fmt.Sprintf("port not available: %d", p)
 				task.Rejected = true
 				state.Failure = errors.New(task.RejectReason)

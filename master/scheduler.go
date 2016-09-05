@@ -231,15 +231,15 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 
 func (s *DefaultScheduler) matchHost(t *api.Task, cand *api.Host) error {
 	counts := t.TaskDefinition.Counts()
-	if cand.Memory-counts.Memory < 0 {
+	if cand.CalculatedResources.Memory-counts.Memory < 0 {
 		return fmt.Errorf("host does not have enough memory")
 	}
 
-	if cand.CpuUnits-counts.CpuUnits < 0 {
+	if cand.CalculatedResources.CpuUnits-counts.CpuUnits < 0 {
 		return fmt.Errorf("host does not have enough cpu units")
 	}
 
-	if cand.DiskSpace-counts.DiskUse < 0 {
+	if cand.CalculatedResources.DiskSpace-counts.DiskUse < 0 {
 		return fmt.Errorf("host does not have enough disk space")
 	}
 
@@ -266,9 +266,9 @@ func (s *DefaultScheduler) updateHost(t *api.Task) {
 
 	h := s.hosts[t.Host]
 
-	h.Memory -= c.Memory
-	h.DiskSpace -= c.DiskUse
-	h.CpuUnits -= c.CpuUnits
+	h.CalculatedResources.Memory -= c.Memory
+	h.CalculatedResources.DiskSpace -= c.DiskUse
+	h.CalculatedResources.CpuUnits -= c.CpuUnits
 	h.ReservedPorts = append(h.ReservedPorts, t.AllPorts()...)
 }
 

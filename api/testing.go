@@ -94,9 +94,21 @@ func SampleService() *Service {
 func SampleHost() *Host {
 	return &Host{
 		Name:          "testinghost",
-		CpuUnits:      10000000,
-		Memory:        100000,
-		DiskSpace:     1000000,
+		CalculatedResources: &Resources{
+			CpuUnits:      10000000,
+			Memory:        100000,
+			DiskSpace:     1000000,
+		},
+		ObservedResources: &Resources{
+			CpuUnits:      10000000,
+			Memory:        100000,
+			DiskSpace:     1000000,
+		},
+		BaseResources: &Resources{
+			CpuUnits:      10000000,
+			Memory:        100000,
+			DiskSpace:     1000000,
+		},
 		ReservedPorts: []uint{1000, 1001, 1002, 1003, 1004, 1005, 1006},
 	}
 }
