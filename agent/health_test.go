@@ -12,7 +12,7 @@ func TestHealth(t *testing.T) {
 
 	m := NewMonitor(a, &api.Check{
 		ID: "test-check",
-		HTTP: "http://localhost:3000",
+		HTTP: "http://localhost:4121",
 		Interval: 1 * time.Second,
 		Timeout: 2 * time.Second,
 	})
