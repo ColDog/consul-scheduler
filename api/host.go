@@ -12,8 +12,8 @@ type Host struct {
 }
 
 type Resources struct {
-	Memory        uint64   `json:"memory"`
-	CpuUnits      uint64   `json:"cpu_units"`
-	DiskSpace     uint64   `json:"disk_space"`
+	Memory        int64   `json:"memory"`
+	CpuUnits      int64   `json:"cpu_units"`
+	DiskSpace     int64   `json:"disk_space"`
 	MemUsePercent float64 `json:"mem_use_percent"`
 }

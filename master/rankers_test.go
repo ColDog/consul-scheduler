@@ -15,9 +15,9 @@ func setup() map[string]*api.Host {
 	for i := 0; i < 10; i++ {
 		h := api.SampleHost()
 		h.Name = fmt.Sprintf("local-%d", i)
-		h.CalculatedResources.Memory = uint64(rand.Int63n(1000))
-		h.CalculatedResources.DiskSpace = uint64(rand.Int63n(1000))
-		h.CalculatedResources.CpuUnits = uint64(rand.Int63n(1000))
+		h.CalculatedResources.Memory = int64(rand.Int63n(1000))
+		h.CalculatedResources.DiskSpace = int64(rand.Int63n(1000))
+		h.CalculatedResources.CpuUnits = int64(rand.Int63n(1000))
 
 		hosts[h.Name] = h
 	}

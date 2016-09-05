@@ -3,8 +3,8 @@ package cli
 import (
 	"github.com/urfave/cli"
 
-	"time"
 	"sync"
+	"time"
 )
 
 func (app *App) AgentCmd() (cmd cli.Command) {
@@ -45,7 +45,6 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 		app.printWelcome("scheduler")
 
 		app.Api.Start()
-
 
 		app.RegisterMaster(c)
 		app.AtExit(func() {

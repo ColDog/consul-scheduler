@@ -17,11 +17,11 @@ import (
 )
 
 type AgentConfig struct {
-	Runners      int             `json:"runners"`
-	SyncInterval time.Duration   `json:"sync_interval"`
-	AppConfig    *config.Config  `json:"app_config"`
-	CheckHealth  bool            `json:"check_health"`
-	Resources    *api.Resources  `json:"resources"`
+	Runners      int            `json:"runners"`
+	SyncInterval time.Duration  `json:"sync_interval"`
+	AppConfig    *config.Config `json:"app_config"`
+	CheckHealth  bool           `json:"check_health"`
+	Resources    *api.Resources `json:"resources"`
 }
 
 var (
@@ -60,7 +60,7 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 	}
 
 	if conf.Resources.Memory == 0 {
-		conf.Resources.Memory = ToMb(m.Available)
+		conf.Resources.Memory = ToMb(int64(m.Available))
 	}
 
 	if conf.Resources.DiskSpace == 0 {
@@ -68,7 +68,7 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 	}
 
 	if conf.Resources.CpuUnits == 0 {
-		conf.Resources.CpuUnits = uint64(runtime.NumCPU() * 1024)
+		conf.Resources.CpuUnits = int64(runtime.NumCPU() * 1024)
 	}
 
 	return &Agent{
@@ -154,9 +154,9 @@ func (agent *Agent) PublishState() {
 	var max uint
 	reserved := make([]uint, 0)
 
-	usedMem := uint64(0)
-	usedDisk := uint64(0)
-	usedCpu := uint64(0)
+	usedMem := int64(0)
+	usedDisk := int64(0)
+	usedCpu := int64(0)
 
 	agent.TaskState.each(func(t *TaskState) error {
 		if t.Task.Port > max {
@@ -181,11 +181,11 @@ func (agent *Agent) PublishState() {
 
 	if agent.LastState == nil {
 		agent.LastState = &api.Host{
-			Name:        agent.Host,
-			HealthCheck: "http://" + agent.Config.AppConfig.Advertise + "/agent/health",
+			Name:                agent.Host,
+			HealthCheck:         "http://" + agent.Config.AppConfig.Advertise + "/agent/health",
 			CalculatedResources: &api.Resources{},
-			BaseResources: agent.Config.Resources,
-			ObservedResources: &api.Resources{},
+			BaseResources:       agent.Config.Resources,
+			ObservedResources:   &api.Resources{},
 		}
 	}
 
@@ -197,9 +197,9 @@ func (agent *Agent) PublishState() {
 	m, _ := mem.VirtualMemory()
 	d, _ := AvailableDiskSpace()
 
-	agent.LastState.ObservedResources.Memory = ToMb(m.Available)
+	agent.LastState.ObservedResources.Memory = ToMb(int64(m.Available))
 	agent.LastState.ObservedResources.DiskSpace = ToMb(d)
-	agent.LastState.ObservedResources.CpuUnits = uint64(runtime.NumCPU() * 1024)
+	agent.LastState.ObservedResources.CpuUnits = int64(runtime.NumCPU() * 1024)
 
 	agent.api.PutHost(agent.LastState)
 }
@@ -273,7 +273,6 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 		// stop the task if it's not scheduled
 		return &action{stop: true, task: task}
 	}
-
 
 	// do nothing
 	return nil

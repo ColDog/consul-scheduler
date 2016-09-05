@@ -8,9 +8,8 @@ import (
 
 	"github.com/coldog/sked/agent"
 	"github.com/coldog/sked/api"
-	"github.com/coldog/sked/master"
 	"github.com/coldog/sked/config"
-
+	"github.com/coldog/sked/master"
 
 	"encoding/json"
 	"fmt"
@@ -24,7 +23,7 @@ import (
 
 func NewApp() *App {
 	app := &App{
-		cli: cli.NewApp(),
+		cli:    cli.NewApp(),
 		Config: config.NewConfig(),
 	}
 	app.setup()
@@ -34,12 +33,12 @@ func NewApp() *App {
 type AppCmd func(app *App) cli.Command
 
 type App struct {
-	cli        *cli.App
-	Api        api.SchedulerApi
-	Config     *config.Config
-	Agent      *agent.Agent
-	Master     *master.Master
-	atExit     func()
+	cli    *cli.App
+	Api    api.SchedulerApi
+	Config *config.Config
+	Agent  *agent.Agent
+	Master *master.Master
+	atExit func()
 }
 
 func (app *App) printWelcome(mode string) {
@@ -75,7 +74,6 @@ func (app *App) setup() {
 		app.Config.Addr = c.GlobalString("bind")
 		app.Config.Advertise = c.GlobalString("advertise")
 		app.Config.LogLevel = c.GlobalString("log-level")
-
 
 		if c.GlobalString("consul-api") != "" {
 			app.Config.ConsulConfig.Address = c.GlobalString("consul-api")
@@ -163,9 +161,9 @@ func (app *App) RegisterAgent(c *cli.Context) {
 		AppConfig:    app.Config,
 		CheckHealth:  c.Bool("agent-check-health"),
 		Resources: &api.Resources{
-			Memory: uint64(c.Int64("memory")),
-			DiskSpace: uint64(c.Int64("disk-space")),
-			CpuUnits: uint64(c.Int64("cpu-units")),
+			Memory:    c.Int64("memory"),
+			DiskSpace: c.Int64("disk-space"),
+			CpuUnits:  c.Int64("cpu-units"),
 		},
 	})
 }
@@ -178,7 +176,6 @@ func (app *App) RegisterMaster(c *cli.Context) {
 		AppConfig:    app.Config,
 	})
 }
-
 
 func (app *App) Stats() map[string]interface{} {
 	var mem runtime.MemStats

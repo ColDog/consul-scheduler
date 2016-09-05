@@ -41,9 +41,9 @@ func (t *TaskDefinition) AllPorts() []uint {
 }
 
 type Counts struct {
-	Memory   uint64 `json:"memory"`
-	CpuUnits uint64 `json:"cpu_units"`
-	DiskUse  uint64 `json:"disk_use"`
+	Memory   int64 `json:"memory"`
+	CpuUnits int64 `json:"cpu_units"`
+	DiskUse  int64 `json:"disk_use"`
 }
 
 func (t *TaskDefinition) Counts() (counts Counts) {
@@ -104,9 +104,9 @@ type Container struct {
 	Setup    []string        `json:"setup"`
 	Teardown []string        `json:"teardown"`
 	Checks   []*Check        `json:"checks"`
-	Memory   uint64          `json:"memory"`
-	CpuUnits uint64          `json:"cpu_units"`
-	DiskUse  uint64          `json:"disk_use"`
+	Memory   int64           `json:"memory"`
+	CpuUnits int64           `json:"cpu_units"`
+	DiskUse  int64           `json:"disk_use"`
 	TaskID   string          `json:"task_id"`
 	bash     *BashExecutor
 	docker   *DockerExecutor

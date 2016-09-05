@@ -45,7 +45,6 @@ func (app *App) DrainCmd() (cmd cli.Command) {
 	return cmd
 }
 
-
 func (app *App) TasksCmd() (cmd cli.Command) {
 	cmd.Name = "tasks"
 	cmd.Usage = "list tasks"

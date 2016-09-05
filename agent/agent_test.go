@@ -4,8 +4,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/coldog/sked/api"
-	"github.com/coldog/sked/tools"
 	"github.com/coldog/sked/config"
+	"github.com/coldog/sked/tools"
 
 	"fmt"
 	"testing"

@@ -1,8 +1,8 @@
 package master
 
 import (
-	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/actions"
+	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
 
 	"fmt"
