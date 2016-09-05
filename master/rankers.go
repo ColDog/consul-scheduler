@@ -52,5 +52,5 @@ func PackRanker(hosts map[string]*api.Host) []RankedHost {
 }
 
 func score(h *api.Host) int {
-	return (int(h.CpuUnits) * cpuWeight) + (int(h.DiskSpace) * diskWeight) + (int(h.Memory) * memWeight)
+	return (int(h.CalculatedResources.CpuUnits) * cpuWeight) + (int(h.CalculatedResources.DiskSpace) * diskWeight) + (int(h.CalculatedResources.Memory) * memWeight)
 }

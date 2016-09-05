@@ -15,9 +15,9 @@ func setup() map[string]*api.Host {
 	for i := 0; i < 10; i++ {
 		h := api.SampleHost()
 		h.Name = fmt.Sprintf("local-%d", i)
-		h.Memory = uint64(rand.Int63n(1000))
-		h.DiskSpace = uint64(rand.Int63n(1000))
-		h.CpuUnits = uint64(rand.Int63n(1000))
+		h.CalculatedResources.Memory = uint64(rand.Int63n(1000))
+		h.CalculatedResources.DiskSpace = uint64(rand.Int63n(1000))
+		h.CalculatedResources.CpuUnits = uint64(rand.Int63n(1000))
 
 		hosts[h.Name] = h
 	}
@@ -27,7 +27,7 @@ func setup() map[string]*api.Host {
 
 func printRes(rs []RankedHost, hosts map[string]*api.Host) {
 	for _, r := range rs {
-		fmt.Printf("%+v mem: %d, cpu: %d, disk %d\n", r, hosts[r.Name].Memory, hosts[r.Name].CpuUnits, hosts[r.Name].DiskSpace)
+		fmt.Printf("%+v mem: %d, cpu: %d, disk %d\n", r, hosts[r.Name].CalculatedResources.Memory, hosts[r.Name].CalculatedResources.CpuUnits, hosts[r.Name].CalculatedResources.DiskSpace)
 	}
 }
 
