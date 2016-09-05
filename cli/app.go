@@ -126,6 +126,7 @@ func (app *App) setup() {
 		app.ScaleCmd(),
 		app.DrainCmd(),
 		app.TasksCmd(),
+		app.HostsCmd(),
 	}
 }
 
@@ -161,6 +162,11 @@ func (app *App) RegisterAgent(c *cli.Context) {
 		SyncInterval: c.Duration("agent-sync-interval"),
 		AppConfig:    app.Config,
 		CheckHealth:  c.Bool("agent-check-health"),
+		Resources: &agent.Resources{
+			Memory: uint64(c.Int64("memory")),
+			DiskSpace: uint64(c.Int64("disk-space")),
+			CpuUnits: uint64(c.Int64("cpu-units")),
+		},
 	})
 }
 

@@ -63,6 +63,20 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 	return nil
 }
 
+func ListHosts(a api.SchedulerApi) error {
+	hosts, err := a.ListHosts()
+
+	if err != nil {
+		return err
+	}
+	rows := make([][]interface{}, 0, len(hosts))
+	for _, h := range hosts {
+		rows = append(rows, []interface{} {h.Name, h.Tags, h.CpuUnits, h.Memory, h.MemUsePercent, h.DiskSpace})
+	}
+	table([]string{"name", "tags", "cpu", "mem", "mem use", "disk"}, rows)
+	return nil
+}
+
 func table(header []string, rows [][]interface{})  {
 	counts := make([]int, len(header))
 

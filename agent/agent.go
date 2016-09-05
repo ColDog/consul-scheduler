@@ -16,11 +16,18 @@ import (
 	"time"
 )
 
+type Resources struct {
+	Memory    uint64 `json:"memory"`
+	CpuUnits  uint64 `json:"cpu_units"`
+	DiskSpace uint64 `json:"disk_space"`
+}
+
 type AgentConfig struct {
-	Runners      int            `json:"runners"`
-	SyncInterval time.Duration  `json:"sync_interval"`
-	AppConfig    *config.Config `json:"app_config"`
-	CheckHealth  bool           `json:"check_health"`
+	Runners      int             `json:"runners"`
+	SyncInterval time.Duration   `json:"sync_interval"`
+	AppConfig    *config.Config  `json:"app_config"`
+	CheckHealth  bool            `json:"check_health"`
+	Resources    *Resources      `json:"resources"`
 }
 
 var (
@@ -49,6 +56,21 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 
 	if conf.SyncInterval.Nanoseconds() == int64(0) {
 		conf.SyncInterval = 30 * time.Second
+	}
+
+	m, _ := mem.VirtualMemory()
+	d, _ := AvailableDiskSpace()
+
+	if conf.Resources.Memory == 0 {
+		conf.Resources.Memory = ToMb(m.Available)
+	}
+
+	if conf.Resources.DiskSpace == 0 {
+		conf.Resources.DiskSpace = ToMb(d)
+	}
+
+	if conf.Resources.CpuUnits == 0 {
+		conf.Resources.CpuUnits = uint64(runtime.NumCPU() * 1024)
 	}
 
 	return &Agent{
@@ -130,38 +152,34 @@ func (agent *Agent) stop(t *api.Task) error {
 // The agent periodically publishes it's state to consul so that the scheduler can use the latest information to
 // make scheduling decisions.
 func (agent *Agent) PublishState() {
-	m, _ := mem.VirtualMemory()
-	d, _ := AvailableDiskSpace()
-
-	desired, _ := agent.api.ListTasks(&api.TaskQueryOpts{
-		ByHost:    agent.Host,
-		Scheduled: true,
-	})
-	ports := make([]uint, 0)
 
 	var max uint
-	for _, task := range desired {
-		ports = append(ports, task.Port)
-		if task.Port > max {
-			max = task.Port + 1
+	reserved := make([]uint, 0)
+
+	usedMem := uint64(0)
+	usedDisk := uint64(0)
+	usedCpu := uint64(0)
+
+	agent.TaskState.each(func(t *TaskState) error {
+		if t.Task.Port > max {
+			max = t.Task.Port + 1
 		}
 
-		for _, c := range task.TaskDefinition.Containers {
-			for _, p := range c.GetExecutor().ReservedPorts() {
-				ports = append(ports, p)
-				if p > max {
-					max = p + 1
-				}
+		for _, p := range t.Task.TaskDefinition.AllPorts() {
+			reserved = append(reserved, p)
+			if p > max {
+				max = t.Task.Port + 1
 			}
 		}
-	}
 
-	avail := []uint{}
-	for i := max; i < (max + 30); i++ {
-		if IsTCPPortAvailable(int(i)) {
-			avail = append(avail, i)
-		}
-	}
+		counts := t.Task.TaskDefinition.Counts()
+
+		usedMem += counts.Memory
+		usedDisk += counts.DiskUse
+		usedCpu += counts.CpuUnits
+
+		return nil
+	})
 
 	if agent.LastState == nil {
 		agent.LastState = &api.Host{
@@ -170,11 +188,10 @@ func (agent *Agent) PublishState() {
 		}
 	}
 
-	agent.LastState.Memory = ToMb(m.Available)
-	agent.LastState.DiskSpace = ToMb(d)
-	agent.LastState.MemUsePercent = m.UsedPercent
-	agent.LastState.CpuUnits = uint64(runtime.NumCPU() * 1024)
-	agent.LastState.ReservedPorts = ports
+	agent.LastState.Memory = agent.Config.Resources.Memory - usedMem
+	agent.LastState.DiskSpace = agent.Config.Resources.DiskSpace - usedDisk
+	agent.LastState.CpuUnits = agent.Config.Resources.CpuUnits - usedCpu
+	agent.LastState.ReservedPorts = reserved
 
 	agent.api.PutHost(agent.LastState)
 }
@@ -270,10 +287,12 @@ func (agent *Agent) sync() {
 	for _, task := range tasks {
 		act := agent.syncTask(task)
 
-		select {
-		case agent.queue <- *act:
-		case <-time.After(15 * time.Second):
-			log.Error("[agent] queue is full")
+		if act != nil {
+			select {
+			case agent.queue <- *act:
+			case <-time.After(15 * time.Second):
+				log.Error("[agent] queue is full")
+			}
 		}
 	}
 
