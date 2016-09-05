@@ -15,7 +15,7 @@ var checkers = map[string] func(check *api.Check) error {
 	"tcp": checkTCP,
 	"script": checkScript,
 	"docker": checkDocker,
-	"none": func(c *api.Check) {
+	"none": func(c *api.Check) error {
 		return fmt.Errorf("no checks")
 	},
 }
@@ -23,6 +23,10 @@ var checkers = map[string] func(check *api.Check) error {
 func checkHTTP(c *api.Check) error {
 	httpClient := &http.Client{Timeout: c.Timeout}
 	resp, err := httpClient.Get(c.HTTP)
+
+	if err != nil {
+		return err
+	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("status code was %d", resp.StatusCode)
@@ -45,8 +49,9 @@ func checkDocker(c *api.Check) error {
 	return tools.Exec(nil, c.Timeout, "docker", "exec", "-i", c.TaskID, "sh", "-c", c.Script)
 }
 
-func NewMonitor(c *api.Check) *Monitor {
+func NewMonitor(a api.SchedulerApi, c *api.Check) *Monitor {
 	m := &Monitor{
+		api: a,
 		Check: c,
 		Type:  checkType(c),
 		quit:  make(chan struct{}),
@@ -59,7 +64,6 @@ type Monitor struct {
 	Failures    int
 	LastFailure error
 	Status      string
-	Failing     bool
 	Check       *api.Check
 	Type        string
 	quit        chan struct{}
@@ -90,10 +94,11 @@ func (m *Monitor) Run() {
 				m.Status = "healthy"
 			}
 
-			log.WithField("error", m.LastFailure).WithField("status", m.Status).Infof("[monitor-%s] in status", m.Check.ID)
-			err := m.api.PutTaskHealth(m.Check.TaskID, m.Status)
+			log.WithField("error", m.LastFailure).WithField("status", m.Status).Infof("[monitor:%s] checked", m.Check.ID)
+
+			err = m.api.PutTaskHealth(m.Check.TaskID, m.Status)
 			if err != nil {
-				log.WithField("error", err).Warnf("[monitor-%s] errord while checking in", m.Check.ID)
+				log.WithField("error", err).Warnf("[monitor:%s] errord while checking in", m.Check.ID)
 			}
 
 		case <-m.quit:

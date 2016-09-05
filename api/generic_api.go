@@ -111,7 +111,7 @@ type SchedulerApi interface {
 	// Deregister a service with the backend
 	DeRegister(id string) error
 
-	// 
+	// mark task health with the given backend, for consul this is a noop, for etcd this marks the status.
 	PutTaskHealth(taskId, status string) error
 
 	// Listen for custom events emitted from the API,

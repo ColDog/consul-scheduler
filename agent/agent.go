@@ -410,6 +410,7 @@ func (agent *Agent) runner(id int) {
 	}
 }
 
+// health checking process monitor.
 func (agent *Agent) monitors() {
 	for {
 		select {
@@ -420,7 +421,7 @@ func (agent *Agent) monitors() {
 				for _, c := range ts.Task.TaskDefinition.Containers {
 					for _, check := range c.Checks {
 						if _, ok := agent.Monitors[check.ID]; !ok {
-							agent.Monitors[check.ID] = NewMonitor(check)
+							agent.Monitors[check.ID] = NewMonitor(agent.api, check)
 						}
 					}
 				}

@@ -83,6 +83,10 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 			if check.Timeout == 0 {
 				check.Timeout = 5 * time.Second
 			}
+
+			if check.HTTP == "" && check.TCP == "" && check.Script == "" && check.Docker == "" {
+				errors = append(errors, "health check malformed")
+			}
 		}
 	}
 

@@ -163,13 +163,20 @@ func (a *ConsulApi) Register(t *Task) error {
 
 	for _, cont := range t.TaskDefinition.Containers {
 		for _, check := range cont.Checks {
-			checks = append(checks, &api.AgentServiceCheck{
-				Interval: check.Interval,
+			consulCheck := &api.AgentServiceCheck{
+				Interval: fmt.Sprintf("%ds", check.Interval.Seconds()),
 				Script:   check.Script,
-				Timeout:  check.Timeout,
+				Timeout:  fmt.Sprintf("%ds", check.Timeout.Seconds()),
 				TCP:      strings.Replace(check.TCP, "$PROVIDED_PORT", sp, 1),
 				HTTP:     strings.Replace(check.HTTP, "$PROVIDED_PORT", sp, 1),
-			})
+			}
+
+			if check.Docker != "" {
+				consulCheck.DockerContainerID = check.TaskID
+				consulCheck.Script = check.Docker
+			}
+
+			checks = append(checks, consulCheck)
 		}
 	}
 
@@ -514,4 +521,8 @@ func (a *ConsulApi) Debug() {
 	for _, kv := range list {
 		fmt.Printf("-> %s\n", kv.Key)
 	}
+}
+
+func (a *ConsulApi) PutTaskHealth(taskId, status string) error {
+	return nil
 }
