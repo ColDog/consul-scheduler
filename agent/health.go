@@ -8,6 +8,7 @@ import (
 	"net"
 	"github.com/coldog/sked/tools"
 	log "github.com/Sirupsen/logrus"
+	"strings"
 )
 
 var checkers = map[string] func(check *api.Check) error {
@@ -37,6 +38,9 @@ func checkHTTP(c *api.Check) error {
 
 func checkTCP(c *api.Check) error {
 	conn, err := net.Dial("tcp", c.TCP)
+	if err != nil {
+		return err
+	}
 	defer conn.Close()
 	return err
 }
@@ -46,10 +50,14 @@ func checkScript(c *api.Check) error {
 }
 
 func checkDocker(c *api.Check) error {
-	return tools.Exec(nil, c.Timeout, "docker", "exec", "-i", c.TaskID, "sh", "-c", c.Script)
+	return tools.Exec(nil, c.Timeout, "docker", "exec", "-i", c.TaskID, "sh", "-c", c.Docker)
 }
 
-func NewMonitor(a api.SchedulerApi, c *api.Check) *Monitor {
+func NewMonitor(a api.SchedulerApi, c *api.Check, t *api.Task) *Monitor {
+
+	c.HTTP = strings.Replace(c.HTTP, "$PROVIDED_PORT", t.Port, 1)
+	c.TCP = strings.Replace(c.TCP, "$PROVIDED_PORT", t.Port, 1)
+
 	m := &Monitor{
 		api: a,
 		Check: c,
