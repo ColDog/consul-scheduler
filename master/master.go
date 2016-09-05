@@ -69,20 +69,20 @@ func (s *Master) monitor() {
 	for {
 		select {
 		case <-listenConfig:
-			err := s.dispatch()
+			err := s.dispatchAll()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
 			s.runGc <- struct{}{}
 
 		case <-listenHealth:
-			err := s.dispatch()
+			err := s.dispatchAll()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
 
 		case <-time.After(20 * time.Second):
-			err := s.dispatch()
+			err := s.dispatchAll()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
@@ -94,64 +94,26 @@ func (s *Master) monitor() {
 	}
 }
 
-func (s *Master) dispatch() error {
+func (s *Master) dispatchAll() error {
 	cluster, err := s.Cluster()
 	if err != nil {
 		return err
 	}
 
 	for _, serviceName := range cluster.Services {
-		err := s.dispatchService(cluster, serviceName)
-		if err != nil {
-			log.WithField("err", err).Error("[master] error while dispatching service")
-		}
+		s.dispatchService(serviceName)
 	}
 
 	return nil
 }
 
-func (s *Master) dispatchService(cluster *api.Cluster, serviceName string) error {
+func (s *Master) dispatchService(serviceName string) error {
 	service, err := s.api.GetService(serviceName)
 	if err != nil {
 		return err
 	}
 
-	tasks, err := s.api.ListTasks(&api.TaskQueryOpts{
-		ByCluster: cluster.Name,
-		ByService: service.Name,
-		Scheduled: true,
-	})
-
-	cache := make(map[string]bool)
-	unhealthyHost := ""
-	for _, task := range tasks {
-		val, ok := cache[task.Host]
-		if !ok {
-			hostOk, err := s.api.AgentHealth(task.Host)
-			if err != nil {
-				return err
-			}
-			cache[task.Host] = hostOk
-			val = hostOk
-		}
-
-		if !val {
-			unhealthyHost = task.Host
-			break
-		}
-	}
-
-	log.WithFields(log.Fields{
-		"count":        len(tasks),
-		"desired":      service.Desired,
-		"service":      service.Name,
-		"cluster":      cluster.Name,
-		"problem_host": unhealthyHost,
-	}).Info("[master] dispatch")
-
-	if unhealthyHost != "" || len(tasks) != service.Desired {
-		s.queue.Push(scheduleReq{cluster.Name, service.Name})
-	}
+	s.queue.Push(scheduleReq{s.Config.Cluster, service.Name})
 	return nil
 }
 

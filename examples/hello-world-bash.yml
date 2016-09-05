@@ -6,20 +6,20 @@ clusters:
 services:
   - name: bashworld-service
     task_name: bashworld
-    task_version: 3
+    task_version: 4
     min: 3
-    max: 20
-    desired: 20
+    max: 10
+    desired: 10
 
 tasks:
   - name: bashworld
-    version: 3
+    version: 4
     provide_port: true
 
     containers:
       - name: bashworld
         type: bash
-        memory: 200
+        memory: 500
         cpu_units: 300
         executor:
           start:
