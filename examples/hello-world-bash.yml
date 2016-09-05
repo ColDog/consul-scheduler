@@ -8,8 +8,8 @@ services:
     task_name: bashworld
     task_version: 2
     min: 3
-    max: 7
-    desired: 7
+    max: 20
+    desired: 20
 
 tasks:
   - name: bashworld
@@ -23,6 +23,6 @@ tasks:
         cpu_units: 200
         executor:
           start:
-            - sleep 180
+            - echo 'start'
           stop:
             - echo 'stopping'

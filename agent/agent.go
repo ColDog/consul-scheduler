@@ -179,6 +179,81 @@ func (agent *Agent) PublishState() {
 	agent.api.PutHost(agent.LastState)
 }
 
+func (agent *Agent) syncTask(task *api.Task) *action {
+	healthy, err := task.Healthy()
+	if err != nil {
+		log.WithField("error", err).Error("failed to sync")
+		return nil
+	}
+
+	state := agent.TaskState.get(task.Id(), task)
+	state.Healthy = healthy
+	if state.Healthy {
+		state.Failure = nil
+	}
+
+	log.WithFields(log.Fields{
+		"task":         task.Id(),
+		"attempts":     state.Attempts,
+		"failure":      state.Failure,
+		"health":       state.Healthy,
+		"scheduled":    task.Scheduled,
+		"last_started": state.StartedAt,
+	}).Info("[agent] task state")
+
+	// we start a task if the following conditions hold:
+	// - the task is scheduled
+	// - the task is not rejected
+	// - the task is not healthy and has health checks or the task has not been started and does not have any checks
+	if task.Scheduled && !task.Rejected && ((!healthy && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
+		// leave some time in between restarting tasks, ie they may take a while before the health checks
+		// begin passing.
+		if state.StartedAt.Add(task.TaskDefinition.GracePeriod).After(time.Now()) {
+			log.Debug("[agent] skipping start, too short an interval")
+			return nil
+		}
+
+		if state.Attempts > task.TaskDefinition.MaxAttempts {
+			task.RejectReason = "too many attempts"
+			task.Rejected = true
+			state.Failure = errors.New(task.RejectReason)
+			agent.api.PutTask(task)
+			log.WithField("task", task.Id()).Warn("[agent] too many attempts")
+			return nil
+		}
+
+		// check if there is a port conflict. This actually attempts to bind to the port which gives us a better
+		// picture overall.
+		for _, p := range task.AllPorts() {
+			if !IsTCPPortAvailable(int(p)) {
+				task.RejectReason = fmt.Sprintf("port not available: %d", p)
+				task.Rejected = true
+				state.Failure = errors.New(task.RejectReason)
+				agent.api.PutTask(task)
+				log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
+				return nil
+			}
+		}
+
+		log.WithField("last_started", state.StartedAt).WithField("task", task.Id()).Info("[agent] starting")
+		state.StartedAt = time.Now() // put the started at here since time into the queue could be longer.
+
+		// restart the task since it is failing
+		return &action{start: true, task: task}
+	}
+
+	if !task.Scheduled {
+		log.Info("[agent] triggering stop")
+
+		// stop the task if it's not scheduled
+		return &action{stop: true, task: task}
+	}
+
+
+	// do nothing
+	return nil
+}
+
 // This function syncs the agent with consul and the provided state from the scheduler it compares the desired tasks for
 // this host and the actual state from consul and adds to the queue new tasks to be started.
 func (agent *Agent) sync() {
@@ -193,76 +268,13 @@ func (agent *Agent) sync() {
 	}
 
 	for _, task := range tasks {
-		healthy, err := task.Healthy()
-		if err != nil {
-			log.WithField("error", err).Error("failed to sync")
-			return
+		act := agent.syncTask(task)
+
+		select {
+		case agent.queue <- *act:
+		case <-time.After(15 * time.Second):
+			log.Error("[agent] queue is full")
 		}
-
-		state := agent.TaskState.get(task.Id(), task)
-		state.Healthy = healthy
-		if state.Healthy {
-			state.Failure = nil
-		}
-
-		log.WithFields(log.Fields{
-			"task":         task.Id(),
-			"attempts":     state.Attempts,
-			"failure":      state.Failure,
-			"health":       state.Healthy,
-			"scheduled":    task.Scheduled,
-			"last_started": state.StartedAt,
-		}).Info("[agent] task state")
-
-		if task.Scheduled && !task.Rejected && (!healthy || (!task.HasChecks() && state.Attempts == 0)) {
-			// leave some time in between restarting tasks, ie they may take a while before the health checks
-			// begin passing.
-			if state.StartedAt.Add(task.TaskDefinition.GracePeriod).After(time.Now()) {
-				log.Debug("[agent] skipping start, too short an interval")
-				continue
-			}
-
-			if state.Attempts > task.TaskDefinition.MaxAttempts {
-				task.RejectReason = "too many attempts"
-				task.Rejected = true
-				state.Failure = errors.New(task.RejectReason)
-				agent.api.PutTask(task)
-				log.WithField("task", task.Id()).Warn("[agent] too many attempts")
-				continue
-			}
-
-			for _, p := range task.AllPorts() {
-				if !IsTCPPortAvailable(int(p)) {
-					task.RejectReason = fmt.Sprintf("port not available: %d", p)
-					task.Rejected = true
-					state.Failure = errors.New(task.RejectReason)
-					agent.api.PutTask(task)
-					log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
-					continue
-				}
-			}
-
-			log.WithField("last_started", state.StartedAt).WithField("task", task.Id()).Info("[agent] starting")
-			state.StartedAt = time.Now() // put the started at here since time into the queue could be longer.
-			// restart the task since it is failing
-			select {
-			case agent.queue <- action{start: true, task: task}:
-			case <-time.After(5 * time.Second):
-				log.Error("[agent] queue is full")
-			}
-		}
-
-		if !task.Scheduled {
-			log.Info("[agent] triggering stop")
-
-			// stop the task since it shouldn't be running
-			select {
-			case agent.queue <- action{stop: true, task: task}:
-			case <-time.After(5 * time.Second):
-				log.Error("[agent] queue is full")
-			}
-		}
-
 	}
 
 	t2 := time.Now().UnixNano()

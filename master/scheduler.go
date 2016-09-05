@@ -42,18 +42,10 @@ func (s *DefaultScheduler) syncHosts() error {
 
 	s.lastSync = time.Now()
 
-	var hosts []*api.Host
-	var err error
-	if s.cluster.Hosts != nil || len(s.cluster.Hosts) > 0 {
-		for _, hName := range s.cluster.Hosts {
-			host, _ := s.api.GetHost(hName)
-			hosts = append(hosts, host)
-		}
-	} else {
-		hosts, err = s.api.ListHosts()
-		if err != nil {
-			return err
-		}
+	// todo: allow only certain hosts per cluster
+	hosts, err := s.api.ListHosts()
+	if err != nil {
+		return err
 	}
 
 	for _, h := range hosts {

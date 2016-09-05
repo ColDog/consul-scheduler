@@ -54,39 +54,61 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 		return err
 	}
 
-	tableHeader("id", "host", "rejected", "cluster", "service", "task definition", "version")
+	rows := make([][]interface{}, 0, len(tasks))
 	for _, t := range tasks {
-		tableRow(t.Id(), t.Host, t.Rejected, t.Cluster, t.Service, t.TaskDefinition.Name, t.TaskDefinition.Version)
+		rows = append(rows, []interface{}{t.Id(), t.Host, t.Rejected, t.Cluster, t.Service, t.TaskDefinition.Name, t.TaskDefinition.Version})
 	}
+
+	table([]string{"id", "host", "rejected", "cluster", "service", "task def", "version"}, rows)
 	return nil
 }
 
-func tableHeader(items ...interface{}) {
-	r := row(items)
-	c := utf8.RuneCountInString(r)
+func table(header []string, rows [][]interface{})  {
+	counts := make([]int, len(header))
+
+	for i := 0; i < len(header); i++ {
+		counts[i] = 0
+
+		for _, row := range rows {
+			val := fmt.Sprintf("%v", row[i])
+			c := utf8.RuneCountInString(val) + 5
+
+			if c > counts[i] {
+				counts[i] = c
+			}
+		}
+	}
+
+	head := row(header, counts)
+	c := utf8.RuneCountInString(head)
 	p := ""
 	for i := 0; i < c; i++ {
 		p += "-"
 	}
-	fmt.Println(r)
+
+	fmt.Println(head)
 	fmt.Println(p)
+
+	for _, r := range rows {
+		ro := make([]string, 0, len(r))
+		for _, ra := range r {
+			ro = append(ro, fmt.Sprintf("%v", ra))
+		}
+		fmt.Println(row(ro, counts))
+	}
 }
 
-func tableRow(items ...interface{}) {
-	fmt.Println(row(items))
-}
-
-func row(items []interface{}) string {
+func row(items []string, counts []int) string {
 	s := ""
-	for _, i := range items {
-		s += pad(fmt.Sprintf("%v", i))
+	for i, item := range items {
+		s += pad(item, counts[i])
 	}
 	return s
 }
 
-func pad(x string) string {
+func pad(x string, padding int) string {
 	c := utf8.RuneCountInString(x)
-	for i := 0; i < (30 - c); i++ {
+	for i := 0; i < (padding - c); i++ {
 		x += " "
 	}
 	return x
