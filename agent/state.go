@@ -1,11 +1,11 @@
 package agent
 
 import (
+	"encoding/json"
 	"github.com/coldog/sked/api"
+	"io/ioutil"
 	"sync"
 	"time"
-	"encoding/json"
-	"io/ioutil"
 )
 
 type TaskState struct {

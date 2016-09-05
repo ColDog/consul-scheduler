@@ -1,19 +1,19 @@
 package agent
 
 import (
-	"github.com/coldog/sked/api"
-	"time"
-	"net/http"
 	"fmt"
-	"net"
-	"github.com/coldog/sked/tools"
 	log "github.com/Sirupsen/logrus"
+	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/tools"
+	"net"
+	"net/http"
 	"strings"
+	"time"
 )
 
-var checkers = map[string] func(check *api.Check) error {
-	"http": checkHTTP,
-	"tcp": checkTCP,
+var checkers = map[string]func(check *api.Check) error{
+	"http":   checkHTTP,
+	"tcp":    checkTCP,
 	"script": checkScript,
 	"docker": checkDocker,
 	"none": func(c *api.Check) error {
@@ -59,7 +59,7 @@ func NewMonitor(a api.SchedulerApi, c *api.Check, t *api.Task) *Monitor {
 	c.TCP = strings.Replace(c.TCP, "$PROVIDED_PORT", t.Port, 1)
 
 	m := &Monitor{
-		api: a,
+		api:   a,
 		Check: c,
 		Type:  checkType(c),
 		quit:  make(chan struct{}),
@@ -116,7 +116,7 @@ func (m *Monitor) Run() {
 }
 
 func (m *Monitor) Stop() {
-	m.quit <- struct{} {}
+	m.quit <- struct{}{}
 }
 
 func checkType(c *api.Check) string {

@@ -71,7 +71,6 @@ func TestAgent_PublishState(t *testing.T) {
 	ag := NewAgent(a, &AgentConfig{})
 	ag.Host = "local"
 
-
 	ag.PublishState()
 
 	h, err := a.GetHost("local")

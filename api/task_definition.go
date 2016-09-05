@@ -4,8 +4,8 @@ import (
 	"github.com/coldog/sked/tools"
 
 	"encoding/json"
-	"time"
 	"fmt"
+	"time"
 )
 
 // a runnable task description
@@ -74,6 +74,8 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 
 	for _, c := range task.Containers {
 		for i, check := range c.Checks {
+			check.parse()
+
 			check.ID = fmt.Sprintf("%s_%s-%s-%d", task.Name, c.Name, check.Name, i)
 
 			if check.Interval == 0 {
@@ -136,14 +138,27 @@ func (c *Container) RunTeardown() error {
 
 // a check passed along to consul
 type Check struct {
-	ID       string        `json:"id"`
-	Name     string        `json:"name"`
-	HTTP     string        `json:"http"`
-	TCP      string        `json:"tcp"`
-	Script   string        `json:"script"`
-	Interval time.Duration `json:"interval"`
-	Timeout  time.Duration `json:"timeout"`
-	TTL      string        `json:"ttl"`
-	Docker   string        `json:"docker"`
-	TaskID   string        `json:"task_id"`
+	ID          string        `json:"id"`
+	Name        string        `json:"name"`
+	HTTP        string        `json:"http"`
+	TCP         string        `json:"tcp"`
+	Script      string        `json:"script"`
+	Interval    time.Duration `json:"-"`
+	Timeout     time.Duration `json:"-"`
+	SetTimeout  string        `json:"interval"`
+	SetInterval string        `json:"timeout"`
+	TTL         string        `json:"ttl"`
+	Docker      string        `json:"docker"`
+	TaskID      string        `json:"task_id"`
+}
+
+func (c *Check) parse() {
+	durt, _ := time.ParseDuration(c.SetTimeout)
+	c.Timeout = durt
+
+	duri, _ := time.ParseDuration(c.SetInterval)
+	c.Interval = duri
+
+	c.SetTimeout = fmt.Sprintf("%v", c.Timeout)
+	c.SetInterval = fmt.Sprintf("%v", c.Interval)
 }

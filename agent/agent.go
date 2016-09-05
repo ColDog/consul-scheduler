@@ -292,7 +292,6 @@ func (agent *Agent) GetHostName() {
 	}
 }
 
-
 func (agent *Agent) Stop() {
 	close(agent.stopCh)
 }

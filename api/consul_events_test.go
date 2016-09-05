@@ -83,7 +83,8 @@ func TestConfigEventWaiting(t *testing.T) {
 		api.PutTaskDefinition(SampleTaskDefinition())
 		t := SampleTask()
 		t.Host = "local-1"
-		api.ScheduleTask(t)
+		t.Scheduled = true
+		api.PutTask(t)
 		api.GetService("test")
 	}()
 

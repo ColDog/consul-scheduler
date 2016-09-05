@@ -10,9 +10,10 @@ import (
 )
 
 type ExecutorBuilder func(c *Container) Executor
+
 var ExecutorBuilders = make(map[string]ExecutorBuilder)
 
-func UseExecutor(name string, b ExecutorBuilder)  {
+func UseExecutor(name string, b ExecutorBuilder) {
 	ExecutorBuilders[name] = b
 }
 
