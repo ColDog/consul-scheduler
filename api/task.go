@@ -11,12 +11,6 @@ func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Service, instan
 		Port:           taskDef.Port,
 	}
 
-	for _, cont := range t.TaskDefinition.Containers {
-		for _, chk := range cont.Checks {
-			chk.TaskID = t.Id()
-		}
-	}
-
 	return t
 }
 

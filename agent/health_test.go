@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var task = api.SampleTask()
+
 func TestHealth_HTTP(t *testing.T) {
 	a := api.NewMockApi()
 
@@ -15,7 +17,7 @@ func TestHealth_HTTP(t *testing.T) {
 		HTTP:     "http://localhost:4121",
 		Interval: 1 * time.Second,
 		Timeout:  2 * time.Second,
-	})
+	}, task)
 
 	time.Sleep(3 * time.Second)
 	tools.Assert(t, m.Status == "warning", "check is passing")
@@ -30,7 +32,7 @@ func TestHealth_TCP(t *testing.T) {
 		TCP:      "localhost:4121",
 		Interval: 1 * time.Second,
 		Timeout:  2 * time.Second,
-	})
+	}, task)
 
 	time.Sleep(3 * time.Second)
 	tools.Assert(t, m.Status == "warning", "check is passing")
@@ -45,7 +47,7 @@ func TestHealth_Script(t *testing.T) {
 		Script:   "echo 'hello'",
 		Interval: 1 * time.Second,
 		Timeout:  2 * time.Second,
-	})
+	}, task)
 
 	time.Sleep(3 * time.Second)
 	tools.Assert(t, m.Status == "healthy", "check is not passing")
@@ -59,7 +61,7 @@ func TestHealth_Docker(t *testing.T) {
 		Docker:   "echo 'hello'",
 		Interval: 1 * time.Second,
 		Timeout:  2 * time.Second,
-	})
+	}, task)
 
 	time.Sleep(3 * time.Second)
 	tools.Assert(t, m.Status == "warning", "check is passing")

@@ -5,6 +5,7 @@ import (
 
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
+	"github.com/coldog/sked/config"
 
 	"fmt"
 	"testing"
@@ -13,6 +14,12 @@ import (
 
 func init() {
 	log.SetLevel(log.DebugLevel)
+}
+
+func testConfig() *AgentConfig {
+	return &AgentConfig{
+		AppConfig: config.NewConfig(),
+	}
 }
 
 func queueSync(ag *Agent) (list []action) {
@@ -29,7 +36,7 @@ func queueSync(ag *Agent) (list []action) {
 
 func TestAgent_GetsInfo(t *testing.T) {
 	api.RunConsulApiTest(func(a *api.ConsulApi) {
-		ag := NewAgent(a, &AgentConfig{})
+		ag := NewAgent(a, testConfig())
 		ag.GetHostName()
 
 		ag.PublishState()
@@ -42,7 +49,7 @@ func TestAgent_Start(t *testing.T) {
 	tk := api.SampleTask()
 
 	a := api.NewMockApi()
-	ag := NewAgent(a, &AgentConfig{})
+	ag := NewAgent(a, testConfig())
 
 	err := ag.start(tk)
 	tools.Ok(t, err)
@@ -68,7 +75,7 @@ func TestAgent_Stop(t *testing.T) {
 
 func TestAgent_PublishState(t *testing.T) {
 	a := api.NewMockApi()
-	ag := NewAgent(a, &AgentConfig{})
+	ag := NewAgent(a, testConfig())
 	ag.Host = "local"
 
 	ag.PublishState()
@@ -80,7 +87,7 @@ func TestAgent_PublishState(t *testing.T) {
 
 func TestAgent_Sync(t *testing.T) {
 	a := api.NewMockApi()
-	ag := NewAgent(a, &AgentConfig{})
+	ag := NewAgent(a, testConfig())
 	ag.Host = "local"
 
 	for i := 0; i < 20; i++ {

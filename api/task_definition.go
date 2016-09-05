@@ -149,7 +149,6 @@ type Check struct {
 	SetInterval string        `json:"timeout"`
 	TTL         string        `json:"ttl"`
 	Docker      string        `json:"docker"`
-	TaskID      string        `json:"task_id"`
 }
 
 func (c *Check) parse() {

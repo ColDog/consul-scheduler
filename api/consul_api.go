@@ -172,7 +172,7 @@ func (a *ConsulApi) Register(t *Task) error {
 			}
 
 			if check.Docker != "" {
-				consulCheck.DockerContainerID = check.TaskID
+				consulCheck.DockerContainerID = t.Id()
 				consulCheck.Script = check.Docker
 			}
 
