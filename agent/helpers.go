@@ -16,7 +16,7 @@ const (
 	startListingPort   = 32000
 	maxRandTCPPort     = maxTCPPort - (maxReservedTCPPort + 1)
 
-	bytes    = uint64(1)
+	bytes    = int64(1)
 	kilobyte = 1024 * bytes
 	megabyte = 1024 * kilobyte
 	gigabyte = 1024 * megabyte
@@ -42,18 +42,18 @@ func IsTCPPortAvailable(port int) bool {
 	return true
 }
 
-func AvailableDiskSpace() (uint64, error) {
+func AvailableDiskSpace() (int64, error) {
 	var stat syscall.Statfs_t
 	err := syscall.Statfs("/", &stat)
 	if err != nil {
 		return 0, err
 	}
 
-	return stat.Bavail * uint64(stat.Bsize), nil
+	return stat.Bavail * int64(stat.Bsize), nil
 }
 
-func ToMb(val uint64) uint64 {
-	if val == uint64(0) {
+func ToMb(val int64) int64 {
+	if val == int64(0) {
 		return val
 	}
 

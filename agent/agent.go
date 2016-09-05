@@ -16,18 +16,12 @@ import (
 	"time"
 )
 
-type Resources struct {
-	Memory    uint64 `json:"memory"`
-	CpuUnits  uint64 `json:"cpu_units"`
-	DiskSpace uint64 `json:"disk_space"`
-}
-
 type AgentConfig struct {
 	Runners      int             `json:"runners"`
 	SyncInterval time.Duration   `json:"sync_interval"`
 	AppConfig    *config.Config  `json:"app_config"`
 	CheckHealth  bool            `json:"check_health"`
-	Resources    *Resources      `json:"resources"`
+	Resources    *api.Resources  `json:"resources"`
 }
 
 var (
@@ -185,13 +179,23 @@ func (agent *Agent) PublishState() {
 		agent.LastState = &api.Host{
 			Name:        agent.Host,
 			HealthCheck: "http://" + agent.Config.AppConfig.Advertise + "/agent/health",
+			CalculatedResources: &api.Resources{},
+			BaseResources: agent.Config.Resources,
+			ObservedResources: &api.Resources{},
 		}
 	}
 
-	agent.LastState.Memory = agent.Config.Resources.Memory - usedMem
-	agent.LastState.DiskSpace = agent.Config.Resources.DiskSpace - usedDisk
-	agent.LastState.CpuUnits = agent.Config.Resources.CpuUnits - usedCpu
+	agent.LastState.CalculatedResources.Memory = agent.Config.Resources.Memory - usedMem
+	agent.LastState.CalculatedResources.DiskSpace = agent.Config.Resources.DiskSpace - usedDisk
+	agent.LastState.CalculatedResources.CpuUnits = agent.Config.Resources.CpuUnits - usedCpu
 	agent.LastState.ReservedPorts = reserved
+
+	m, _ := mem.VirtualMemory()
+	d, _ := AvailableDiskSpace()
+
+	agent.LastState.ObservedResources.Memory = ToMb(m.Available)
+	agent.LastState.ObservedResources.DiskSpace = ToMb(d)
+	agent.LastState.ObservedResources.CpuUnits = uint64(runtime.NumCPU() * 1024)
 
 	agent.api.PutHost(agent.LastState)
 }

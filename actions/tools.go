@@ -71,9 +71,9 @@ func ListHosts(a api.SchedulerApi) error {
 	}
 	rows := make([][]interface{}, 0, len(hosts))
 	for _, h := range hosts {
-		rows = append(rows, []interface{} {h.Name, h.Tags, h.CpuUnits, h.Memory, h.MemUsePercent, h.DiskSpace})
+		rows = append(rows, []interface{} {h.Name, h.Tags, h.CpuUnits, h.Memory, h.DiskSpace})
 	}
-	table([]string{"name", "tags", "cpu", "mem", "mem use", "disk"}, rows)
+	table([]string{"name", "tags", "cpu", "mem", "disk"}, rows)
 	return nil
 }
 
