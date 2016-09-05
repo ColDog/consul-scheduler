@@ -122,15 +122,26 @@ this includes an overview of the memory available, ports currently allocated and
 also have the power to reject a task scheduled by the scheduler. If, for example, a port conflict was accidentally created,
 an agent will reject the task, triggering the scheduler which will have a second shot at scheduling the conflicting task.
 
+Agents can run without the scheduling backend and do not require any of the desired state to function. They merely require
+the issued state to be present in the storage backend to function. This allows for pluggable scheduling, or even manual
+scheduling of tasks. Simply follow the json structure and the key hierarchy outlined in the docs and the agents will be
+able to run the provided tasks.
+
 ### Scheduling
 
-When the `scheduler` command is passed to the binary this will start a process that monitors various states and metrics
-throughout the cluster and dispatches schedule requests. Scheduling is done on a per service and cluster basis. You can
-specify which cluster to monitor in the command line arguments. Service's tell this process what scheduler they would like
-to be scheduled with and this process takes care of executing that scheduler on the service at the right time.
+When the `scheduler` command is passed to the binary this will start a process that monitors the configuration and the hosts
+in the defined cluster and dispatches requests to schedule when a change in the configuration is noticed. Schedulers run
+on a per cluster and service basis. The master process monitors all resources in the defined cluster and issues requests
+to schedule for a given service if needed.
 
-You can run multiple scheduler processes, this is due to the fact that the scheduler process will maintain a lock on each
-service before it begins scheduling to avoid conflicting with another process.
+When a scheduler begins to schedule for a given service, it first attempts to lock that service and cluster. If a lock
+cannot be retrieved immediately, the scheduler will exit and wait for another request. This allows for us to run multiple
+schedulers throughout the cluster for fault tolerance and parallel scheduling.
+
+Since schedulers work parallel to one another, they may schedule a task on a host where the port was already reserved by
+another task, or they may miscalculate the resources of a host since other scheduler processes have already allocated that
+memory or cpu. Agents are able to reject a task, which triggers another scheduling and forces the scheduler to rebalance
+the tasks across the hosts accordingly.
 
 #### Writing Your Own Scheduler
 
@@ -355,7 +366,8 @@ Tasks are serialized with the full task definition.
 ```
 
 ## Deploying
-To deploy the scheduler, download a release on each machine
+
+To deploy the scheduler, download a release on each machine.
 
 ## Roadmap
 
@@ -363,6 +375,7 @@ To deploy the scheduler, download a release on each machine
 - [x] basic documentation
 - [ ] full api documentation
 - [ ] full test coverage
-- [ ] additional scheduler example
+- [x] health checking
 - [ ] etcd backend
+- [ ] additional scheduler example
 - [ ] large scale testing 1000s of hosts

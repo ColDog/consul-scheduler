@@ -27,6 +27,7 @@ func NewDefaultScheduler(a api.SchedulerApi) *DefaultScheduler {
 }
 
 type DefaultScheduler struct {
+	cluster  *api.Cluster
 	api      api.SchedulerApi
 	hosts    map[string]*api.Host
 	maxPort  map[string]uint
@@ -40,9 +41,19 @@ func (s *DefaultScheduler) syncHosts() error {
 	defer s.l.Unlock()
 
 	s.lastSync = time.Now()
-	hosts, err := s.api.ListHosts()
-	if err != nil {
-		return err
+
+	var hosts []*api.Host
+	var err error
+	if s.cluster.Hosts != nil || len(s.cluster.Hosts) > 0 {
+		for _, hName := range s.cluster.Hosts {
+			host, _ := s.api.GetHost(hName)
+			hosts = append(hosts, host)
+		}
+	} else {
+		hosts, err = s.api.ListHosts()
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, h := range hosts {
@@ -202,14 +213,13 @@ func (s *DefaultScheduler) Schedule(name string, cluster *api.Cluster, service *
 }
 
 func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
+	rand.Seed(time.Now().UnixNano())
+
 	s.l.Lock()
 	defer s.l.Unlock()
 
-	rand.Seed(time.Now().UnixNano())
-
 	host := s.hosts[t.Host]
 
-	// take a guess if we cannot get a port from the provided portSelection list.
 	p := s.maxPort[host.Name] + uint(rand.Intn(2000))
 	if p < 9000 {
 		// keep a sufficiently high port range, people usually like things in the 8000 range alot...
@@ -218,7 +228,7 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 
 	for {
 		if inArray(p, host.ReservedPorts) {
-			p += 1
+			p += uint(rand.Intn(1000))
 			continue
 		}
 

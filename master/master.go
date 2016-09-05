@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"math/rand"
 )
 
 type scheduleReq struct {
@@ -186,6 +187,9 @@ func (s *Master) worker(i int) {
 }
 
 func (s *Master) schedule(clusterName, serviceName string, i int) {
+	rand.Seed(time.Now().Unix())
+	time.Sleep(time.Duration(100 + rand.Intn(200)) * time.Millisecond)
+
 	lock, err := s.locks.Lock(serviceName)
 	if err != nil {
 		log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] lock failed", i)

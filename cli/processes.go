@@ -69,7 +69,7 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 		cli.DurationFlag{Name: "scheduler-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
 		cli.IntFlag{Name: "scheduler-runners", Usage: "amount of schedulers to run in parallel"},
 		cli.StringFlag{Name: "scheduler-cluster", Usage: "the cluster to monitor for scheduling"},
-		cli.BoolFlag{Name: "agent-check-health, h", Usage: "start the health checker"},
+		cli.BoolFlag{Name: "agent-check-health", Usage: "start the health checker"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("combined")
