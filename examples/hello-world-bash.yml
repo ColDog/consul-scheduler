@@ -19,8 +19,8 @@ tasks:
     containers:
       - name: bashworld
         type: bash
-        memory: 1000
-        cpu_units: 200
+        memory: 1024
+        cpu_units: 300
         executor:
           start:
             - echo 'start'

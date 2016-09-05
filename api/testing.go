@@ -65,6 +65,9 @@ func SampleContainer() *Container {
 	return &Container{
 		Name:     "test",
 		Type:     "bash",
+		Memory:   100000,
+		CpuUnits: 100000,
+		DiskUse:  100000,
 		Executor: []byte(`{"start": ["echo start"], "stop": ["echo stop"]}`),
 	}
 }

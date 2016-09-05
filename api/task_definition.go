@@ -46,16 +46,14 @@ type Counts struct {
 	DiskUse  uint64 `json:"disk_use"`
 }
 
-func (t *TaskDefinition) Counts() Counts {
-	c := Counts{}
-
+func (t *TaskDefinition) Counts() (counts Counts) {
 	for _, c := range t.Containers {
-		c.DiskUse += c.DiskUse
-		c.CpuUnits += c.CpuUnits
-		c.Memory += c.Memory
+		counts.DiskUse += c.DiskUse
+		counts.CpuUnits += c.CpuUnits
+		counts.Memory += c.Memory
 	}
 
-	return c
+	return
 }
 
 func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {

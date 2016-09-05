@@ -13,7 +13,7 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Flags = []cli.Flag{
 		cli.DurationFlag{Name: "agent-sync-interval", Value: 30 * time.Second, Usage: "interval to sync agent"},
 		cli.IntFlag{Name: "agent-runners", Value: 3, Usage: "amount of tasks to start in parallel on the agent"},
-		cli.BoolFlag{Name: "agent-check-health, h", Usage: "start the health checker"},
+		cli.BoolFlag{Name: "agent-check-health", Usage: "start the health checker"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		app.printWelcome("agent")
