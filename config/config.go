@@ -19,6 +19,7 @@ func NewConfig() *Config {
 		LogLevel:     "info",
 		Backend:      CONSUL,
 		ConsulConfig: api.DefaultConfig(),
+		Version:      VERSION,
 	}
 }
 

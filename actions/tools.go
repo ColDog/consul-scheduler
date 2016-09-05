@@ -56,10 +56,15 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 
 	rows := make([][]interface{}, 0, len(tasks))
 	for _, t := range tasks {
-		rows = append(rows, []interface{}{t.Id(), t.Host, t.Rejected, t.Cluster, t.Service, t.TaskDefinition.Name, t.TaskDefinition.Version})
+		ok, err := t.Healthy()
+		if err != nil {
+			return err
+		}
+
+		rows = append(rows, []interface{}{t.Id(), t.Host, t.Rejected, t.Cluster, t.Service, t.TaskDefinition.Name, t.TaskDefinition.Version, ok})
 	}
 
-	table([]string{"id", "host", "rejected", "cluster", "service", "task def", "version"}, rows)
+	table([]string{"id", "host", "rejected", "cluster", "service", "task def", "version", "healthy"}, rows)
 	return nil
 }
 
@@ -71,9 +76,14 @@ func ListHosts(a api.SchedulerApi) error {
 	}
 	rows := make([][]interface{}, 0, len(hosts))
 	for _, h := range hosts {
-		rows = append(rows, []interface{} {h.Name, h.Tags, h.CalculatedResources.CpuUnits, h.CalculatedResources.Memory, h.CalculatedResources.DiskSpace})
+		tasks, err := a.ListTasks(&api.TaskQueryOpts{ByHost: h.Name})
+		if err != nil {
+			return err
+		}
+
+		rows = append(rows, []interface{} {h.Name, h.Tags, h.CalculatedResources.CpuUnits, h.CalculatedResources.Memory, h.CalculatedResources.DiskSpace, len(tasks)})
 	}
-	table([]string{"name", "tags", "cpu", "mem", "disk"}, rows)
+	table([]string{"name", "tags", "cpu", "mem", "disk", "tasks"}, rows)
 	return nil
 }
 
@@ -81,7 +91,7 @@ func table(header []string, rows [][]interface{})  {
 	counts := make([]int, len(header))
 
 	for i := 0; i < len(header); i++ {
-		counts[i] = 0
+		counts[i] = utf8.RuneCountInString(header[i]) + 5
 
 		for _, row := range rows {
 			val := fmt.Sprintf("%v", row[i])
@@ -100,6 +110,7 @@ func table(header []string, rows [][]interface{})  {
 		p += "-"
 	}
 
+	fmt.Println("")
 	fmt.Println(head)
 	fmt.Println(p)
 

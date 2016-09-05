@@ -2,9 +2,9 @@ package master
 
 import (
 	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/tools"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/hashicorp/go-multierror"
 
 	"fmt"
 	"math/rand"
@@ -276,7 +276,7 @@ func (s *DefaultScheduler) selectHost(name string, t *api.Task) (string, error) 
 	s.l.RLock()
 	defer s.l.RUnlock()
 
-	var errors *multierror.Error
+	errors := &tools.MultiError{}
 
 	rand.Seed(time.Now().Unix())
 
@@ -294,7 +294,7 @@ func (s *DefaultScheduler) selectHost(name string, t *api.Task) (string, error) 
 
 		err := s.matchHost(t, cand)
 		if err != nil {
-			multierror.Append(errors, err)
+			errors.Append(err)
 			continue
 		}
 
