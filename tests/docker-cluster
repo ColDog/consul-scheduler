@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 go install github.com/coldog/sked
-env GOOS=linux GOARCH=amd64 go build -o dist/sked_linux-amd64-latest github.com/coldog/sked
-docker build -t coldog/sked:test .
+env GOOS=linux GOARCH=amd64 go build -o tests/sked_linux-amd64-latest github.com/coldog/sked
+docker build -t sked-testing tests
+rm tests/sked_linux-amd64-latest
 
 docker network create --subnet 172.25.0.0/16 sked-net
 
@@ -43,5 +44,5 @@ docker exec -it consul-1 consul join 172.25.0.12 172.25.0.13 172.25.0.14 172.25.
 for i in 1 2 3 4 5 6 7
 do
     docker run -d --net=sked-net --name=sked-${i} --net-alias=sked-${i} -p 823${i}:8231 -e CONSUL_API=172.25.0.1${i}:8500 \
-        coldog/sked:test sked --advertise=sked-${i}:8231 combined
+        sked-testing sked --advertise=sked-${i}:8231 combined
 done

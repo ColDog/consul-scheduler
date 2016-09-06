@@ -373,9 +373,8 @@ To deploy the scheduler, download a release on each machine.
 
 - [x] examples with basic tests
 - [x] basic documentation
-- [ ] full api documentation
-- [ ] full test coverage
 - [x] health checking
 - [ ] etcd backend
-- [ ] additional scheduler example
-- [ ] large scale testing 1000s of hosts
+- [ ] full test coverage
+- [ ] full api documentation
+- [ ] scheduling constraints

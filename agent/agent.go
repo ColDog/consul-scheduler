@@ -100,6 +100,7 @@ type Agent struct {
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
 func (agent *Agent) start(t *api.Task) error {
 	state := agent.TaskState.get(t.Id(), t)
+	state.Starting = true
 	state.StartedAt = time.Now()
 	state.Attempts += 1
 
@@ -119,6 +120,7 @@ func (agent *Agent) start(t *api.Task) error {
 		}
 	}
 
+	state.Starting = false
 	return agent.api.Register(t)
 }
 
@@ -229,7 +231,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 	// - the task is scheduled
 	// - the task is not rejected
 	// - the task is not healthy and has health checks or the task has not been started and does not have any checks
-	if task.Scheduled && !task.Rejected && ((!healthy && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
+	if task.Scheduled && !task.Rejected && !state.Starting && ((!healthy && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
 		// leave some time in between restarting tasks, ie they may take a while before the health checks
 		// begin passing.
 		if state.StartedAt.Add(task.TaskDefinition.GracePeriod).After(time.Now()) {
@@ -248,16 +250,17 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 
 		// check if there is a port conflict. This actually attempts to bind to the port which gives us a better
 		// picture overall.
-		for _, p := range task.AllPorts() {
-			if !IsTCPPortAvailable(p) {
-				task.RejectReason = fmt.Sprintf("port not available: %d", p)
-				task.Rejected = true
-				state.Failure = errors.New(task.RejectReason)
-				agent.api.PutTask(task)
-				log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
-				return nil
-			}
-		}
+		// todo: with daemonized tasks this can be problematic
+		//for _, p := range task.AllPorts() {
+		//	if !IsTCPPortAvailable(p) {
+		//		task.RejectReason = fmt.Sprintf("port not available: %d", p)
+		//		task.Rejected = true
+		//		state.Failure = errors.New(task.RejectReason)
+		//		agent.api.PutTask(task)
+		//		log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
+		//		return nil
+		//	}
+		//}
 
 		log.WithField("last_started", state.StartedAt).WithField("task", task.Id()).Info("[agent] starting")
 		state.StartedAt = time.Now() // put the started at here since time into the queue could be longer.

@@ -232,25 +232,29 @@ func (s *DefaultScheduler) selectPort(t *api.Task) (uint, error) {
 func (s *DefaultScheduler) matchHost(t *api.Task, cand *api.Host) error {
 	counts := t.TaskDefinition.Counts()
 	if cand.CalculatedResources.Memory-counts.Memory < 0 {
-		return fmt.Errorf("host does not have enough memory")
+		return fmt.Errorf("host %s does not have enough memory", cand.Name)
 	}
 
 	if cand.CalculatedResources.CpuUnits-counts.CpuUnits < 0 {
-		return fmt.Errorf("host does not have enough cpu units")
+		return fmt.Errorf("host %s does not have enough cpu units", cand.Name)
 	}
 
 	if cand.CalculatedResources.DiskSpace-counts.DiskUse < 0 {
-		return fmt.Errorf("host does not have enough disk space")
+		return fmt.Errorf("host %s not have enough disk space", cand.Name)
+	}
+
+	if inArray(t.TaskDefinition.Port, cand.ReservedPorts) {
+		return fmt.Errorf("task is using a port reserved by this host %s", cand.Name)
 	}
 
 	for _, c := range t.TaskDefinition.Containers {
 		if inArray(t.Port, cand.ReservedPorts) {
-			return fmt.Errorf("task port is using a reserved port")
+			return fmt.Errorf("task port is using a reserved port on host %s", cand.Name)
 		}
 
 		for _, p := range c.GetExecutor().ReservedPorts() {
 			if inArray(p, cand.ReservedPorts) {
-				return fmt.Errorf("container is using a port reserved by this host")
+				return fmt.Errorf("container is using a port reserved by this host %s", cand.Name)
 			}
 		}
 	}

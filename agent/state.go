@@ -10,6 +10,7 @@ import (
 
 type TaskState struct {
 	StartedAt time.Time `json:"started_at"`
+	Starting  bool      `json:"starting"`
 	Attempts  int       `json:"attempts"`
 	Failure   error     `json:"failure"`
 	Healthy   bool      `json:"healthy"`

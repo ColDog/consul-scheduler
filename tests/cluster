@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+#docker rm -f $( docker ps -a -q )
+
+go install github.com/coldog/sked || exit 1
+env GOOS=linux GOARCH=amd64 go build -o tests/sked_linux-amd64-latest github.com/coldog/sked
+docker build -t sked-testing tests || exit 1
+rm tests/sked_linux-amd64-latest
+
+docker network create --subnet 172.25.0.0/16 sked-net
+
+for i in {1..9}
+do
+    consul_id=sked-${i}
+    addr=172.25.0.1${i}
+    serve=""
+    expect=""
+    ui=""
+    ports=""
+    cmd="agent"
+
+    if [ ${i} = "1" ]; then
+        ui="-ui"
+        ports="-p=8500:8500"
+    fi
+
+    if (( $i < 4 )); then
+        serve="-server"
+    fi
+
+    if (( $i < 4 )); then
+        expect="-bootstrap-expect=3"
+    fi
+
+    if (( $i < 3 )); then
+        cmd="combined"
+    fi
+
+    consul_flags="${serve} -data-dir=/var/lib/consul -node=${consul_id} -advertise=${addr} ${ui} -client=0.0.0.0 ${expect}"
+
+    docker run -d \
+        --net=sked-net \
+        --net-alias=${consul_id} \
+        --ip=${addr} \
+        --name=${consul_id} \
+        ${ports} \
+        -p 823${i}:8231 \
+        sked-testing sked ${cmd} --run-consul="${consul_flags}"
+done
+
+joins=""
+for i in {2..9}
+do
+    joins="${joins} 172.25.0.1${i}"
+done
+
+docker exec -it sked-1 consul join ${joins}

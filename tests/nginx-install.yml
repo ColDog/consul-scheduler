@@ -1,0 +1,29 @@
+clusters:
+  - name: default
+    services:
+      - nginx
+
+services:
+  - name: nginx
+    task_name: nginx
+    task_version: 1
+    min: 3
+    max: 7
+    desired: 7
+
+tasks:
+  - name: nginx
+    version: 1
+    port: 80
+    grace_period: 3m
+    containers:
+      - name: nginx
+        type: bash
+        executor:
+          start: /etc/init.d/nginx start
+          stop: /etc/init.d/nginx stop
+
+        checks:
+          - http: http://127.0.0.1:80
+            interval: 15s
+            timeout: 2s

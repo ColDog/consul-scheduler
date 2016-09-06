@@ -9,17 +9,16 @@ import (
 	"time"
 )
 
+const (
+	executorDownloadTimeout   = 30 * time.Second
+	executorStopTaskTimeout   = 20 * time.Second
+	executorDockerPullTimeout = 15 * time.Minute
+)
+
 type ExecutorBuilder func(c *Container) Executor
 
-var ExecutorBuilders = make(map[string]ExecutorBuilder)
-
-func UseExecutor(name string, b ExecutorBuilder) {
-	ExecutorBuilders[name] = b
-}
-
-func (c *Container) GetExecutor() Executor {
-
-	if c.Type == "docker" {
+var ExecutorBuilders = map[string] ExecutorBuilder {
+	"docker": func(c *Container) Executor {
 		if c.docker != nil {
 			return c.docker
 		}
@@ -33,7 +32,8 @@ func (c *Container) GetExecutor() Executor {
 
 		c.docker = res
 		return res
-	} else if c.Type == "bash" {
+	},
+	"bash": func(c *Container) Executor {
 		if c.bash != nil {
 			return c.bash
 		}
@@ -47,6 +47,16 @@ func (c *Container) GetExecutor() Executor {
 
 		c.bash = res
 		return res
+	},
+}
+
+func UseExecutor(name string, b ExecutorBuilder) {
+	ExecutorBuilders[name] = b
+}
+
+func (c *Container) GetExecutor() Executor {
+	if builder, ok := ExecutorBuilders[c.Type]; ok {
+		return builder(c)
 	}
 
 	return nil
@@ -57,12 +67,11 @@ func (c *Container) GetExecutor() Executor {
 // about the underlying process and therefore cannot intelligently make many decisions about it.
 type BashExecutor struct {
 	Ports            []uint        `json:"ports"`
-	Start            []string      `json:"start"`
-	Stop             []string      `json:"stop"`
 	Env              []string      `json:"env"`
+	Start            string      `json:"start"`
+	Stop             string      `json:"stop"`
 	Artifact         string        `json:"artifact"`
 	DownloadDir      string        `json:"download_dir"`
-	AllowedStartTime time.Duration `json:"allowed_start_time"`
 }
 
 func (bash *BashExecutor) StartTask(t *Task) error {
@@ -71,27 +80,17 @@ func (bash *BashExecutor) StartTask(t *Task) error {
 	}
 
 	if bash.Artifact != "" {
-		err := tools.Exec(bash.Env, 30*time.Second, "curl", "-o", bash.DownloadDir, bash.Artifact)
+		err := tools.Exec(bash.Env, executorDownloadTimeout, "curl", "-o", bash.DownloadDir, bash.Artifact)
 		if err != nil {
 			return err
 		}
 	}
 
-	for _, cmd := range bash.Start {
-		err := tools.Exec(bash.Env, bash.AllowedStartTime, "sh", "-c", cmd)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return tools.Exec(bash.Env, t.TaskDefinition.GracePeriod, "sh", "-c", bash.Start)
 }
 
 func (bash *BashExecutor) StopTask(t *Task) (err error) {
-	for _, cmd := range bash.Start {
-		err = tools.Exec(bash.Env, 20*time.Second, "sh", "-c", cmd)
-	}
-	return err
+	return tools.Exec(bash.Env, executorStopTaskTimeout, "sh", "-c", bash.Stop)
 }
 
 func (bash *BashExecutor) ReservedPorts() []uint {
@@ -112,7 +111,6 @@ type DockerExecutor struct {
 	Volumes          []string      `json:"volumes"`
 	VolumeDriver     string        `json:"volume_driver"`
 	Flags            []string      `json:"flags"`
-	AllowedStartTime time.Duration `json:"allowed_start_time"`
 }
 
 func (docker *DockerExecutor) StartTask(t *Task) error {
@@ -124,7 +122,7 @@ func (docker *DockerExecutor) StartTask(t *Task) error {
 		docker.Ports = append(docker.Ports, fmt.Sprintf("%d:%d", t.Port, p))
 	}
 
-	err := tools.Exec(docker.Env, 3*time.Minute, "docker", "pull", docker.Image)
+	err := tools.Exec(docker.Env, executorDockerPullTimeout, "docker", "pull", docker.Image)
 	if err != nil {
 		return err
 	}
@@ -169,11 +167,11 @@ func (docker *DockerExecutor) StartTask(t *Task) error {
 	}
 
 	main = append(main, "-d", docker.Image)
-	return tools.Exec(docker.Env, docker.AllowedStartTime, "docker", main...)
+	return tools.Exec(docker.Env, t.TaskDefinition.GracePeriod, "docker", main...)
 }
 
 func (docker *DockerExecutor) StopTask(t *Task) error {
-	return tools.Exec(docker.Env, 20*time.Second, "docker", "stop", t.Id())
+	return tools.Exec(docker.Env, executorStopTaskTimeout, "docker", "stop", t.Id())
 }
 
 func (docker *DockerExecutor) ReservedPorts() []uint {

@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-env GOOS=linux GOARCH=amd64 go build -o dist/sked_linux-amd64-latest github.com/coldog/sked
-docker build -t coldog/sked:test .

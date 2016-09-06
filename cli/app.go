@@ -19,7 +19,12 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+	"os/exec"
 )
+
+func init() {
+	log.SetFormatter(&log.TextFormatter{})
+}
 
 func NewApp() *App {
 	app := &App{
@@ -175,6 +180,15 @@ func (app *App) RegisterMaster(c *cli.Context) {
 		Cluster:      c.String("scheduler-cluster"),
 		AppConfig:    app.Config,
 	})
+}
+
+// starts up a consul server
+func (app *App) StartConsul(flags string) {
+	fmt.Printf("starting consul: %s\n", "consul agent " + flags)
+	cmd := exec.Command("sh", "-c", "consul agent " + flags)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Start()
 }
 
 func (app *App) Stats() map[string]interface{} {

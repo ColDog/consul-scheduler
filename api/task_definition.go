@@ -19,7 +19,8 @@ type TaskDefinition struct {
 	Port        uint          `json:"port"`
 	Tags        []string      `json:"tags"`
 	Containers  []*Container  `json:"containers"`
-	GracePeriod time.Duration `json:"grace_period"`
+	SetGracePeriod string     `json:"grace_period"`
+	GracePeriod time.Duration `json:"-"`
 	MaxAttempts int           `json:"max_attempts"`
 }
 
@@ -61,6 +62,8 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 	if err == nil {
 		errors = append(errors, "version already provisioned")
 	}
+
+	task.GracePeriod, _ = time.ParseDuration(task.SetGracePeriod)
 
 	if task.MaxAttempts == 0 {
 		task.MaxAttempts = 10

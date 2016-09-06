@@ -14,8 +14,13 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 		cli.DurationFlag{Name: "agent-sync-interval", Value: 30 * time.Second, Usage: "interval to sync agent"},
 		cli.IntFlag{Name: "agent-runners", Value: 3, Usage: "amount of tasks to start in parallel on the agent"},
 		cli.BoolFlag{Name: "agent-check-health", Usage: "start the health checker"},
+		cli.StringFlag{Name: "run-consul", Usage: "start the consul agent with these flags (not for production use)"},
 	}
 	cmd.Action = func(c *cli.Context) error {
+		if c.String("run-consul") != "" {
+			app.StartConsul(c.String("run-consul"))
+		}
+
 		app.printWelcome("agent")
 
 		app.Api.Start()
@@ -40,8 +45,13 @@ func (app *App) SchedulerCmd() (cmd cli.Command) {
 		cli.DurationFlag{Name: "scheduler-sync-interval", Value: 30 * time.Second, Usage: "interval to sync schedulers"},
 		cli.IntFlag{Name: "scheduler-runners", Usage: "amount of schedulers to run in parallel"},
 		cli.StringFlag{Name: "scheduler-cluster", Usage: "the cluster to monitor for scheduling"},
+		cli.StringFlag{Name: "run-consul", Usage: "start the consul agent with these flags (not for production use)"},
 	}
 	cmd.Action = func(c *cli.Context) error {
+		if c.String("run-consul") != "" {
+			app.StartConsul(c.String("run-consul"))
+		}
+
 		app.printWelcome("scheduler")
 
 		app.Api.Start()
@@ -69,8 +79,13 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 		cli.IntFlag{Name: "scheduler-runners", Usage: "amount of schedulers to run in parallel"},
 		cli.StringFlag{Name: "scheduler-cluster", Usage: "the cluster to monitor for scheduling"},
 		cli.BoolFlag{Name: "agent-check-health", Usage: "start the health checker"},
+		cli.StringFlag{Name: "run-consul", Usage: "start the consul agent with these flags (not for production use)"},
 	}
 	cmd.Action = func(c *cli.Context) error {
+		if c.String("run-consul") != "" {
+			app.StartConsul(c.String("run-consul"))
+		}
+
 		app.printWelcome("combined")
 
 		app.Api.Start()
