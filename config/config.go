@@ -7,8 +7,10 @@ import (
 type Backend string
 
 const (
-	CONSUL Backend = "consul"
-	ETCD   Backend = "etcd"
+	CONSUL   Backend = "consul"
+	ETCD     Backend = "etcd"
+	MEMORY   Backend = "memory"
+	DYNAMODB Backend = "dynamodb"
 )
 
 func NewConfig() *Config {

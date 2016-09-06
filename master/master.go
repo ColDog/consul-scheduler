@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"github.com/coldog/sked/tools"
 )
 
 type scheduleReq struct {
@@ -34,7 +35,7 @@ func NewMaster(a api.SchedulerApi, conf *Config) *Master {
 
 type Config struct {
 	Runners      int
-	SyncInterval time.Duration
+	SyncInterval tools.Duration
 	Cluster      string
 	AppConfig    *config.Config
 }
@@ -255,6 +256,10 @@ func (s *Master) Run() {
 
 	if s.Config.Cluster == "" {
 		s.Config.Cluster = "default"
+	}
+
+	if s.Config.SyncInterval.IsNone() {
+		s.Config.SyncInterval.Duration = 30 * time.Second
 	}
 
 	sked := NewDefaultScheduler(s.api)

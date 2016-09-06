@@ -14,11 +14,12 @@ import (
 	"runtime"
 	"sync"
 	"time"
+	"github.com/coldog/sked/tools"
 )
 
 type AgentConfig struct {
 	Runners      int            `json:"runners"`
-	SyncInterval time.Duration  `json:"sync_interval"`
+	SyncInterval tools.Duration `json:"sync_interval"`
 	AppConfig    *config.Config `json:"app_config"`
 	Resources    *api.Resources `json:"resources"`
 }
@@ -47,8 +48,8 @@ func NewAgent(a api.SchedulerApi, conf *AgentConfig) *Agent {
 		conf.Runners = 3
 	}
 
-	if conf.SyncInterval.Nanoseconds() == int64(0) {
-		conf.SyncInterval = 30 * time.Second
+	if conf.SyncInterval.IsNone() {
+		conf.SyncInterval.Duration = 30 * time.Second
 	}
 
 	m, _ := mem.VirtualMemory()
@@ -90,7 +91,6 @@ type Agent struct {
 	LastState *api.Host           `json:"last_state"`
 	TaskState *AgentState         `json:"task_state"`
 	Config    *AgentConfig        `json:"config"`
-	Monitors  map[string]*Monitor `json:"monitors"`
 	queue     chan action
 	stopCh    chan struct{}
 	readyCh   chan struct{}

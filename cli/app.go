@@ -69,6 +69,7 @@ func (app *App) setup() {
 
 	app.cli.Flags = []cli.Flag{
 		cli.StringFlag{Name: "log-level, l", Value: "debug", EnvVar: "LOG_LEVEL", Usage: "log level [debug, info, warn, error]"},
+		cli.StringFlag{Name: "backend", Value: "consul", EnvVar: "BACKEND", Usage: "storage backend to use"},
 		cli.StringFlag{Name: "consul-api", Value: "", EnvVar: "CONSUL_API", Usage: "consul api"},
 		cli.StringFlag{Name: "consul-dc", Value: "", EnvVar: "CONSUL_DC", Usage: "consul dc"},
 		cli.StringFlag{Name: "consul-token", Value: "", EnvVar: "CONSUL_TOKEN", Usage: "consul token"},
@@ -81,6 +82,7 @@ func (app *App) setup() {
 		app.Config.Addr = c.GlobalString("bind")
 		app.Config.Advertise = c.GlobalString("advertise")
 		app.Config.LogLevel = c.GlobalString("log-level")
+		app.Config.Backend = c.GlobalString("backend")
 
 		if c.GlobalString("consul-api") != "" {
 			app.Config.ConsulConfig.Address = c.GlobalString("consul-api")
@@ -99,8 +101,10 @@ func (app *App) setup() {
 
 		if app.Config.Backend == config.CONSUL {
 			app.Api = api.NewConsulApi(store, app.Config.ConsulConfig)
+		} else if app.Config.Backend == config.MEMORY {
+			app.Api = api.NewMockApi()
 		} else {
-			log.Fatal("no other backends other than consul are supported at the moment.")
+			log.Fatalf("backend %s not supported", app.Config.Backend)
 		}
 
 		switch app.Config.LogLevel {

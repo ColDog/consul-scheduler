@@ -45,10 +45,10 @@ checking and service discovery.
 ## Quickstart
 
 1. Download Consul: https://www.consul.io/intro/getting-started/install.html
-3. Start Consul: `consul agent -dev -ui -bind=127.0.0.1`
+3. Start Consul: `consul agent -dev -ui -bind=127.0.0.1` (development mode means we don't need a cluster)
 3. Download Sked: https://github.com/ColDog/sked/releases
 4. Run the binary: `./sked combined` (start in combined mode)
-5. Watch the output and see it schedule the tasks!
+5. Watch the output and see it schedule tasks!
 
 ## Rationale
 
@@ -196,7 +196,11 @@ _Until a 1.0 release is reached, the json format could change_
 
 Configuration can be added to the cluster by using the CLI provided with the main binary. There is only one main command
 `apply` which can take a yml file with the following setup. Follow the json structure for each object below in the YAML
-setup.
+setup. You can also check out the examples directory for some examples for bringing up a cluster.
+
+You can insert directly your objects into the storage backend, however you will miss out on some key validations that may
+break your applications. For example, the 'grace_period' field is set to a sensible default by the validations but if left
+blank will only give your application a 0s startup period. Additionally, due to the way that
 
 ```yaml
 clusters:

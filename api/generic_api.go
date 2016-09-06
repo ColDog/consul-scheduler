@@ -90,12 +90,10 @@ type SchedulerApi interface {
 	DelHost(id string) error
 
 	// API Task Operations:
-	//
 	// storing tasks:
 	// => state/tasks/<task_id>                      # stores a version of the task by cluster and service
 	// => state/hosts/<host_id>/<task_id>            # stores a version of the task by host
 	// => state/health/<task_id>                     # marks the task as being healthy or not (unnecessary in consul)
-	//
 	// Task queries can be executed with a set of options in the TaskQueryOpts, currently
 	// tasks can only be queried by using the ByHost or ByService and ByCluster parameters.
 	ListTasks(opts *TaskQueryOpts) ([]*Task, error)

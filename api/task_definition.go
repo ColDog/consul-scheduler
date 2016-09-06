@@ -19,8 +19,7 @@ type TaskDefinition struct {
 	Port        uint          `json:"port"`
 	Tags        []string      `json:"tags"`
 	Containers  []*Container  `json:"containers"`
-	SetGracePeriod string     `json:"grace_period"`
-	GracePeriod time.Duration `json:"grace_period_raw"`
+	GracePeriod tools.Duration `json:"grace_period"`
 	MaxAttempts int           `json:"max_attempts"`
 }
 
@@ -63,28 +62,24 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 		errors = append(errors, "version already provisioned")
 	}
 
-	task.GracePeriod, _ = time.ParseDuration(task.SetGracePeriod)
-
 	if task.MaxAttempts == 0 {
 		task.MaxAttempts = 10
 	}
 
-	if task.GracePeriod == 0 {
-		task.GracePeriod = 60 * time.Second
+	if task.GracePeriod.IsNone() {
+		task.GracePeriod.Duration = 60 * time.Second
 	}
 
 	for _, c := range task.Containers {
 		for i, check := range c.Checks {
-			check.parse()
-
 			check.ID = fmt.Sprintf("%s_%s-%s-%d", task.Name, c.Name, check.Name, i)
 
-			if check.Interval == 0 {
-				check.Interval = 30 * time.Second
+			if check.Interval.IsNone() {
+				check.Interval.Duration = 30 * time.Second
 			}
 
 			if check.Timeout == 0 {
-				check.Timeout = 5 * time.Second
+				check.Timeout.Duration = 5 * time.Second
 			}
 
 			if check.HTTP == "" && check.TCP == "" && check.Script == "" && check.Docker == "" {
@@ -143,18 +138,9 @@ type Check struct {
 	HTTP        string        `json:"http"`
 	TCP         string        `json:"tcp"`
 	Script      string        `json:"script"`
-	Interval    time.Duration `json:"interval_raw"`
-	Timeout     time.Duration `json:"timeout_raw"`
-	SetTimeout  string        `json:"interval"`
-	SetInterval string        `json:"timeout"`
+	Interval    tools.Duration `json:"interval"`
+	Timeout     tools.Duration `json:"timeout"`
 	TTL         string        `json:"ttl"`
 	Docker      string        `json:"docker"`
 }
 
-func (c *Check) parse() {
-	durt, _ := time.ParseDuration(c.SetTimeout)
-	c.Timeout = durt
-
-	duri, _ := time.ParseDuration(c.SetInterval)
-	c.Interval = duri
-}

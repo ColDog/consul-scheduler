@@ -25,6 +25,7 @@ type MockApi struct {
 	tasks           map[string]*Task
 	hosts           map[string]*Host
 	locks           map[string]bool
+	health          map[string]string
 	listeners       map[string]struct {
 		on string
 		ch chan string
@@ -353,5 +354,8 @@ func (a *MockApi) emit(evt string) {
 }
 
 func (a *MockApi) PutTaskHealth(taskId, status string) error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	a.health[taskId] = status
 	return nil
 }
