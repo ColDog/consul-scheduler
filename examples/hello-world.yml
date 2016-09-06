@@ -6,7 +6,7 @@ clusters:
 services:
   - name: helloworld
     task_name: helloworld
-    task_version: 2
+    task_version: 4
     min: 3
     max: 7
     desired: 7
@@ -20,12 +20,8 @@ services:
 
 tasks:
   - name: helloworld
-    version: 2
-    tags:
-      - urlprefix-/helloworld
-
+    version: 4
     provide_port: true
-
     containers:
       - name: helloworld
         type: docker

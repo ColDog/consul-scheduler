@@ -163,7 +163,15 @@ func (agent *Agent) PublishState() {
 			max = t.Task.Port + 1
 		}
 
+		if t.Task.Port != 0 {
+			reserved = append(reserved, t.Task.Port)
+		}
+
 		for _, p := range t.Task.TaskDefinition.AllPorts() {
+			if p == 0 {
+				continue
+			}
+
 			reserved = append(reserved, p)
 			if p > max {
 				max = t.Task.Port + 1
