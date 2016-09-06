@@ -38,6 +38,27 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	return cmd
 }
 
+func (app *App) HealthAgentCmd() (cmd cli.Command) {
+	cmd.Name = "health-agent"
+	cmd.Usage = "start the health service"
+	cmd.Action = func(c *cli.Context) error {
+		app.printWelcome("health-agent")
+
+		app.Api.Start()
+
+		app.RegisterHealthAgent(c)
+		app.AtExit(func() {
+			app.Health.Stop()
+		})
+
+		app.Health.RegisterRoutes()
+		go app.Serve()
+		app.Health.Run()
+		return nil
+	}
+	return cmd
+}
+
 func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Name = "scheduler"
 	cmd.Usage = "start the scheduler service"

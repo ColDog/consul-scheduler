@@ -524,3 +524,7 @@ func (a *ConsulApi) Debug() {
 		fmt.Printf("-> %s\n", kv.Key)
 	}
 }
+
+func (a *ConsulApi) PutTaskHealth(taskId, status string) error {
+	return nil
+}

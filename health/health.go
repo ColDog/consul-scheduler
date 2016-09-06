@@ -2,10 +2,12 @@
 package health
 
 import (
-	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
+
+	log "github.com/Sirupsen/logrus"
+
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -107,8 +109,7 @@ func (m *Monitor) Run() {
 
 			log.WithField("error", m.LastFailure).WithField("status", m.Status).Infof("[monitor:%s] checked", m.Check.ID)
 
-
-			// todo: put health to backend here
+			m.api.PutTaskHealth(m.Task.Id(), m.Status)
 			if err != nil {
 				log.WithField("error", err).Warnf("[monitor:%s] errord while checking in", m.Check.ID)
 			}

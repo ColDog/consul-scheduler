@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 	"os/exec"
+	"github.com/coldog/sked/health"
 )
 
 func init() {
@@ -43,6 +44,7 @@ type App struct {
 	Config *config.Config
 	Agent  *agent.Agent
 	Master *master.Master
+	Health *health.HealthAgent
 	atExit func()
 }
 
@@ -164,12 +166,17 @@ func (app *App) RegisterAgent(c *cli.Context) {
 		Runners:      c.Int("agent-runners"),
 		SyncInterval: c.Duration("agent-sync-interval"),
 		AppConfig:    app.Config,
-		CheckHealth:  c.Bool("agent-check-health"),
 		Resources: &api.Resources{
 			Memory:    c.Int64("memory"),
 			DiskSpace: c.Int64("disk-space"),
 			CpuUnits:  c.Int64("cpu-units"),
 		},
+	})
+}
+
+func (app *App) RegisterHealthAgent(c *cli.Context) {
+	app.Health = health.NewHealthAgent(app.Api, &health.Config{
+		AppConfig:    app.Config,
 	})
 }
 
