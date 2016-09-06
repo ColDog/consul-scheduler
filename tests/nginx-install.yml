@@ -8,8 +8,8 @@ services:
     task_name: nginx
     task_version: 1
     min: 3
-    max: 7
-    desired: 7
+    max: 5
+    desired: 5
 
 tasks:
   - name: nginx

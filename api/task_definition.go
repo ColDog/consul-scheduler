@@ -20,7 +20,7 @@ type TaskDefinition struct {
 	Tags        []string      `json:"tags"`
 	Containers  []*Container  `json:"containers"`
 	SetGracePeriod string     `json:"grace_period"`
-	GracePeriod time.Duration `json:"grace_period_time"`
+	GracePeriod time.Duration `json:"grace_period_raw"`
 	MaxAttempts int           `json:"max_attempts"`
 }
 

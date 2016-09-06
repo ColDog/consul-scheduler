@@ -248,19 +248,18 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 			return nil
 		}
 
-		// check if there is a port conflict. This actually attempts to bind to the port which gives us a better
-		// picture overall.
-		// todo: with daemonized tasks this can be problematic
-		//for _, p := range task.AllPorts() {
-		//	if !IsTCPPortAvailable(p) {
-		//		task.RejectReason = fmt.Sprintf("port not available: %d", p)
-		//		task.Rejected = true
-		//		state.Failure = errors.New(task.RejectReason)
-		//		agent.api.PutTask(task)
-		//		log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
-		//		return nil
-		//	}
-		//}
+		// Check if there is a port conflict. This actually attempts to bind to the port which gives us a better
+		// picture overall. This can be problematic if the task is not shutdown correctly
+		for _, p := range task.AllPorts() {
+			if !IsTCPPortAvailable(p) {
+				task.RejectReason = fmt.Sprintf("port not available: %d", p)
+				task.Rejected = true
+				state.Failure = errors.New(task.RejectReason)
+				agent.api.PutTask(task)
+				log.WithField("task", task.Id()).WithField("port", p).Warn("[agent] port not available")
+				return nil
+			}
+		}
 
 		log.WithField("last_started", state.StartedAt).WithField("task", task.Id()).Info("[agent] starting")
 		state.StartedAt = time.Now() // put the started at here since time into the queue could be longer.
