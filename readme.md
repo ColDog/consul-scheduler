@@ -39,7 +39,6 @@ checking and service discovery.
     3. [Task Definitions](#task-definitions)
         1. [Docker Executor](#docker-executor)
         2. [Bash Executor](#bash-executor)
-6. [Deploying](#deploying)
 7. [Roadmap](#roadmap)
 
 ## Quickstart
@@ -48,7 +47,9 @@ checking and service discovery.
 3. Start Consul: `consul agent -dev -ui -bind=127.0.0.1` (development mode means we don't need a cluster)
 3. Download Sked: https://github.com/ColDog/sked/releases
 4. Run the binary: `./sked combined` (start in combined mode)
-5. Watch the output and see it schedule tasks!
+6. Copy an example from the examples directory to your local machine
+7. Run `./sked apply -f <example_file>.yml`
+8. Watch it schedule the tasks!
 
 ## Rationale
 
@@ -200,7 +201,7 @@ setup. You can also check out the examples directory for some examples for bring
 
 You can insert directly your objects into the storage backend, however you will miss out on some key validations that may
 break your applications. For example, the 'grace_period' field is set to a sensible default by the validations but if left
-blank will only give your application a 0s startup period. Additionally, due to the way that
+blank will only give your application a 0s startup period.
 
 ```yaml
 clusters:
@@ -369,10 +370,6 @@ Tasks are serialized with the full task definition.
 }
 ```
 
-## Deploying
-
-To deploy the scheduler, download a release on each machine.
-
 ## Roadmap
 
 - [x] examples with basic tests
@@ -381,4 +378,5 @@ To deploy the scheduler, download a release on each machine.
 - [ ] etcd backend
 - [ ] full test coverage
 - [ ] full api documentation
+- [ ] dynamodb backend
 - [ ] scheduling constraints
