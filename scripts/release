@@ -11,8 +11,6 @@ echo releasing ${version} with ${message}
 
 set -e
 
-go install ${repo}
-
 source .env
 
 if [ ${version} = "v" ]; then
@@ -25,7 +23,9 @@ if git tag -l | grep -Fxq ${version}; then
     exit 1
 fi
 
-> config/version.go && printf "package config\nconst VERSION = \"${version}\"\n" >> version.go
+> config/version.go && printf "package config\nconst VERSION = \"${version}\"\n" >> config/version.go
+
+go install ${repo}
 
 # handle git stuff
 git add -A && git commit -m "${message}"
