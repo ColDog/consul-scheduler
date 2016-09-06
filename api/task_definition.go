@@ -20,7 +20,7 @@ type TaskDefinition struct {
 	Tags        []string      `json:"tags"`
 	Containers  []*Container  `json:"containers"`
 	SetGracePeriod string     `json:"grace_period"`
-	GracePeriod time.Duration `json:"-"`
+	GracePeriod time.Duration `json:"grace_period_time"`
 	MaxAttempts int           `json:"max_attempts"`
 }
 
@@ -143,8 +143,8 @@ type Check struct {
 	HTTP        string        `json:"http"`
 	TCP         string        `json:"tcp"`
 	Script      string        `json:"script"`
-	Interval    time.Duration `json:"-"`
-	Timeout     time.Duration `json:"-"`
+	Interval    time.Duration `json:"interval_raw"`
+	Timeout     time.Duration `json:"timeout_raw"`
 	SetTimeout  string        `json:"interval"`
 	SetInterval string        `json:"timeout"`
 	TTL         string        `json:"ttl"`

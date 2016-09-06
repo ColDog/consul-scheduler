@@ -176,11 +176,13 @@ func (a *ConsulApi) Register(t *Task) error {
 				consulCheck.Script = check.Docker
 			}
 
+			fmt.Printf("checks: %+v\n", consulCheck)
 			checks = append(checks, consulCheck)
 		}
 	}
 
-	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("host", t.Host).Debug("registering task")
+
+	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("checks", len(checks)).WithField("host", t.Host).Debug("registering task")
 
 	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
 		ID:      t.Id(),

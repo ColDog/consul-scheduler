@@ -38,3 +38,4 @@ tasks:
         checks:
           - http: http://127.0.0.1:$PROVIDED_PORT
             interval: 10s
+            timeout: 5s

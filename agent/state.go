@@ -87,5 +87,13 @@ func (a *AgentState) load() error {
 		return err
 	}
 
-	return json.Unmarshal(data, &a.State)
+	err = json.Unmarshal(data, &a.State)
+
+	// clean up the state of certain attributes that should not be persisted between sessions
+	for _, t := range a.State {
+		t.Starting = false
+		t.Healthy = false
+	}
+
+	return err
 }
