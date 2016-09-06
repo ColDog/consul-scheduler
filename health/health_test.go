@@ -1,4 +1,4 @@
-package agent
+package health
 
 import (
 	"github.com/coldog/sked/api"

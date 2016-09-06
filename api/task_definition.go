@@ -157,7 +157,4 @@ func (c *Check) parse() {
 
 	duri, _ := time.ParseDuration(c.SetInterval)
 	c.Interval = duri
-
-	c.SetTimeout = fmt.Sprintf("%v", c.Timeout)
-	c.SetInterval = fmt.Sprintf("%v", c.Interval)
 }

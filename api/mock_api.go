@@ -351,7 +351,3 @@ func (a *MockApi) emit(evt string) {
 		}
 	}
 }
-
-func (a *MockApi) PutTaskHealth(taskId, status string) error {
-	return nil
-}

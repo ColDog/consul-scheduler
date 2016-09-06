@@ -20,7 +20,6 @@ type AgentConfig struct {
 	Runners      int            `json:"runners"`
 	SyncInterval time.Duration  `json:"sync_interval"`
 	AppConfig    *config.Config `json:"app_config"`
-	CheckHealth  bool           `json:"check_health"`
 	Resources    *api.Resources `json:"resources"`
 }
 
@@ -358,10 +357,6 @@ func (agent *Agent) Run() {
 		go agent.runner(i)
 	}
 
-	if agent.Config.CheckHealth {
-		go agent.monitors()
-	}
-
 	listenState := make(chan string)
 	agent.api.Subscribe("agent-state", "state::state/hosts/"+agent.Host, listenState)
 	defer agent.api.UnSubscribe("agent-state")
@@ -443,42 +438,6 @@ func (agent *Agent) runner(id int) {
 
 		case <-agent.stopCh:
 			log.Warnf("[agent-runner-%d] exiting", id)
-			return
-		}
-	}
-}
-
-// health checking process monitor.
-func (agent *Agent) monitors() {
-	for {
-		select {
-		case <-time.After(30 * time.Second):
-
-			// ensure a monitor is running for all
-			agent.TaskState.each(func(ts *TaskState) error {
-				for _, c := range ts.Task.TaskDefinition.Containers {
-					for _, check := range c.Checks {
-						if _, ok := agent.Monitors[check.ID]; !ok {
-							agent.Monitors[check.ID] = NewMonitor(agent.api, check, ts.Task)
-						}
-					}
-				}
-				return nil
-			})
-
-			// garbage collect old monitors
-			for key, m := range agent.Monitors {
-				if !agent.TaskState.has(key) {
-					m.Stop()
-					delete(agent.Monitors, key)
-				}
-			}
-
-		case <-agent.stopCh:
-			log.Warn("[agent-monitor] exiting")
-			for _, m := range agent.Monitors {
-				m.Stop()
-			}
 			return
 		}
 	}

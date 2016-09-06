@@ -1,4 +1,5 @@
-package agent
+// This is an experimental health checking agent.
+package health
 
 import (
 	"fmt"
@@ -106,7 +107,8 @@ func (m *Monitor) Run() {
 
 			log.WithField("error", m.LastFailure).WithField("status", m.Status).Infof("[monitor:%s] checked", m.Check.ID)
 
-			err = m.api.PutTaskHealth(m.Task.Id(), m.Status)
+
+			// todo: put health to backend here
 			if err != nil {
 				log.WithField("error", err).Warnf("[monitor:%s] errord while checking in", m.Check.ID)
 			}
