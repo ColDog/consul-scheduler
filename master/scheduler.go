@@ -252,9 +252,12 @@ func (s *DefaultScheduler) matchHost(t *api.Task, cand *api.Host) error {
 			return fmt.Errorf("task port is using a reserved port on host %s", cand.Name)
 		}
 
-		for _, p := range c.GetExecutor().ReservedPorts() {
-			if inArray(p, cand.ReservedPorts) {
-				return fmt.Errorf("container is using a port reserved by this host %s", cand.Name)
+		exec := c.GetExecutor()
+		if exec != nil {
+			for _, p := range exec.ReservedPorts() {
+				if inArray(p, cand.ReservedPorts) {
+					return fmt.Errorf("container is using a port reserved by this host %s", cand.Name)
+				}
 			}
 		}
 	}

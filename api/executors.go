@@ -1,9 +1,12 @@
 package api
 
 import (
+	"github.com/coldog/sked/tools"
+
+	log "github.com/Sirupsen/logrus"
+
 	"encoding/json"
 	"fmt"
-	"github.com/coldog/sked/tools"
 	"strconv"
 	"strings"
 	"time"
@@ -26,7 +29,7 @@ var ExecutorBuilders = map[string] ExecutorBuilder {
 		res := &DockerExecutor{}
 		err := json.Unmarshal(c.Executor, res)
 		if err != nil {
-			fmt.Printf("json err: %v\n", err)
+			log.WithField("error", err).WithField("raw", string(c.Executor)).Warn("[docker-executor] cannot unmarshal executor")
 			return nil
 		}
 
@@ -41,7 +44,7 @@ var ExecutorBuilders = map[string] ExecutorBuilder {
 		res := &BashExecutor{}
 		err := json.Unmarshal(c.Executor, res)
 		if err != nil {
-			fmt.Printf("json err: %v\n", err)
+			log.WithField("error", err).WithField("raw", string(c.Executor)).Warn("[bash-executor] cannot unmarshal executor")
 			return nil
 		}
 

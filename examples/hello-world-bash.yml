@@ -29,10 +29,8 @@ tasks:
         memory: 1000
         cpu_units: 300
         executor:
-          start:
-            - echo 'start'
-          stop:
-            - echo 'stopping'
+          start: echo 'start'
+          stop: echo 'stopping'
 
   - name: bashing
     version: 2
@@ -42,10 +40,8 @@ tasks:
         memory: 10
         cpu_units: 10
         executor:
-          start:
-            - echo 'start'
-          stop:
-            - echo 'stopping'
+          start: echo 'start'
+          stop: echo 'stopping'
         checks:
           - name: noopcheck1
             interval: 10s
@@ -56,10 +52,8 @@ tasks:
         memory: 10
         cpu_units: 10
         executor:
-          start:
-            - echo 'start'
-          stop:
-            - echo 'stopping'
+          start: echo 'start'
+          stop: echo 'stopping'
         checks:
           - name: noopcheck2
             interval: 10s

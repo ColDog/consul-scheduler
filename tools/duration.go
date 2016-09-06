@@ -5,6 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 )
+
+type DurationInterface interface {
+	Nanoseconds() int64
+}
+
 // taken from: https://github.com/golang/go/issues/4712#event-277683197
 // since this is on the unplanned milestone currently, create my own method.
 type Duration struct {

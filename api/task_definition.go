@@ -78,7 +78,7 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 				check.Interval.Duration = 30 * time.Second
 			}
 
-			if check.Timeout == 0 {
+			if check.Timeout.IsNone() {
 				check.Timeout.Duration = 5 * time.Second
 			}
 

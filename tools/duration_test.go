@@ -34,7 +34,7 @@ func TestDuration(t *testing.T) {
 	decode(data, ex)
 
 	ex2 := &example{}
-	decode(`{"Time": "20s"}`, ex2)
+	decode([]byte(`{"Time": "20s"}`), ex2)
 	Equals(t, 20 * time.Second, ex2.Time.Duration)
 
 	fmt.Printf("%+v\n", ex)

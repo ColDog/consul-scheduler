@@ -18,7 +18,7 @@ func (e *ExecErr) Error() string {
 	return fmt.Sprintf("%s: %s", e.Err.Error(), e.Output)
 }
 
-func Exec(env []string, timeout time.Duration, main string, cmds ...string) error {
+func Exec(env []string, timeout DurationInterface, main string, cmds ...string) error {
 	cmdName := main + " " + strings.Join(cmds, " ")
 	log.WithField("cmd", cmdName).WithField("env", env).Debug("executing")
 
@@ -31,7 +31,7 @@ func Exec(env []string, timeout time.Duration, main string, cmds ...string) erro
 		select {
 		case <-done:
 			return
-		case <-time.After(timeout):
+		case <-time.After(time.Duration(timeout.Nanoseconds())):
 			if cmd.Process != nil {
 				cmd.Process.Kill()
 			}

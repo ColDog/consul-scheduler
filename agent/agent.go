@@ -233,7 +233,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 	if task.Scheduled && !task.Rejected && !state.Starting && ((!healthy && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
 		// leave some time in between restarting tasks, ie they may take a while before the health checks
 		// begin passing.
-		if state.StartedAt.Add(task.TaskDefinition.GracePeriod).After(time.Now()) {
+		if state.StartedAt.Add(task.TaskDefinition.GracePeriod.Duration).After(time.Now()) {
 			log.Debug("[agent] skipping start, too short an interval")
 			return nil
 		}
@@ -383,7 +383,7 @@ func (agent *Agent) Run() {
 			agent.sync()
 			agent.PublishState()
 
-		case <-time.After(agent.Config.SyncInterval):
+		case <-time.After(agent.Config.SyncInterval.Duration):
 			log.Debug("[agent] sync after timeout")
 			agent.sync()
 			agent.PublishState()

@@ -94,6 +94,8 @@ func (h *HealthAgent) sync() error {
 			delete(h.State, key)
 		}
 	}
+
+	return nil
 }
 
 func (h *HealthAgent) Run() {

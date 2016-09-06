@@ -68,7 +68,7 @@ func SampleContainer() *Container {
 		Memory:   100000,
 		CpuUnits: 100000,
 		DiskUse:  100000,
-		Executor: []byte(`{"start": ["echo start"], "stop": ["echo stop"]}`),
+		Executor: []byte(`{"start": "echo start", "stop": "echo stop"}`),
 	}
 }
 
@@ -98,19 +98,19 @@ func SampleHost() *Host {
 	return &Host{
 		Name: "testinghost",
 		CalculatedResources: &Resources{
-			CpuUnits:  10000000,
-			Memory:    100000,
-			DiskSpace: 1000000,
+			CpuUnits:  1000000000,
+			Memory:    1000000000,
+			DiskSpace: 1000000000,
 		},
 		ObservedResources: &Resources{
-			CpuUnits:  10000000,
-			Memory:    100000,
-			DiskSpace: 1000000,
+			CpuUnits:  1000000000,
+			Memory:    1000000000,
+			DiskSpace: 1000000000,
 		},
 		BaseResources: &Resources{
-			CpuUnits:  10000000,
-			Memory:    100000,
-			DiskSpace: 1000000,
+			CpuUnits:  1000000000,
+			Memory:    1000000000,
+			DiskSpace: 1000000000,
 		},
 		ReservedPorts: []uint{1000, 1001, 1002, 1003, 1004, 1005, 1006},
 	}

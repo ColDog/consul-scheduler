@@ -7,8 +7,8 @@ import (
 
 func TestExecutors_Bash(t *testing.T) {
 	b := BashExecutor{
-		Start: []string{"echo hello"},
-		Stop:  []string{"echo stop"},
+		Start: "echo 'hello'",
+		Stop:  "echo 'stop'",
 	}
 
 	task := SampleTask()

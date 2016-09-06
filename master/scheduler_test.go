@@ -67,6 +67,9 @@ func TestScheduler_ConcurrentScheduling(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		h := api.SampleHost()
 		h.Name = fmt.Sprintf("local-%d", i)
+		h.CalculatedResources.Memory = 1000000000
+		h.BaseResources.Memory = 1000000000
+		h.ObservedResources.Memory = 1000000000
 		err := a.PutHost(h)
 		tools.Ok(t, err)
 	}

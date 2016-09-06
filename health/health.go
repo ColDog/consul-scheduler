@@ -25,7 +25,7 @@ var checkers = map[string]func(check *api.Check, t *api.Task) error{
 }
 
 func checkHTTP(c *api.Check, t *api.Task) error {
-	httpClient := &http.Client{Timeout: c.Timeout}
+	httpClient := &http.Client{Timeout: c.Timeout.Duration}
 	resp, err := httpClient.Get(c.HTTP)
 
 	if err != nil {
@@ -87,7 +87,7 @@ func (m *Monitor) Run() {
 	for {
 		select {
 
-		case <-time.After(m.Check.Interval):
+		case <-time.After(m.Check.Interval.Duration):
 
 			err := checkers[m.Type](m.Check, m.Task)
 

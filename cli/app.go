@@ -21,6 +21,7 @@ import (
 	"time"
 	"os/exec"
 	"github.com/coldog/sked/health"
+	"github.com/coldog/sked/tools"
 )
 
 func init() {
@@ -82,7 +83,7 @@ func (app *App) setup() {
 		app.Config.Addr = c.GlobalString("bind")
 		app.Config.Advertise = c.GlobalString("advertise")
 		app.Config.LogLevel = c.GlobalString("log-level")
-		app.Config.Backend = c.GlobalString("backend")
+		app.Config.Backend = config.Backend(c.GlobalString("backend"))
 
 		if c.GlobalString("consul-api") != "" {
 			app.Config.ConsulConfig.Address = c.GlobalString("consul-api")
@@ -168,7 +169,7 @@ func (app *App) AtExit(e func()) {
 func (app *App) RegisterAgent(c *cli.Context) {
 	app.Agent = agent.NewAgent(app.Api, &agent.AgentConfig{
 		Runners:      c.Int("agent-runners"),
-		SyncInterval: c.Duration("agent-sync-interval"),
+		SyncInterval: tools.Duration{c.Duration("agent-sync-interval")},
 		AppConfig:    app.Config,
 		Resources: &api.Resources{
 			Memory:    c.Int64("memory"),
@@ -186,7 +187,7 @@ func (app *App) RegisterHealthAgent(c *cli.Context) {
 
 func (app *App) RegisterMaster(c *cli.Context) {
 	app.Master = master.NewMaster(app.Api, &master.Config{
-		SyncInterval: c.Duration("scheduler-sync-interval"),
+		SyncInterval: tools.Duration{c.Duration("scheduler-sync-interval")},
 		Runners:      c.Int("scheduler-runners"),
 		Cluster:      c.String("scheduler-cluster"),
 		AppConfig:    app.Config,

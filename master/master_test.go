@@ -16,7 +16,7 @@ func TestMaster_WillSchedule(t *testing.T) {
 
 		go func() {
 			time.Sleep(1 * time.Second)
-			m.dispatch()
+			m.dispatchAll()
 			time.Sleep(1 * time.Second)
 			m.Stop()
 		}()
