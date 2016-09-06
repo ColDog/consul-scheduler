@@ -81,7 +81,7 @@ func (s *Master) monitor() {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
 			}
 
-		case <-time.After(20 * time.Second):
+		case <-time.After(60 * time.Second):
 			err := s.dispatchAll()
 			if err != nil {
 				log.WithField("error", err).Warn("[master] failed to dispatch")
@@ -101,19 +101,14 @@ func (s *Master) dispatchAll() error {
 	}
 
 	for _, serviceName := range cluster.Services {
-		s.dispatchService(serviceName)
+		service, err := s.api.GetService(serviceName)
+		if err != nil {
+			return err
+		}
+
+		s.queue.Push(scheduleReq{cluster.Name, service.Name})
 	}
 
-	return nil
-}
-
-func (s *Master) dispatchService(serviceName string) error {
-	service, err := s.api.GetService(serviceName)
-	if err != nil {
-		return err
-	}
-
-	s.queue.Push(scheduleReq{s.Config.Cluster, service.Name})
 	return nil
 }
 
@@ -149,8 +144,9 @@ func (s *Master) worker(i int) {
 }
 
 func (s *Master) schedule(clusterName, serviceName string, i int) {
+	// use a random sleep to allow for locking to work effectively
 	rand.Seed(time.Now().Unix())
-	time.Sleep(time.Duration(100+rand.Intn(200)) * time.Millisecond)
+	time.Sleep(time.Duration(100+rand.Intn(500)) * time.Millisecond)
 
 	lock, err := s.locks.Lock(serviceName)
 	if err != nil {

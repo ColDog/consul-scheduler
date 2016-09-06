@@ -164,9 +164,9 @@ func (a *ConsulApi) Register(t *Task) error {
 	for _, cont := range t.TaskDefinition.Containers {
 		for _, check := range cont.Checks {
 			consulCheck := &api.AgentServiceCheck{
-				Interval: fmt.Sprintf("%ds", check.Interval.Seconds()),
+				Interval: fmt.Sprintf("%vs", check.Interval.Seconds()),
 				Script:   check.Script,
-				Timeout:  fmt.Sprintf("%ds", check.Timeout.Seconds()),
+				Timeout:  fmt.Sprintf("%vs", check.Timeout.Seconds()),
 				TCP:      strings.Replace(check.TCP, "$PROVIDED_PORT", sp, 1),
 				HTTP:     strings.Replace(check.HTTP, "$PROVIDED_PORT", sp, 1),
 			}

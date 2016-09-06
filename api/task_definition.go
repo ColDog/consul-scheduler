@@ -107,7 +107,6 @@ type Container struct {
 	Memory   int64           `json:"memory"`
 	CpuUnits int64           `json:"cpu_units"`
 	DiskUse  int64           `json:"disk_use"`
-	TaskID   string          `json:"task_id"`
 	bash     *BashExecutor
 	docker   *DockerExecutor
 }

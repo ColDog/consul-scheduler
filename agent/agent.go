@@ -119,8 +119,7 @@ func (agent *Agent) start(t *api.Task) error {
 		}
 	}
 
-	agent.api.Register(t)
-	return nil
+	return agent.api.Register(t)
 }
 
 // deregisters a task from consul and attemps to stop the task from runnning
