@@ -13,7 +13,7 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 	cmd.Flags = []cli.Flag{
 		cli.DurationFlag{Name: "agent-sync-interval", Value: 30 * time.Second, Usage: "interval to sync agent"},
 		cli.IntFlag{Name: "agent-runners", Value: 3, Usage: "amount of tasks to start in parallel on the agent"},
-		cli.BoolFlag{Name: "agent-check-health", Usage: "start the health checker"},
+		cli.BoolFlag{Name: "health-agent", Usage: "start the health checker"},
 		cli.StringFlag{Name: "run-consul", Usage: "start the consul agent with these flags (not for production use)"},
 	}
 	cmd.Action = func(c *cli.Context) error {
@@ -25,14 +25,27 @@ func (app *App) AgentCmd() (cmd cli.Command) {
 
 		app.Api.Start()
 
-		app.RegisterAgent(c)
 		app.AtExit(func() {
 			app.Agent.Stop()
+			if app.Health != nil {
+				app.Health.Stop()
+			}
 		})
 
+
+		if c.Bool("health-agent") {
+			app.RegisterHealthAgent(c)
+			app.Health.RegisterRoutes()
+			go app.Health.Run()
+		}
+
+		app.RegisterAgent(c)
 		app.Agent.RegisterRoutes()
+
 		go app.Serve()
+
 		app.Agent.Run()
+
 		return nil
 	}
 	return cmd
@@ -46,10 +59,11 @@ func (app *App) HealthAgentCmd() (cmd cli.Command) {
 
 		app.Api.Start()
 
-		app.RegisterHealthAgent(c)
 		app.AtExit(func() {
 			app.Health.Stop()
 		})
+
+		app.RegisterHealthAgent(c)
 
 		app.Health.RegisterRoutes()
 		go app.Serve()
@@ -101,6 +115,7 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 		cli.StringFlag{Name: "scheduler-cluster", Usage: "the cluster to monitor for scheduling"},
 		cli.BoolFlag{Name: "agent-check-health", Usage: "start the health checker"},
 		cli.StringFlag{Name: "run-consul", Usage: "start the consul agent with these flags (not for production use)"},
+		cli.BoolFlag{Name: "health-agent", Usage: "start the health checker"},
 	}
 	cmd.Action = func(c *cli.Context) error {
 		if c.String("run-consul") != "" {
@@ -111,11 +126,24 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 
 		app.Api.Start()
 
+		app.AtExit(func() {
+			app.Agent.Stop()
+			app.Master.Stop()
+			if app.Health != nil {
+				app.Health.Stop()
+			}
+		})
+
 		app.RegisterMaster(c)
 		app.RegisterAgent(c)
 
 		app.Master.RegisterRoutes()
 		app.Agent.RegisterRoutes()
+
+		if c.Bool("health-agent") {
+			app.RegisterHealthAgent(c)
+			app.Health.RegisterRoutes()
+		}
 
 		go app.Serve()
 
@@ -132,10 +160,13 @@ func (app *App) CombinedCmd() (cmd cli.Command) {
 			wg.Done()
 		}()
 
-		app.AtExit(func() {
-			app.Agent.Stop()
-			app.Master.Stop()
-		})
+		if c.Bool("health-agent") {
+			wg.Add(1)
+			go func() {
+				app.Health.Run()
+				wg.Done()
+			}()
+		}
 
 		wg.Wait()
 		return nil
