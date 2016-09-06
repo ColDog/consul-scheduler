@@ -1,7 +1,6 @@
 # Sked
 
-A scheduler built for Consul.io with first class support for health checking and an emphasis on simplicity and ease of
-use.
+A scheduler built with simplicity in mind. First class support for Consul.io with other backends coming soon.
 
 [![CircleCI](https://circleci.com/gh/ColDog/sked.svg?style=svg)](https://circleci.com/gh/ColDog/sked)
 
@@ -14,9 +13,9 @@ checking and service discovery.
 
 ### Project Goals
 
-1. Simple to run: One single binary which does not store any state outside of Consul and can run anywhere golang can run.
-2. Scale as far as consul: Use Consul's distributed locking and KV store to scale to multiple datacenters.
-3. Healing: Integrate deeply with Consul's health checking to restart tasks quickly.
+1. Simple to run: One single binary which does not store any state outside of the backend.
+2. Scaling: The scheduler should be able to parallelize it's scheduling capabilities.
+3. Healing: Health checks are a first class citizen, they should be integrated deeply with the scheduler.
 4. Extensible: Write your own scheduler and deploy it easily in any language.
 
 
@@ -37,6 +36,8 @@ checking and service discovery.
     1. [Services](#services)
     2. [Clusters](#clustes)
     3. [Task Definitions](#task-definitions)
+    3. [Tasks](#tasks)
+    3. [Executors](#tasks)
         1. [Docker Executor](#docker-executor)
         2. [Bash Executor](#bash-executor)
 7. [Roadmap](#roadmap)
@@ -341,6 +342,21 @@ Tasks are serialized with the full task definition.
 
 #### Executors
 
+Executors are handled dynamically internally as opaque blobs that are parsed by a handler given the executor 'type' in the
+task definition. The interface that an executor must implement includes only three methods:
+
+```go
+type Executor interface {
+	StartTask(t *Task) error
+	StopTask(t *Task) error
+	ReservedPorts() []uint
+}
+```
+
+These methods allow the agent to start the task and stop the task. If the `StartTask` method errors the agent will not
+register the service for health checks or in the service discovery backend. The reserved ports is a list of ports used
+by the scheduler to determine if this executor conflicts with a host.
+
 ##### Docker Executor
 ```javascript
 {
@@ -362,8 +378,8 @@ Tasks are serialized with the full task definition.
 ##### Bash Executor
 ```javascript
 {
-  "start": ["echo start"],            // a list of bash commands to start a task
-  "stop": ["echo stop"],              // a list of bash commands to stop a task
+  "start": "echo start",              // a shell commands to start a task
+  "stop": "echo stop",                // a shell commands to stop a task
   "env": ["TEST=true"],               // env to use
   "artifact": "http://download.com",  // download an artifact
   "download_dir": "/usr/local/bin"    // location to download into
