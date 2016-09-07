@@ -1,6 +1,19 @@
 # Sked
 
-A scheduler built with simplicity in mind. First class support for Consul.io with other backends coming soon.
+A Container scheduler and orchestration tool that supports multiple container runtimes. Sked aims to be easy to run, simple to operate and to integrate with your favourite tools. Setting up a cluster should be easy.
+
+```
+$ sked tasks
+id                         host                           rejected     cluster     service        task def       version     healthy     
+-----------------------------------------------------------------------------------------------------------------------------------------
+default-helloworld-4-0     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
+default-helloworld-4-1     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
+default-helloworld-4-2     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
+default-helloworld-4-3     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
+default-helloworld-4-4     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
+default-helloworld-4-5     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
+default-helloworld-4-6     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false
+```
 
 [![CircleCI](https://circleci.com/gh/ColDog/sked.svg?style=svg)](https://circleci.com/gh/ColDog/sked)
 
