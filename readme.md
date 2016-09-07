@@ -5,6 +5,7 @@ simple to operate and to integrate with your favourite tools. Setting up a clust
 
 ### Features
 1. Multiple backend support
+2. Docker support
 2. Restarts unhealthy tasks
 3. Registers tasks with service discovery tools like Consul.io
 4. Health checking agent
