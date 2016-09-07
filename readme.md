@@ -3,6 +3,13 @@
 A Container scheduler and orchestration tool that supports multiple container runtimes. Sked aims to be easy to run, 
 simple to operate and to integrate with your favourite tools. Setting up a cluster should be easy.
 
+### Features
+1. Multiple backend support
+2. Restarts unhealthy tasks
+3. Registers tasks with service discovery tools like Consul.io
+4. Health checking agent
+5. Parallel scheduling
+
 ##### Starting up a cluster
 ```
 $ sked apply -f examples/hello-world-cluster.yml
@@ -23,11 +30,6 @@ default-helloworld-4-6     Colins-MacBook-Pro-2.local     false        default  
 ```
 
 [![CircleCI](https://circleci.com/gh/ColDog/sked.svg?style=svg)](https://circleci.com/gh/ColDog/sked)
-
-## Overview
-A scheduler that uses Consul's health checking capabilities as well as it's key value store and locking to build a
-distributed and robust container scheduler that schedule's tasks which can utilize the full power of Consul's health
-checking and service discovery.
 
 *This project is currently a very early work in progress, please help us make it great!*
 
