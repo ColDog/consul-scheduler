@@ -1,7 +1,14 @@
 # Sked
 
-A Container scheduler and orchestration tool that supports multiple container runtimes. Sked aims to be easy to run, simple to operate and to integrate with your favourite tools. Setting up a cluster should be easy.
+A Container scheduler and orchestration tool that supports multiple container runtimes. Sked aims to be easy to run, 
+simple to operate and to integrate with your favourite tools. Setting up a cluster should be easy.
 
+##### Starting up a cluster
+```
+$ sked apply -f examples/hello-world-cluster.yml
+```
+
+##### Watching your tasks
 ```
 $ sked tasks
 id                         host                           rejected     cluster     service        task def       version     healthy     
