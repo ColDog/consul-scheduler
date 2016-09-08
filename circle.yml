@@ -1,6 +1,7 @@
 machine:
   environment:
     CONSUL_BINARY: ~/sked/bin/consul
+    PATH: $PATH:~/sked/bin
 
 machine:
   services:
