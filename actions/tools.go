@@ -56,7 +56,7 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 
 	rows := make([][]interface{}, 0, len(tasks))
 	for _, t := range tasks {
-		ok, err := t.Healthy()
+		ok, err := a.TaskHealthy(t)
 		if err != nil {
 			return err
 		}

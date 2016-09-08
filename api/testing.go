@@ -1,14 +1,5 @@
 package api
 
-import (
-	"fmt"
-	"github.com/hashicorp/consul/api"
-	"os"
-	"os/exec"
-	"syscall"
-	"time"
-)
-
 func SampleContainer() *Container {
 	return &Container{
 		Name:     "test",

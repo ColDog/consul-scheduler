@@ -213,7 +213,7 @@ func (agent *Agent) PublishState() {
 }
 
 func (agent *Agent) syncTask(task *api.Task) *action {
-	healthy, err := task.Healthy()
+	healthy, err := agent.api.TaskHealthy(task)
 	if err != nil {
 		log.WithField("error", err).Error("failed to sync")
 		return nil
