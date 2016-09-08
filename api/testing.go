@@ -1,5 +1,10 @@
 package api
 
+import (
+	"time"
+	"github.com/coldog/sked/tools"
+)
+
 func SampleContainer() *Container {
 	return &Container{
 		Name:     "test",
@@ -17,6 +22,7 @@ func SampleTaskDefinition() *TaskDefinition {
 		Version:     1,
 		ProvidePort: true,
 		Tags:        []string{"test"},
+		GracePeriod: tools.Duration{10 * time.Second},
 		Containers: []*Container{
 			SampleContainer(),
 		},

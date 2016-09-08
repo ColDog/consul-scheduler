@@ -276,9 +276,8 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 	}
 
 	if !task.Scheduled {
-		log.Info("[agent] triggering stop")
-
 		// stop the task if it's not scheduled
+		log.Debug("[agent] triggering stop")
 		return &action{stop: true, task: task}
 	}
 
