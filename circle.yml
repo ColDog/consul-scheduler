@@ -4,6 +4,7 @@ machine:
 
 dependencies:
   pre:
+    - go get -u github.com/jstemmer/go-junit-report
     - export PATH=$PATH:${pwd}/bin
     - mkdir bin
     - curl https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip -o consul.zip
@@ -11,4 +12,4 @@ dependencies:
 
 test:
   override:
-    - go test -v ./...
+    - go test -v ./... | go-junit-report > $CIRCLE_TEST_REPORTS/golang/junit.xml
