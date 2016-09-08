@@ -1,4 +1,5 @@
 dependencies:
   pre:
+    - export PATH=$PATH:${pwd}/bin
     - curl https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip -o consul.zip
-    - unzip consul.zip && chmod +x consul && mv consul /usr/bin/consul
+    - unzip consul.zip && chmod +x consul && mv consul bin/
