@@ -4,6 +4,7 @@ machine:
 
 dependencies:
   pre:
+    - go version
     - go get -u github.com/jstemmer/go-junit-report
     - export PATH=$PATH:${pwd}/bin
     - mkdir bin
