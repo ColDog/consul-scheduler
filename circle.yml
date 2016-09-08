@@ -5,10 +5,10 @@ machine:
 dependencies:
   pre:
     - go version
-    - export PATH=$PATH:${pwd}/bin
-    - mkdir bin
+    - mkdir ~/bin
+    - export PATH=$PATH:~/bin
     - curl https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip -o consul.zip
-    - unzip consul.zip && chmod +x consul && mv consul ${pwd}/bin/
+    - unzip consul.zip && chmod +x consul && mv consul ~/bin/
     - consul version
 
 test:
