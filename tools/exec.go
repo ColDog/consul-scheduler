@@ -26,12 +26,15 @@ func Exec(env []string, timeout DurationInterface, main string, cmds ...string) 
 	cmd := exec.Command(main, cmds...)
 	cmd.Env = env
 
+	timeoutDur := time.Duration(timeout.Nanoseconds())
+
 	go func() {
 
 		select {
 		case <-done:
 			return
-		case <-time.After(time.Duration(timeout.Nanoseconds())):
+		case <-time.After(timeoutDur):
+			log.WithField("duration", timeoutDur).WithField("cmd", cmdName).Warn("[exec] timed out")
 			if cmd.Process != nil {
 				cmd.Process.Kill()
 			}
