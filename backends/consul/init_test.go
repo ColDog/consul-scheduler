@@ -11,6 +11,13 @@ import (
 	"os"
 	"syscall"
 )
+var consulBinary = "consul"
+
+func init() {
+	if os.Getenv("CONSUL_BINARY") != "" {
+		consulBinary = os.Getenv("CONSUL_BINARY")
+	}
+}
 
 type ConsulApiTest func(api *ConsulApi)
 
@@ -46,7 +53,7 @@ type TestConsulAgent struct {
 }
 
 func (a *TestConsulAgent) Start() {
-	a.cmd = exec.Command("consul", "agent", "-dev", "-ui", "-bind=127.0.0.1")
+	a.cmd = exec.Command(consulBinary, "agent", "-dev", "-ui", "-bind=127.0.0.1")
 
 	if os.Getenv("TEST_LOG_CONSUL") != "" {
 		a.cmd.Stderr = os.Stderr
