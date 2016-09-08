@@ -139,7 +139,7 @@ func TestConsulApi_TaskDefinitions(t *testing.T) {
 		tools.Assert(t, len(cs) > 0, "no task definitions to list")
 
 		_, err = a.GetTaskDefinition("non-existent", 100)
-		tools.Assert(t, err == ErrNotFound, "found a non existent task definition")
+		tools.Assert(t, err == api.ErrNotFound, "found a non existent task definition")
 	})
 }
 

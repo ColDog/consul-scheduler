@@ -11,7 +11,7 @@ import (
 	"github.com/coldog/sked/backends/mock"
 )
 
-func testScheduler(t *testing.T, clusterName, serviceName, file string, hosts int) *api.MockApi {
+func testScheduler(t *testing.T, clusterName, serviceName, file string, hosts int) *mock.MockApi {
 	a := mock.NewMockApi()
 
 	s := NewDefaultScheduler(a)

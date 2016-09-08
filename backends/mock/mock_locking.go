@@ -17,8 +17,12 @@ type MockLock struct {
 }
 
 func (l *MockLock) Lock() (<-chan struct{}, error) {
+	l.a.lock.Lock()
+	defer l.a.lock.Unlock()
+
 	s := make(<-chan struct{})
 	l.quitCh = s
+	l.a.locks[l.key] = true
 	return s, nil
 }
 
