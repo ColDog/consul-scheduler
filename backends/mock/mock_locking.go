@@ -1,6 +1,8 @@
-package api
+package mock
 
-func NewMockLock(k string, a *MockApi) Lockable {
+import "github.com/coldog/sked/api"
+
+func NewMockLock(k string, a *MockApi) api.Lockable {
 	return &MockLock{
 		a:   a,
 		key: k,

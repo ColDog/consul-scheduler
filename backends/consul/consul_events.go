@@ -1,4 +1,4 @@
-package api
+package consul
 
 import (
 	log "github.com/Sirupsen/logrus"

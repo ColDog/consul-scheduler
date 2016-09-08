@@ -3,13 +3,17 @@ package cli
 import (
 	_ "net/http/pprof"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/urfave/cli"
-
 	"github.com/coldog/sked/agent"
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/config"
 	"github.com/coldog/sked/master"
+	"github.com/coldog/sked/health"
+	"github.com/coldog/sked/tools"
+	"github.com/coldog/sked/backends/mock"
+	"github.com/coldog/sked/backends/consul"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/urfave/cli"
 
 	"encoding/json"
 	"fmt"
@@ -20,8 +24,6 @@ import (
 	"syscall"
 	"time"
 	"os/exec"
-	"github.com/coldog/sked/health"
-	"github.com/coldog/sked/tools"
 )
 
 func init() {
@@ -101,9 +103,9 @@ func (app *App) setup() {
 		store := api.DefaultStorageConfig()
 
 		if app.Config.Backend == config.CONSUL {
-			app.Api = api.NewConsulApi(store, app.Config.ConsulConfig)
+			app.Api = consul.NewConsulApi(store, app.Config.ConsulConfig)
 		} else if app.Config.Backend == config.MEMORY {
-			app.Api = api.NewMockApi()
+			app.Api = mock.NewMockApi()
 		} else {
 			log.Fatalf("backend %s not supported", app.Config.Backend)
 		}

@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"github.com/coldog/sked/backends/mock"
 )
 
 func testScheduler(t *testing.T, clusterName, serviceName, file string, hosts int) *api.MockApi {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
+
 	s := NewDefaultScheduler(a)
 
 	for i := 0; i < hosts; i++ {
@@ -33,7 +35,7 @@ func testScheduler(t *testing.T, clusterName, serviceName, file string, hosts in
 	return a
 }
 
-func assertCountServices(t *testing.T, a *api.MockApi, service string, count int) {
+func assertCountServices(t *testing.T, a *mock.MockApi, service string, count int) {
 	l, _ := a.ListTasks(&api.TaskQueryOpts{
 		ByService: service,
 		Scheduled: true,
@@ -42,7 +44,7 @@ func assertCountServices(t *testing.T, a *api.MockApi, service string, count int
 	tools.Assert(t, len(l) == count, fmt.Sprintf("running services %d, expected: %d", len(l), count))
 }
 
-func assertCountScheduledOn(t *testing.T, a *api.MockApi, host string, count int) {
+func assertCountScheduledOn(t *testing.T, a *mock.MockApi, host string, count int) {
 	l, _ := a.ListTasks(&api.TaskQueryOpts{
 		ByHost:    host,
 		Scheduled: true,
@@ -61,7 +63,8 @@ func TestDefaultScheduler_Complex(t *testing.T) {
 
 // test concurrency
 func TestScheduler_ConcurrentScheduling(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
+
 	s := NewDefaultScheduler(a)
 
 	for i := 0; i < 10; i++ {
@@ -111,7 +114,8 @@ func TestScheduler_ConcurrentScheduling(t *testing.T) {
 
 // test scaling
 func TestScheduler_Scaling(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
+
 	s := NewDefaultScheduler(a)
 
 	for i := 0; i < 10; i++ {
@@ -155,7 +159,8 @@ func TestScheduler_Scaling(t *testing.T) {
 
 // test draining host
 func TestScheduler_DrainingHost(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
+
 	s := NewDefaultScheduler(a)
 
 	h := api.SampleHost()
@@ -186,7 +191,8 @@ func TestScheduler_DrainingHost(t *testing.T) {
 }
 
 func TestScheduler_GC(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
+
 	s := NewDefaultScheduler(a)
 
 	h := api.SampleHost()

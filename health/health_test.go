@@ -5,12 +5,13 @@ import (
 	"github.com/coldog/sked/tools"
 	"testing"
 	"time"
+	"github.com/coldog/sked/backends/mock"
 )
 
 var task = api.SampleTask()
 
 func TestHealth_HTTP(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",
@@ -25,7 +26,7 @@ func TestHealth_HTTP(t *testing.T) {
 }
 
 func TestHealth_TCP(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",
@@ -40,7 +41,7 @@ func TestHealth_TCP(t *testing.T) {
 }
 
 func TestHealth_Script(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",
@@ -54,7 +55,7 @@ func TestHealth_Script(t *testing.T) {
 }
 
 func TestHealth_Docker(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",

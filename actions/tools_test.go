@@ -2,13 +2,14 @@ package actions
 
 import (
 	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/backends/mock"
 
 	"fmt"
 	"testing"
 )
 
 func TestApplyPrint(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 
 	for i := 0; i < 10; i++ {
 		t := api.SampleTask()

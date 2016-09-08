@@ -1,7 +1,10 @@
 package api
 
-import (
-	"encoding/json"
+import "errors"
+
+var (
+	ErrTxFailed = errors.New("consul transaction has failed")
+	ErrNotFound = errors.New("could not find the requested resource")
 )
 
 // any lockable interface should implement the same functionality.
@@ -143,20 +146,4 @@ type Executor interface {
 
 type Validatable interface {
 	Validate(SchedulerApi) []string
-}
-
-// encode and decode functions, the encode function will panic if the json marshalling fails.
-func encode(item interface{}) []byte {
-	res, err := json.Marshal(item)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
-func decode(data []byte, item interface{}) {
-	err := json.Unmarshal(data, item)
-	if err != nil {
-		panic(err)
-	}
 }
