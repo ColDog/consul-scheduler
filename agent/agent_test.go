@@ -4,6 +4,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/backends/mock"
 	"github.com/coldog/sked/config"
 	"github.com/coldog/sked/tools"
 
@@ -35,21 +36,10 @@ func queueSync(ag *Agent) (list []action) {
 	return list
 }
 
-func TestAgent_GetsInfo(t *testing.T) {
-	api.RunConsulApiTest(func(a *api.ConsulApi) {
-		ag := NewAgent(a, testConfig())
-		ag.GetHostName()
-
-		ag.PublishState()
-
-		fmt.Printf("%+v\n", ag.LastState)
-	})
-}
-
 func TestAgent_Start(t *testing.T) {
 	tk := api.SampleTask()
 
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 	ag := NewAgent(a, testConfig())
 
 	err := ag.start(tk)

@@ -1,5 +1,12 @@
 package api
 
+import "errors"
+
+var (
+	ErrTxFailed = errors.New("consul transaction has failed")
+	ErrNotFound = errors.New("could not find the requested resource")
+)
+
 // any lockable interface should implement the same functionality.
 type Lockable interface {
 	Lock() (<-chan struct{}, error)

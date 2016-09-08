@@ -6,17 +6,11 @@ import (
 	consul "github.com/hashicorp/consul/api"
 	log "github.com/Sirupsen/logrus"
 
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 	"github.com/coldog/sked/backends"
-)
-
-var (
-	ErrTxFailed = errors.New("consul transaction has failed")
-	ErrNotFound = errors.New("could not find the requested resource")
 )
 
 type listener struct {
@@ -129,11 +123,11 @@ func (a *ConsulApi) get(key string) (*consul.KVPair, error) {
 	res, _, err := a.kv.Get(key, nil)
 	if err != nil {
 		log.WithField("consul-api", "get").WithField("key", key).Error(err)
-		return res, ErrNotFound
+		return res, api.ErrNotFound
 	}
 
 	if res == nil || res.Value == nil {
-		return res, ErrNotFound
+		return res, api.ErrNotFound
 	}
 
 	return res, err
@@ -238,7 +232,7 @@ func (a *ConsulApi) GetCluster(id string) (*api.Cluster, error) {
 
 	kv, err := a.get(a.conf.ClustersPrefix + id)
 	if kv == nil || kv.Value == nil {
-		return c, ErrNotFound
+		return c, api.ErrNotFound
 	}
 
 	if err == nil {
@@ -277,7 +271,7 @@ func (a *ConsulApi) GetService(id string) (*api.Service, error) {
 
 	kv, err := a.get(a.conf.ServicesPrefix + id)
 	if kv == nil || kv.Value == nil {
-		return c, ErrNotFound
+		return c, api.ErrNotFound
 	}
 
 	if err == nil {
@@ -316,7 +310,7 @@ func (a *ConsulApi) GetHost(name string) (*api.Host, error) {
 
 	kv, err := a.get(a.conf.HostsPrefix + name)
 	if kv == nil || kv.Value == nil {
-		return h, ErrNotFound
+		return h, api.ErrNotFound
 	}
 
 	if err == nil {
@@ -380,7 +374,7 @@ func (a *ConsulApi) GetTaskDefinition(name string, version uint) (*api.TaskDefin
 
 	kv, err := a.get(id)
 	if kv == nil || kv.Value == nil {
-		return t, ErrNotFound
+		return t, api.ErrNotFound
 	}
 
 	if err == nil {
