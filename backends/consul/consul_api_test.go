@@ -1,12 +1,13 @@
-package api
+package consul
 
 import (
 	"github.com/coldog/sked/tools"
-	"github.com/hashicorp/consul/api"
+	consul "github.com/hashicorp/consul/api"
 
 	"fmt"
 	"testing"
 	"time"
+	"github.com/coldog/sked/api"
 )
 
 // HostName() (string, error)
@@ -56,7 +57,7 @@ func TestConsulApi_LockNoWait(t *testing.T) {
 		fmt.Printf("waited: %v\n", float64(t2-t1)/1000.00)
 
 		err = lock2.Unlock()
-		tools.Assert(t, err == api.ErrLockNotHeld, "unlock did not error as expected")
+		tools.Assert(t, err == consul.ErrLockNotHeld, "unlock did not error as expected")
 
 		lock.Unlock()
 		tools.Assert(t, !lock.IsHeld(), "lock unlocking did not mark lock as unheld")
@@ -65,11 +66,11 @@ func TestConsulApi_LockNoWait(t *testing.T) {
 
 //Register(t *Task) error
 func TestConsulApi_Register(t *testing.T) {
-	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.Register(SampleTask())
+	RunConsulApiTest(func(a *ConsulApi) {
+		err := a.Register(api.SampleTask())
 		tools.Ok(t, err)
 
-		err = api.DeRegister(SampleTask().Id())
+		err = a.DeRegister(api.SampleTask().Id())
 		tools.Ok(t, err)
 	})
 }
@@ -79,19 +80,19 @@ func TestConsulApi_Register(t *testing.T) {
 //PutCluster(cluster *Cluster) error
 //DelCluster(id string) error
 func TestConsulApi_Cluster(t *testing.T) {
-	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutCluster(SampleCluster())
+	RunConsulApiTest(func(a *ConsulApi) {
+		err := a.PutCluster(api.SampleCluster())
 		tools.Ok(t, err)
 
-		c, err := api.GetCluster(SampleCluster().Name)
+		c, err := a.GetCluster(api.SampleCluster().Name)
 		tools.Ok(t, err)
-		tools.Equals(t, c.Name, SampleCluster().Name)
+		tools.Equals(t, c.Name, api.SampleCluster().Name)
 
-		cs, err := api.ListClusters()
+		cs, err := a.ListClusters()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no clusters to list")
 
-		errr := api.DelCluster(SampleCluster().Name)
+		errr := a.DelCluster(api.SampleCluster().Name)
 		tools.Ok(t, errr)
 	})
 }
@@ -101,19 +102,19 @@ func TestConsulApi_Cluster(t *testing.T) {
 //PutService(s *Service) (*Service, error)
 //DelService(id string) (*Service, error)
 func TestConsulApi_Services(t *testing.T) {
-	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutService(SampleService())
+	RunConsulApiTest(func(a *ConsulApi) {
+		err := a.PutService(api.SampleService())
 		tools.Ok(t, err)
 
-		c, err := api.GetService(SampleService().Name)
+		c, err := a.GetService(api.SampleService().Name)
 		tools.Ok(t, err)
-		tools.Equals(t, c.Name, SampleService().Name)
+		tools.Equals(t, c.Name, api.SampleService().Name)
 
-		cs, err := api.ListServices()
+		cs, err := a.ListServices()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no services to list")
 
-		errr := api.DelService(SampleService().Name)
+		errr := a.DelService(api.SampleService().Name)
 		tools.Ok(t, errr)
 	})
 }
@@ -122,22 +123,22 @@ func TestConsulApi_Services(t *testing.T) {
 //GetTaskDefinition(name string, version uint) (*TaskDefinition, error)
 //PutTaskDefinition(t *TaskDefinition) error
 func TestConsulApi_TaskDefinitions(t *testing.T) {
-	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutTaskDefinition(SampleTaskDefinition())
+	RunConsulApiTest(func(a *ConsulApi) {
+		err := a.PutTaskDefinition(api.SampleTaskDefinition())
 		tools.Ok(t, err)
 
-		c, err := api.GetTaskDefinition(SampleTaskDefinition().Name, SampleTaskDefinition().Version)
+		c, err := a.GetTaskDefinition(api.SampleTaskDefinition().Name, api.SampleTaskDefinition().Version)
 		tools.Ok(t, err)
 		tools.Assert(t, c != nil, "task definition is nil")
 
-		tools.Equals(t, c.Name, SampleTaskDefinition().Name)
-		tools.Equals(t, c.Version, SampleTaskDefinition().Version)
+		tools.Equals(t, c.Name, api.SampleTaskDefinition().Name)
+		tools.Equals(t, c.Version, api.SampleTaskDefinition().Version)
 
-		cs, err := api.ListTaskDefinitions()
+		cs, err := a.ListTaskDefinitions()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no task definitions to list")
 
-		_, err = api.GetTaskDefinition("non-existent", 100)
+		_, err = a.GetTaskDefinition("non-existent", 100)
 		tools.Assert(t, err == ErrNotFound, "found a non existent task definition")
 	})
 }
@@ -147,19 +148,19 @@ func TestConsulApi_TaskDefinitions(t *testing.T) {
 //PutHost(h *Host) (error)
 //DelHost(id string) (error)
 func TestConsulApi_Hosts(t *testing.T) {
-	RunConsulApiTest(func(api *ConsulApi) {
-		err := api.PutHost(SampleHost())
+	RunConsulApiTest(func(a *ConsulApi) {
+		err := a.PutHost(api.SampleHost())
 		tools.Ok(t, err)
 
-		c, err := api.GetHost(SampleHost().Name)
+		c, err := a.GetHost(api.SampleHost().Name)
 		tools.Ok(t, err)
-		tools.Equals(t, c.Name, SampleHost().Name)
+		tools.Equals(t, c.Name, api.SampleHost().Name)
 
-		cs, err := api.ListHosts()
+		cs, err := a.ListHosts()
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no services to list")
 
-		errr := api.DelHost(SampleHost().Name)
+		errr := a.DelHost(api.SampleHost().Name)
 		tools.Ok(t, errr)
 	})
 }

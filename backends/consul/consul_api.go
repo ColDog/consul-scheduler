@@ -1,14 +1,17 @@
-package api
+package consul
 
 import (
+	"github.com/coldog/sked/api"
+
+	consul "github.com/hashicorp/consul/api"
 	log "github.com/Sirupsen/logrus"
-	"github.com/hashicorp/consul/api"
 
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
+	"github.com/coldog/sked/backends"
 )
 
 var (
@@ -22,20 +25,20 @@ type listener struct {
 }
 
 type ConsulApi struct {
-	kv         *api.KV
-	agent      *api.Agent
-	catalog    *api.Catalog
-	health     *api.Health
-	client     *api.Client
-	ConsulConf *api.Config
-	conf       *StorageConfig
+	kv         *consul.KV
+	agent      *consul.Agent
+	catalog    *consul.Catalog
+	health     *consul.Health
+	client     *consul.Client
+	ConsulConf *consul.Config
+	conf       *api.StorageConfig
 	listeners  map[string]*listener
 	eventLock  *sync.RWMutex
 	registered bool
 }
 
-func NewConsulApi(conf *StorageConfig, apiConf *api.Config) *ConsulApi {
-	client, err := api.NewClient(apiConf)
+func NewConsulApi(conf *api.StorageConfig, apiConf *consul.Config) *ConsulApi {
+	client, err := consul.NewClient(apiConf)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,16 +51,16 @@ func NewConsulApi(conf *StorageConfig, apiConf *api.Config) *ConsulApi {
 		listeners: make(map[string]*listener),
 		eventLock: &sync.RWMutex{},
 		client:    client,
-		conf:      DefaultStorageConfig(),
+		conf:      api.DefaultStorageConfig(),
 	}
 
 	return a
 }
 
 func newConsulApi() *ConsulApi {
-	apiConfig := api.DefaultConfig()
+	apiConfig := consul.DefaultConfig()
 
-	client, err := api.NewClient(apiConfig)
+	client, err := consul.NewClient(apiConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,7 +74,7 @@ func newConsulApi() *ConsulApi {
 		eventLock:  &sync.RWMutex{},
 		client:     client,
 		ConsulConf: apiConfig,
-		conf:       DefaultStorageConfig(),
+		conf:       api.DefaultStorageConfig(),
 	}
 }
 
@@ -97,7 +100,7 @@ func (a *ConsulApi) HostName() (string, error) {
 	return a.agent.NodeName()
 }
 
-func (a *ConsulApi) Conf() *StorageConfig {
+func (a *ConsulApi) Conf() *api.StorageConfig {
 	return a.conf
 }
 
@@ -107,7 +110,7 @@ func (a *ConsulApi) put(key string, value []byte, flags ...uint64) error {
 		flag = flags[0]
 	}
 
-	_, err := a.kv.Put(&api.KVPair{Key: key, Value: value, Flags: flag}, nil)
+	_, err := a.kv.Put(&consul.KVPair{Key: key, Value: value, Flags: flag}, nil)
 	if err != nil {
 		log.WithField("consul-api", "put").WithField("key", key).Error(err)
 	}
@@ -122,7 +125,7 @@ func (a *ConsulApi) del(key string) error {
 	return err
 }
 
-func (a *ConsulApi) get(key string) (*api.KVPair, error) {
+func (a *ConsulApi) get(key string) (*consul.KVPair, error) {
 	res, _, err := a.kv.Get(key, nil)
 	if err != nil {
 		log.WithField("consul-api", "get").WithField("key", key).Error(err)
@@ -136,7 +139,7 @@ func (a *ConsulApi) get(key string) (*api.KVPair, error) {
 	return res, err
 }
 
-func (a *ConsulApi) list(prefix string) (api.KVPairs, error) {
+func (a *ConsulApi) list(prefix string) (consul.KVPairs, error) {
 	res, _, err := a.kv.List(prefix, nil)
 	if err != nil {
 		log.WithField("consul-api", "put").WithField("key", prefix).Error(err)
@@ -144,8 +147,8 @@ func (a *ConsulApi) list(prefix string) (api.KVPairs, error) {
 	return res, err
 }
 
-func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
-	l, err := a.client.LockOpts(&api.LockOptions{
+func (a *ConsulApi) Lock(key string, block bool) (api.Lockable, error) {
+	l, err := a.client.LockOpts(&consul.LockOptions{
 		Key:         key,
 		LockTryOnce: !block,
 	})
@@ -156,14 +159,14 @@ func (a *ConsulApi) Lock(key string, block bool) (Lockable, error) {
 
 // ==> REGISTER & DEREGISTER
 
-func (a *ConsulApi) Register(t *Task) error {
+func (a *ConsulApi) Register(t *api.Task) error {
 
-	checks := api.AgentServiceChecks{}
+	checks := consul.AgentServiceChecks{}
 	sp := fmt.Sprintf("%d", t.Port)
 
 	for _, cont := range t.TaskDefinition.Containers {
 		for _, check := range cont.Checks {
-			consulCheck := &api.AgentServiceCheck{
+			consulCheck := &consul.AgentServiceCheck{
 				Interval: fmt.Sprintf("%vs", check.Interval.Seconds()),
 				Script:   check.Script,
 				Timeout:  fmt.Sprintf("%vs", check.Timeout.Seconds()),
@@ -184,7 +187,7 @@ func (a *ConsulApi) Register(t *Task) error {
 
 	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("checks", len(checks)).WithField("host", t.Host).Debug("registering task")
 
-	return a.agent.ServiceRegister(&api.AgentServiceRegistration{
+	return a.agent.ServiceRegister(&consul.AgentServiceRegistration{
 		ID:      t.Id(),
 		Name:    t.Name(),
 		Tags:    append(t.TaskDefinition.Tags, t.Cluster, t.Service),
@@ -216,22 +219,22 @@ func (a *ConsulApi) AgentHealth(name string) (bool, error) {
 
 // ==> CLUSTER operations
 
-func (a *ConsulApi) ListClusters() (clusters []*Cluster, err error) {
+func (a *ConsulApi) ListClusters() (clusters []*api.Cluster, err error) {
 	list, err := a.list(a.conf.ClustersPrefix)
 	if err != nil {
 		return clusters, err
 	}
 
 	for _, v := range list {
-		c := &Cluster{}
-		decode(v.Value, c)
+		c := &api.Cluster{}
+		backends.Decode(v.Value, c)
 		clusters = append(clusters, c)
 	}
 	return clusters, nil
 }
 
-func (a *ConsulApi) GetCluster(id string) (*Cluster, error) {
-	c := &Cluster{}
+func (a *ConsulApi) GetCluster(id string) (*api.Cluster, error) {
+	c := &api.Cluster{}
 
 	kv, err := a.get(a.conf.ClustersPrefix + id)
 	if kv == nil || kv.Value == nil {
@@ -239,14 +242,14 @@ func (a *ConsulApi) GetCluster(id string) (*Cluster, error) {
 	}
 
 	if err == nil {
-		decode(kv.Value, c)
+		backends.Decode(kv.Value, c)
 	}
 
 	return c, err
 }
 
-func (a *ConsulApi) PutService(s *Service) error {
-	return a.put(a.conf.ServicesPrefix+s.Name, encode(s))
+func (a *ConsulApi) PutService(s *api.Service) error {
+	return a.put(a.conf.ServicesPrefix+s.Name, backends.Encode(s))
 }
 
 func (a *ConsulApi) DelService(id string) error {
@@ -255,22 +258,22 @@ func (a *ConsulApi) DelService(id string) error {
 
 // ==> SERVICE operations
 
-func (a *ConsulApi) ListServices() (services []*Service, err error) {
+func (a *ConsulApi) ListServices() (services []*api.Service, err error) {
 	list, err := a.list(a.conf.ServicesPrefix)
 	if err != nil {
 		return services, err
 	}
 
 	for _, v := range list {
-		c := &Service{}
-		decode(v.Value, c)
+		c := &api.Service{}
+		backends.Decode(v.Value, c)
 		services = append(services, c)
 	}
 	return services, nil
 }
 
-func (a *ConsulApi) GetService(id string) (*Service, error) {
-	c := &Service{}
+func (a *ConsulApi) GetService(id string) (*api.Service, error) {
+	c := &api.Service{}
 
 	kv, err := a.get(a.conf.ServicesPrefix + id)
 	if kv == nil || kv.Value == nil {
@@ -278,14 +281,14 @@ func (a *ConsulApi) GetService(id string) (*Service, error) {
 	}
 
 	if err == nil {
-		decode(kv.Value, c)
+		backends.Decode(kv.Value, c)
 	}
 
 	return c, err
 }
 
-func (a *ConsulApi) PutCluster(c *Cluster) error {
-	return a.put(a.conf.ClustersPrefix+c.Name, encode(c))
+func (a *ConsulApi) PutCluster(c *api.Cluster) error {
+	return a.put(a.conf.ClustersPrefix+c.Name, backends.Encode(c))
 }
 
 func (a *ConsulApi) DelCluster(id string) error {
@@ -294,22 +297,22 @@ func (a *ConsulApi) DelCluster(id string) error {
 
 // ==> HOST operations
 
-func (a *ConsulApi) ListHosts() (hosts []*Host, err error) {
+func (a *ConsulApi) ListHosts() (hosts []*api.Host, err error) {
 	list, err := a.list(a.conf.HostsPrefix)
 	if err != nil {
 		return hosts, err
 	}
 
 	for _, v := range list {
-		h := &Host{}
-		decode(v.Value, h)
+		h := &api.Host{}
+		backends.Decode(v.Value, h)
 		hosts = append(hosts, h)
 	}
 	return hosts, nil
 }
 
-func (a *ConsulApi) GetHost(name string) (*Host, error) {
-	h := &Host{}
+func (a *ConsulApi) GetHost(name string) (*api.Host, error) {
+	h := &api.Host{}
 
 	kv, err := a.get(a.conf.HostsPrefix + name)
 	if kv == nil || kv.Value == nil {
@@ -317,14 +320,14 @@ func (a *ConsulApi) GetHost(name string) (*Host, error) {
 	}
 
 	if err == nil {
-		decode(kv.Value, h)
+		backends.Decode(kv.Value, h)
 	}
 
 	return h, err
 }
 
-func (a *ConsulApi) PutHost(h *Host) error {
-	err := a.put(a.conf.HostsPrefix+h.Name, encode(h))
+func (a *ConsulApi) PutHost(h *api.Host) error {
+	err := a.put(a.conf.HostsPrefix+h.Name, backends.Encode(h))
 	if err != nil {
 		return err
 	}
@@ -333,11 +336,11 @@ func (a *ConsulApi) PutHost(h *Host) error {
 		return nil
 	}
 
-	err = a.agent.ServiceRegister(&api.AgentServiceRegistration{
+	err = a.agent.ServiceRegister(&consul.AgentServiceRegistration{
 		ID:   "sked-" + h.Name,
 		Name: "sked",
-		Checks: api.AgentServiceChecks{
-			&api.AgentServiceCheck{
+		Checks: consul.AgentServiceChecks{
+			&consul.AgentServiceCheck{
 				Interval: "30s",
 				HTTP:     h.HealthCheck,
 			},
@@ -357,22 +360,22 @@ func (a *ConsulApi) DelHost(name string) error {
 
 // ==> TASK DEFINITION operations
 
-func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*TaskDefinition, err error) {
+func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*api.TaskDefinition, err error) {
 	list, err := a.list(a.conf.TaskDefinitionsPrefix)
 	if err != nil {
 		return taskDefs, err
 	}
 
 	for _, v := range list {
-		c := &TaskDefinition{}
-		decode(v.Value, c)
+		c := &api.TaskDefinition{}
+		backends.Decode(v.Value, c)
 		taskDefs = append(taskDefs, c)
 	}
 	return taskDefs, nil
 }
 
-func (a *ConsulApi) GetTaskDefinition(name string, version uint) (*TaskDefinition, error) {
-	t := &TaskDefinition{}
+func (a *ConsulApi) GetTaskDefinition(name string, version uint) (*api.TaskDefinition, error) {
+	t := &api.TaskDefinition{}
 	id := fmt.Sprintf("%s%s/%d", a.conf.TaskDefinitionsPrefix, name, version)
 
 	kv, err := a.get(id)
@@ -381,19 +384,19 @@ func (a *ConsulApi) GetTaskDefinition(name string, version uint) (*TaskDefinitio
 	}
 
 	if err == nil {
-		decode(kv.Value, t)
+		backends.Decode(kv.Value, t)
 	}
 
 	return t, err
 }
 
-func (a *ConsulApi) PutTaskDefinition(t *TaskDefinition) error {
+func (a *ConsulApi) PutTaskDefinition(t *api.TaskDefinition) error {
 	id := fmt.Sprintf("%s%s/%d", a.conf.TaskDefinitionsPrefix, t.Name, t.Version)
-	return a.put(id, encode(t))
+	return a.put(id, backends.Encode(t))
 }
 
 // ==> TASK operations
-func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
+func (a *ConsulApi) ListTasks(q *api.TaskQueryOpts) (ts []*api.Task, err error) {
 
 	prefix := ""
 	if q.ByHost != "" {
@@ -415,11 +418,11 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 	// log.WithField("prefix", prefix).WithField("count", len(list)).Debug("[consul-api] query tasks")
 
 	for _, v := range list {
-		t := &Task{}
-		decode(v.Value, t)
+		t := &api.Task{}
+		backends.Decode(v.Value, t)
 
 		if q.Failing || q.Running {
-			health, err := t.Healthy()
+			health, err := a.TaskHealthy(t)
 			if err != nil {
 				return ts, err
 			}
@@ -451,26 +454,24 @@ func (a *ConsulApi) ListTasks(q *TaskQueryOpts) (ts []*Task, err error) {
 			continue
 		}
 
-		t.api = a
 		ts = append(ts, t)
 	}
 	return ts, nil
 }
 
-func (a *ConsulApi) GetTask(id string) (*Task, error) {
-	t := &Task{}
+func (a *ConsulApi) GetTask(id string) (*api.Task, error) {
+	t := &api.Task{}
 
 	kv, err := a.get(a.conf.TasksPrefix + id)
 	if err == nil {
-		decode(kv.Value, t)
+		backends.Decode(kv.Value, t)
 	}
 
-	t.api = a
 	return t, err
 }
 
-func (a *ConsulApi) PutTask(t *Task) error {
-	body := encode(t)
+func (a *ConsulApi) PutTask(t *api.Task) error {
+	body := backends.Encode(t)
 
 	// todo: expensive to serialize and put in both
 	// todo: should be in a transaction
@@ -488,7 +489,7 @@ func (a *ConsulApi) PutTask(t *Task) error {
 	return nil
 }
 
-func (a *ConsulApi) DelTask(t *Task) error {
+func (a *ConsulApi) DelTask(t *api.Task) error {
 	err := a.del(a.conf.TasksPrefix + t.Id())
 	if err != nil {
 		return err
@@ -498,7 +499,7 @@ func (a *ConsulApi) DelTask(t *Task) error {
 }
 
 // used to find out if a task is passing.
-func (a *ConsulApi) TaskHealthy(t *Task) (bool, error) {
+func (a *ConsulApi) TaskHealthy(t *api.Task) (bool, error) {
 	s, _, err := a.health.Checks(t.Name(), nil)
 	if err != nil {
 		return false, err

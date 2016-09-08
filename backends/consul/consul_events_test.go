@@ -1,6 +1,8 @@
-package api
+package consul
 
 import (
+	"github.com/coldog/sked/api"
+
 	"fmt"
 	"testing"
 	"time"
@@ -53,19 +55,19 @@ func TestConfigEventWaiting(t *testing.T) {
 	agent := NewConsulAgent()
 	defer agent.Stop()
 
-	api := newConsulApi()
+	a := newConsulApi()
 	for {
-		_, err := api.HostName()
+		_, err := a.HostName()
 		if err == nil {
 			break
 		}
 	}
 
-	api.Start()
+	a.Start()
 
 	listener := make(chan string, 30)
-	api.Subscribe("test-config", "*", listener)
-	defer api.UnSubscribe("test-config")
+	a.Subscribe("test-config", "*", listener)
+	defer a.UnSubscribe("test-config")
 
 	c := 0
 	go func() {
@@ -78,14 +80,14 @@ func TestConfigEventWaiting(t *testing.T) {
 	go func() {
 		time.Sleep(5 * time.Second)
 		fmt.Println("---> events sending")
-		api.PutCluster(SampleCluster())
-		api.PutService(SampleService())
-		api.PutTaskDefinition(SampleTaskDefinition())
-		t := SampleTask()
+		a.PutCluster(api.SampleCluster())
+		a.PutService(api.SampleService())
+		a.PutTaskDefinition(api.SampleTaskDefinition())
+		t := api.SampleTask()
 		t.Host = "local-1"
 		t.Scheduled = true
-		api.PutTask(t)
-		api.GetService("test")
+		a.PutTask(t)
+		a.GetService("test")
 	}()
 
 	time.Sleep(15 * time.Second)

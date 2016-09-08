@@ -25,8 +25,6 @@ type Task struct {
 	Scheduled      bool            `json:"scheduled"`
 	Rejected       bool            `json:"rejected"`
 	RejectReason   string          `json:"reject_reason"`
-	api            SchedulerApi
-	healthy        *bool
 }
 
 func (task *Task) AllPorts() []uint {
@@ -44,19 +42,6 @@ func (task *Task) HasChecks() bool {
 		}
 	}
 	return false
-}
-
-func (task *Task) Healthy() (bool, error) {
-	if task.healthy != nil {
-		return *task.healthy, nil
-	}
-
-	ok, err := task.api.TaskHealthy(task)
-	if err != nil {
-		return false, err
-	}
-	task.healthy = &ok
-	return ok, nil
 }
 
 func (task *Task) Validate(api SchedulerApi) (errors []string) {

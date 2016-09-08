@@ -76,24 +76,6 @@ do
     cd ../
 done
 
-# mac quickstart
-mkdir -p dist/examples-${version}
-cp -r examples dist/examples-${version}/
-cp Vagrantfile dist/examples-${version}/
-cp readme.md dist/examples-${version}/
-cp dist/${name}_darwin-amd64-${version} dist/examples-${version}/sked
-
-
-cd dist
-zip -r quickstart-${version}.zip examples-${version}
-curl -XPOST \
-        --data-binary @quickstart-${version}.zip \
-        -H "Content-Type:application/octet-stream" \
-        "https://uploads.github.com/repos/${project_path}/releases/${id}/assets?access_token=${GITHUB_TOKEN}&name=quickstart-${version}.zip"
-
-cd ../
-
-#echo "begin docker pushing"
 docker build -t coldog/sked:${version} .
 docker tag coldog/sked:${version} coldog/sked:${version}
 docker tag coldog/sked:${version} coldog/sked:latest
