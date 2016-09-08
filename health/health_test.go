@@ -3,9 +3,10 @@ package health
 import (
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
+	"github.com/coldog/sked/backends/mock"
+
 	"testing"
 	"time"
-	"github.com/coldog/sked/backends/mock"
 )
 
 var task = api.SampleTask()
@@ -16,8 +17,8 @@ func TestHealth_HTTP(t *testing.T) {
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",
 		HTTP:     "http://localhost:4121",
-		Interval: 1 * time.Second,
-		Timeout:  2 * time.Second,
+		Interval: tools.Duration{1 * time.Second},
+		Timeout:  tools.Duration{2 * time.Second},
 	}, task)
 
 	time.Sleep(3 * time.Second)
@@ -31,8 +32,8 @@ func TestHealth_TCP(t *testing.T) {
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",
 		TCP:      "localhost:4121",
-		Interval: 1 * time.Second,
-		Timeout:  2 * time.Second,
+		Interval: tools.Duration{1 * time.Second},
+		Timeout:  tools.Duration{1 * time.Second},
 	}, task)
 
 	time.Sleep(3 * time.Second)
@@ -46,8 +47,8 @@ func TestHealth_Script(t *testing.T) {
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",
 		Script:   "echo 'hello'",
-		Interval: 1 * time.Second,
-		Timeout:  2 * time.Second,
+		Interval: tools.Duration{1 * time.Second},
+		Timeout:  tools.Duration{1 * time.Second},
 	}, task)
 
 	time.Sleep(3 * time.Second)
@@ -60,8 +61,8 @@ func TestHealth_Docker(t *testing.T) {
 	m := NewMonitor(a, &api.Check{
 		ID:       "test-check",
 		Docker:   "echo 'hello'",
-		Interval: 1 * time.Second,
-		Timeout:  2 * time.Second,
+		Interval: tools.Duration{1 * time.Second},
+		Timeout:  tools.Duration{1 * time.Second},
 	}, task)
 
 	time.Sleep(3 * time.Second)

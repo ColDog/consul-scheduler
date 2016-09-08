@@ -12,6 +12,7 @@ func NewMockApi() *MockApi {
 		taskDefinitions: make(map[string]*api.TaskDefinition),
 		tasks:           make(map[string]*api.Task),
 		hosts:           make(map[string]*api.Host),
+		health:          make(map[string]string),
 		listeners: make(map[string]struct {
 			on string
 			ch chan string
