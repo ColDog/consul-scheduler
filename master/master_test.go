@@ -8,28 +8,29 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"github.com/coldog/sked/backends/mock"
 )
 
 func TestMaster_WillSchedule(t *testing.T) {
-	api.RunConsulApiTest(func(a *api.ConsulApi) {
-		m := NewMaster(a, &Config{Runners: 2})
+	a := mock.NewMockApi()
 
-		go func() {
-			time.Sleep(1 * time.Second)
-			m.dispatchAll()
-			time.Sleep(1 * time.Second)
-			m.Stop()
-		}()
+	m := NewMaster(a, &Config{Runners: 2})
 
-		for i := 0; i < 3; i++ {
-			h := api.SampleHost()
-			h.Name = fmt.Sprintf("local-%d", i)
-			err := a.PutHost(h)
-			tools.Ok(t, err)
-		}
+	go func() {
+		time.Sleep(1 * time.Second)
+		m.dispatchAll()
+		time.Sleep(1 * time.Second)
+		m.Stop()
+	}()
 
-		actions.ApplyConfig("../examples/hello-world.yml", a)
+	for i := 0; i < 3; i++ {
+		h := api.SampleHost()
+		h.Name = fmt.Sprintf("local-%d", i)
+		err := a.PutHost(h)
+		tools.Ok(t, err)
+	}
 
-		m.Run()
-	})
+	actions.ApplyConfig("../examples/hello-world.yml", a)
+
+	m.Run()
 }

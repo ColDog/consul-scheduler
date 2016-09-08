@@ -5,25 +5,25 @@ import (
 	"github.com/coldog/sked/tools"
 
 	"testing"
+	"github.com/coldog/sked/backends/mock"
 )
 
 func TestLockers(t *testing.T) {
-	api.RunConsulApiTest(func(a *api.ConsulApi) {
-		lockers := NewSchedulerLocks(a)
+	a := mock.NewMockApi()
 
-		lock1, err := lockers.Lock("testing")
-		tools.Ok(t, err)
+	lockers := NewSchedulerLocks(a)
 
-		tools.Assert(t, lock1 != nil, "lock 1 is nil")
-		tools.Assert(t, lock1.IsHeld(), "lock 1 is not held")
+	lock1, err := lockers.Lock("testing")
+	tools.Ok(t, err)
 
-		lock2, err := lockers.Lock("testing")
+	tools.Assert(t, lock1 != nil, "lock 1 is nil")
+	tools.Assert(t, lock1.IsHeld(), "lock 1 is not held")
 
-		tools.Assert(t, lock2.IsHeld(), "lock 2 is not held")
+	lock2, err := lockers.Lock("testing")
 
-		lockers.Unlock("testing")
-		tools.Assert(t, !lock2.IsHeld(), "lock 2 is held")
-		tools.Assert(t, !lock1.IsHeld(), "lock 2 is held")
+	tools.Assert(t, lock2.IsHeld(), "lock 2 is not held")
 
-	})
+	lockers.Unlock("testing")
+	tools.Assert(t, !lock2.IsHeld(), "lock 2 is held")
+	tools.Assert(t, !lock1.IsHeld(), "lock 2 is held")
 }

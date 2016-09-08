@@ -54,7 +54,7 @@ func TestAgent_Start(t *testing.T) {
 func TestAgent_Stop(t *testing.T) {
 	tk := api.SampleTask()
 
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 	ag := NewAgent(a, &AgentConfig{})
 
 	err := ag.stop(tk)
@@ -65,7 +65,7 @@ func TestAgent_Stop(t *testing.T) {
 }
 
 func TestAgent_PublishState(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 	ag := NewAgent(a, testConfig())
 	ag.Host = "local"
 
@@ -77,7 +77,7 @@ func TestAgent_PublishState(t *testing.T) {
 }
 
 func TestAgent_Sync(t *testing.T) {
-	a := api.NewMockApi()
+	a := mock.NewMockApi()
 	ag := NewAgent(a, testConfig())
 	ag.Host = "local"
 
