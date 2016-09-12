@@ -86,8 +86,6 @@ func TestAgent_Sync(t *testing.T) {
 		tk.Instance = i
 		tk.Scheduled = true
 		tk.Host = "local"
-		tk.Port = uint(10000 + i) // no conflicts
-		tk.TaskDefinition.ProvidePort = true
 		a.PutTask(tk)
 	}
 

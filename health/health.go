@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var checkers = map[string]func(check *api.Check, t *api.Task) error{
+var checkers = map[string]func(c *api.Check, cont *api.Container, t *api.Task) error{
 	"http":   checkHTTP,
 	"tcp":    checkTCP,
 	"script": checkScript,
@@ -24,9 +24,9 @@ var checkers = map[string]func(check *api.Check, t *api.Task) error{
 	},
 }
 
-func checkHTTP(c *api.Check, t *api.Task) error {
+func checkHTTP(c *api.Check, cont *api.Container, t *api.Task) error {
 	httpClient := &http.Client{Timeout: c.Timeout.Duration}
-	resp, err := httpClient.Get(c.HTTP)
+	resp, err := httpClient.Get(c.URLHttp(t, cont))
 
 	if err != nil {
 		return err
@@ -39,8 +39,8 @@ func checkHTTP(c *api.Check, t *api.Task) error {
 	return err
 }
 
-func checkTCP(c *api.Check, t *api.Task) error {
-	conn, err := net.Dial("tcp", c.TCP)
+func checkTCP(c *api.Check, cont *api.Container, t *api.Task) error {
+	conn, err := net.Dial("tcp", c.URLTcp(t, cont))
 	if err != nil {
 		return err
 	}
@@ -48,22 +48,19 @@ func checkTCP(c *api.Check, t *api.Task) error {
 	return err
 }
 
-func checkScript(c *api.Check, t *api.Task) error {
+func checkScript(c *api.Check, cont *api.Container, t *api.Task) error {
 	return tools.Exec(nil, c.Timeout, "sh", "-c", c.Script)
 }
 
-func checkDocker(c *api.Check, t *api.Task) error {
-	return tools.Exec(nil, c.Timeout, "docker", "exec", "-i", t.Id(), "sh", "-c", c.Docker)
+func checkDocker(c *api.Check, cont *api.Container, t *api.Task) error {
+	return tools.Exec(nil, c.Timeout, "docker", "exec", "-i", t.ID(), "sh", "-c", c.Docker)
 }
 
-func NewMonitor(a api.SchedulerApi, c *api.Check, t *api.Task) *Monitor {
-
-	c.HTTP = strings.Replace(c.HTTP, "$PROVIDED_PORT", fmt.Sprintf("%d", t.Port), 1)
-	c.TCP = strings.Replace(c.TCP, "$PROVIDED_PORT", fmt.Sprintf("%d", t.Port), 1)
-
+func NewMonitor(a api.SchedulerApi, ch *api.Check, c *api.Container, t *api.Task) *Monitor {
 	m := &Monitor{
 		api:   a,
 		Check: c,
+		Container: ch,
 		Task:  t,
 		Type:  checkType(c),
 		quit:  make(chan struct{}),
@@ -75,9 +72,10 @@ func NewMonitor(a api.SchedulerApi, c *api.Check, t *api.Task) *Monitor {
 type Monitor struct {
 	Failures    int
 	LastFailure error
-	Status      string
+	Status      api.TaskState
 	Check       *api.Check
 	Task        *api.Task
+	Container   *api.Container
 	Type        string
 	quit        chan struct{}
 	api         api.SchedulerApi
@@ -100,16 +98,16 @@ func (m *Monitor) Run() {
 			}
 
 			if m.Failures > 3 {
-				m.Status = "critical"
+				m.Status = api.FAILING
 			} else if m.Failures > 0 && m.Failures <= 3 {
-				m.Status = "warning"
+				m.Status = api.WARNING
 			} else if m.Failures == 0 {
-				m.Status = "healthy"
+				m.Status = api.RUNNING
 			}
 
 			log.WithField("error", m.LastFailure).WithField("status", m.Status).Infof("[monitor:%s] checked", m.Check.ID)
 
-			m.api.PutTaskHealth(m.Task.Id(), m.Status)
+			m.api.PutTaskState(m.Task.ID(), m.Status)
 			if err != nil {
 				log.WithField("error", err).Warnf("[monitor:%s] errord while checking in", m.Check.ID)
 			}

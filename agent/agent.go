@@ -98,7 +98,12 @@ type Agent struct {
 
 // starts a task and registers it into consul if the exec command returns a non-zero exit code
 func (agent *Agent) start(t *api.Task) error {
-	state := agent.TaskState.get(t.Id(), t)
+	err := agent.api.PutTaskState(t.ID(), api.STARTING)
+	if err != nil {
+		return err
+	}
+
+	state := agent.TaskState.get(t.ID(), t)
 	state.Starting = true
 	state.StartedAt = time.Now()
 	state.Attempts += 1
@@ -120,12 +125,15 @@ func (agent *Agent) start(t *api.Task) error {
 	}
 
 	state.Starting = false
-	return agent.api.Register(t)
+	return agent.api.PutTaskState(t.ID(), api.STARTING)
 }
 
 // deregisters a task from consul and attemps to stop the task from runnning
 func (agent *Agent) stop(t *api.Task) error {
-	agent.api.DeRegister(t.Id())
+	err := agent.api.PutTaskState(t.ID(), api.STOPPING)
+	if err != nil {
+		return err
+	}
 
 	for _, cont := range t.TaskDefinition.Containers {
 		executor := cont.GetExecutor()
@@ -144,7 +152,7 @@ func (agent *Agent) stop(t *api.Task) error {
 	agent.api.DelTask(t)
 	agent.TaskState.del(t.Id())
 
-	return nil
+	return agent.api.PutTaskState(t.ID(), api.STOPPED)
 }
 
 // The agent periodically publishes it's state to consul so that the scheduler can use the latest information to
@@ -159,14 +167,6 @@ func (agent *Agent) PublishState() {
 	usedCpu := int64(0)
 
 	agent.TaskState.each(func(t *TaskState) error {
-		if t.Task.Port > max {
-			max = t.Task.Port + 1
-		}
-
-		if t.Task.Port != 0 {
-			reserved = append(reserved, t.Task.Port)
-		}
-
 		for _, p := range t.Task.TaskDefinition.AllPorts() {
 			if p == 0 {
 				continue
@@ -174,7 +174,7 @@ func (agent *Agent) PublishState() {
 
 			reserved = append(reserved, p)
 			if p > max {
-				max = t.Task.Port + 1
+				max = p + 1
 			}
 		}
 
@@ -213,20 +213,34 @@ func (agent *Agent) PublishState() {
 }
 
 func (agent *Agent) syncTask(task *api.Task) *action {
-	healthy, err := agent.api.TaskHealthy(task)
+	taskState, err := agent.api.GetTaskState(task)
 	if err != nil {
 		log.WithField("error", err).Error("failed to sync")
 		return nil
 	}
 
 	state := agent.TaskState.get(task.Id(), task)
-	state.Healthy = healthy
+	state.Healthy = taskState.Healthy()
 	if state.Healthy {
 		state.Failure = nil
 	}
 
+	deployment, err := agent.api.GetDeployment(task.Deployment)
+	if err == api.ErrNotFound {
+		task.RejectReason = "no deployment found"
+		task.Rejected = true
+		state.Failure = errors.New(task.RejectReason)
+		agent.api.PutTask(task)
+		log.WithField("task", task.ID()).Warn("[agent] no deployment found")
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
 	log.WithFields(log.Fields{
-		"task":         task.Id(),
+		"task":         task.ID(),
 		"attempts":     state.Attempts,
 		"failure":      state.Failure,
 		"health":       state.Healthy,
@@ -238,7 +252,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 	// - the task is scheduled
 	// - the task is not rejected
 	// - the task is not healthy and has health checks or the task has not been started and does not have any checks
-	if task.Scheduled && !task.Rejected && !state.Starting && ((!healthy && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
+	if task.Scheduled && !task.Rejected && !state.Starting && ((!taskState.Healthy() && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
 		// leave some time in between restarting tasks, ie they may take a while before the health checks
 		// begin passing.
 		if state.StartedAt.Add(task.TaskDefinition.GracePeriod.Duration).After(time.Now()) {
@@ -246,7 +260,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 			return nil
 		}
 
-		if state.Attempts > task.TaskDefinition.MaxAttempts {
+		if state.Attempts > deployment.MaxAttempts {
 			task.RejectReason = "too many attempts"
 			task.Rejected = true
 			state.Failure = errors.New(task.RejectReason)
@@ -257,7 +271,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 
 		// Check if there is a port conflict. This actually attempts to bind to the port which gives us a better
 		// picture overall. This can be problematic if the task is not shutdown correctly
-		for _, p := range task.AllPorts() {
+		for _, p := range task.TaskDefinition.AllPorts() {
 			if !IsTCPPortAvailable(p) {
 				task.RejectReason = fmt.Sprintf("port not available: %d", p)
 				task.Rejected = true
@@ -355,7 +369,6 @@ func (agent *Agent) Run() {
 
 	// the server provides a basic health checking port to allow for the agent to provide consul with updates
 	defer agent.api.DelHost(agent.Host)
-	defer agent.api.DeRegister("sked-" + agent.Host)
 
 	agent.GetHostName()
 	agent.PublishState()

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"strings"
 )
 
 // a runnable task description
@@ -124,6 +125,26 @@ func (c *Container) RunTeardown() error {
 	return nil
 }
 
+// given port mappings for a task
+func (c *Container) PortsForTask(t *Task) []*PortMapping {
+	mappings := make([]*PortMapping, len(c.Ports))
+
+	for _, p := range c.Ports {
+		host := p.Host
+		if host == 0 {
+			host = t.ProvidedPorts[p.Name]
+		}
+
+		mappings = append(mappings, &PortMapping{
+			Host: host,
+			Container: p.Container,
+			Name: p.Name,
+		})
+	}
+
+	return mappings
+}
+
 // a check passed along to consul
 type Check struct {
 	ID       string         `json:"id"`
@@ -133,8 +154,23 @@ type Check struct {
 	Script   string         `json:"script"`
 	Interval tools.Duration `json:"interval"`
 	Timeout  tools.Duration `json:"timeout"`
-	TTL      string         `json:"ttl"`
 	Docker   string         `json:"docker"`
+}
+
+func (ch *Check) URLHttp(t *Task, c *Container) string {
+	u := ch.HTTP
+	for _, p := range c.PortsForTask(t) {
+		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%s", p.Host), 1)
+	}
+	return u
+}
+
+func (ch *Check) URLTcp(t *Task, c *Container) string {
+	u := ch.TCP
+	for _, p := range c.PortsForTask(t) {
+		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%s", p.Host), 1)
+	}
+	return u
 }
 
 type PortMapping struct {

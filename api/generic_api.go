@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"github.com/coldog/sked/api/state"
 )
 
 var (
@@ -108,10 +107,10 @@ type SchedulerApi interface {
 	// API Service Operations
 	// storage:
 	// => config/services/<service_id>
-	ListServices() ([]*Service, error)
-	PutService(s *Service) error
-	GetService(id string) (*Service, error)
-	DelService(id string) error
+	//ListServices() ([]*Service, error)
+	//PutService(s *Service) error
+	//GetService(id string) (*Service, error)
+	//DelService(id string) error
 
 	// API Host Operations
 	// => hosts/<cluster>/<host_id>
@@ -136,7 +135,7 @@ type SchedulerApi interface {
 	GetTaskState(taskId string) (TaskState, error)
 	PutTaskState(taskId string, s TaskState) error
 
-	// Endpoint Operations
+	// API Endpoint Operations
 	// For a given service, return the currently available endpoints to reach that service at.
 	ListEndpoints(serviceId string) ([]*Endpoint, error)
 
