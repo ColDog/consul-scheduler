@@ -65,6 +65,8 @@ func (c *Container) GetExecutor() Executor {
 	return nil
 }
 
+
+
 // The bash executor simply runs a list of commands to start the process, and then runs another
 // list of commands to stop the process. This is a very rough executor as it doesn't know much
 // about the underlying process and therefore cannot intelligently make many decisions about it.
@@ -78,10 +80,6 @@ type BashExecutor struct {
 }
 
 func (bash *BashExecutor) StartTask(t *Task) error {
-	if t.TaskDefinition.ProvidePort {
-		bash.Env = append(bash.Env, fmt.Sprintf("SCHEDULED_PORT=%d", t.Port))
-	}
-
 	if bash.Artifact != "" {
 		err := tools.Exec(bash.Env, executorDownloadTimeout, "curl", "-o", bash.DownloadDir, bash.Artifact)
 		if err != nil {
@@ -96,9 +94,11 @@ func (bash *BashExecutor) StopTask(t *Task) (err error) {
 	return tools.Exec(bash.Env, executorStopTaskTimeout, "sh", "-c", bash.Stop)
 }
 
-func (bash *BashExecutor) ReservedPorts() []uint {
-	return bash.Ports
+func (bash *BashExecutor) IsRunning() (bool, error) {
+	return false, fmt.Errorf("cannot determine state")
 }
+
+
 
 // The docker executor will start a docker container.
 type DockerExecutor struct {
@@ -117,14 +117,6 @@ type DockerExecutor struct {
 }
 
 func (docker *DockerExecutor) StartTask(t *Task) error {
-	if t.TaskDefinition.ProvidePort {
-		p := docker.ContainerPort
-		if p == uint(0) {
-			p = t.Port
-		}
-		docker.Ports = append(docker.Ports, fmt.Sprintf("%d:%d", t.Port, p))
-	}
-
 	err := tools.Exec(docker.Env, executorDockerPullTimeout, "docker", "pull", docker.Image)
 	if err != nil {
 		return err
@@ -177,12 +169,6 @@ func (docker *DockerExecutor) StopTask(t *Task) error {
 	return tools.Exec(docker.Env, executorStopTaskTimeout, "docker", "stop", t.Id())
 }
 
-func (docker *DockerExecutor) ReservedPorts() []uint {
-	ps := []uint{}
-	for _, p := range docker.Ports {
-		port := strings.Split(p, ":")[0]
-		i, _ := strconv.ParseInt(port, 8, 64)
-		ps = append(ps, uint(i))
-	}
-	return ps
+func (docker *DockerExecutor) IsRunning() (bool, error) {
+
 }

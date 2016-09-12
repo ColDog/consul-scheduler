@@ -29,8 +29,8 @@ func SampleTaskDefinition() *TaskDefinition {
 	}
 }
 
-func SampleService() *Service {
-	return &Service{
+func SampleDeployment() *Deployment {
+	return &Deployment{
 		Name:        "test",
 		TaskName:    "test",
 		TaskVersion: 0,
@@ -62,7 +62,7 @@ func SampleHost() *Host {
 }
 
 func SampleTask() *Task {
-	return NewTask(SampleCluster(), SampleTaskDefinition(), SampleService(), 1)
+	return NewTask(SampleCluster(), SampleTaskDefinition(), SampleDeployment(), 1)
 }
 
 func SampleCluster() *Cluster {

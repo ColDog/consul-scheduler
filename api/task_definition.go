@@ -15,25 +15,20 @@ import (
 type TaskDefinition struct {
 	Name        string        `json:"name"`
 	Version     uint          `json:"version"`
-	ProvidePort bool          `json:"provide_port"`
-	Port        uint          `json:"port"`
 	Tags        []string      `json:"tags"`
 	Containers  []*Container  `json:"containers"`
 	GracePeriod tools.Duration `json:"grace_period"`
-	MaxAttempts int           `json:"max_attempts"`
 }
 
 // all the ports this task needs to run
 func (t *TaskDefinition) AllPorts() []uint {
 	ports := []uint{}
-	if t.Port != 0 {
-		ports = append(ports, t.Port)
-	}
 
 	for _, c := range t.Containers {
-		ex := c.GetExecutor()
-		if ex != nil {
-			ports = append(ports, ex.ReservedPorts()...)
+		for _, p := range c.Ports {
+			if p.Host != 0 {
+				ports = append(ports, p.Host)
+			}
 		}
 	}
 
@@ -60,10 +55,6 @@ func (task *TaskDefinition) Validate(api SchedulerApi) (errors []string) {
 	_, err := api.GetTaskDefinition(task.Name, task.Version)
 	if err == nil {
 		errors = append(errors, "version already provisioned")
-	}
-
-	if task.MaxAttempts == 0 {
-		task.MaxAttempts = 10
 	}
 
 	if task.GracePeriod.IsNone() {
@@ -102,9 +93,11 @@ type Container struct {
 	Setup    []string        `json:"setup"`
 	Teardown []string        `json:"teardown"`
 	Checks   []*Check        `json:"checks"`
+	Ports    []*PortMapping  `json:"ports"`
 	Memory   int64           `json:"memory"`
 	CpuUnits int64           `json:"cpu_units"`
 	DiskUse  int64           `json:"disk_use"`
+
 	bash     *BashExecutor
 	docker   *DockerExecutor
 }
@@ -144,3 +137,8 @@ type Check struct {
 	Docker      string        `json:"docker"`
 }
 
+type PortMapping struct  {
+	Name  string `json:"name"`
+	Container uint `json:"container"`
+	Host uint `json:"host"`
+}

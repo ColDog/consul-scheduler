@@ -1,6 +1,9 @@
 package api
 
-import "errors"
+import (
+	"errors"
+	"github.com/coldog/sked/api/state"
+)
 
 var (
 	ErrTxFailed = errors.New("consul transaction has failed")
@@ -54,6 +57,12 @@ type TaskQueryOpts struct {
 	Rejected  bool
 }
 
+//type ServiceQueryOpts struct  {
+//	ByStatus TaskState
+//	ByVersion int
+//	ByHost int
+//}
+
 type SchedulerApi interface {
 
 	// Certain backends, ie. Consul, should know the hostname to give to the agent.
@@ -66,8 +75,10 @@ type SchedulerApi interface {
 	// it should return immediately
 	Lock(key string, block bool) (Lockable, error)
 
-	// Returns whether the agent is responding to health checks.
-	AgentHealth(name string) (bool, error)
+	// Health checks for agents. These are implemented as simple TTL on a key, if the key does not exist, or is
+	// expired (ttl is 30 seconds) then the agent is marked as unhealthy.
+	GetAgentHealth(name string) (bool, error)
+	SetAgentHealthy(name string) error
 
 	// API Cluster Operations
 	ListClusters() ([]*Cluster, error)
@@ -76,10 +87,10 @@ type SchedulerApi interface {
 	DelCluster(id string) error
 
 	// API Service Operations
-	ListServices() ([]*Service, error)
-	GetService(id string) (*Service, error)
-	PutService(s *Service) error
-	DelService(id string) error
+	ListDeployments() ([]*Deployment, error)
+	GetDeployment(id string) (*Deployment, error)
+	PutDeployment(s *Deployment) error
+	DelDeployment(id string) error
 
 	// API Task Definition Operations
 	ListTaskDefinitions() ([]*TaskDefinition, error)
@@ -96,24 +107,19 @@ type SchedulerApi interface {
 	// storing tasks:
 	// => state/tasks/<task_id>                      # stores a version of the task by cluster and service
 	// => state/hosts/<host_id>/<task_id>            # stores a version of the task by host
-	// => state/health/<task_id>                     # marks the task as being healthy or not (unnecessary in consul)
 	// Task queries can be executed with a set of options in the TaskQueryOpts, currently
 	// tasks can only be queried by using the ByHost or ByService and ByCluster parameters.
 	ListTasks(opts *TaskQueryOpts) ([]*Task, error)
 	PutTask(t *Task) error
 	DelTask(t *Task) error
 
-	// Check if a given task is healthy
-	TaskHealthy(t *Task) (bool, error)
-
-	// Register a service with the backend
-	Register(t *Task) error
-
-	// Deregister a service with the backend
-	DeRegister(id string) error
-
-	// mark task health with the given backend, for consul this is a noop, for etcd this marks the status.
-	PutTaskHealth(taskId, status string) error
+	// Task health operations. These are implemented in different ways for each backend
+	// if consul has any health checks these will be used, otherwise the default kv check
+	// will be consulted.
+	// storage:
+	// => state/health/<task_id>                     # marks the task as being healthy or not
+	GetTaskState(taskId string) (TaskState, error)
+	PutTaskState(taskId string, s TaskState) error
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.
@@ -124,6 +130,11 @@ type SchedulerApi interface {
 	// => state::<host_id>:<task_id>
 	Subscribe(key, evt string, listener chan string)
 	UnSubscribe(key string)
+
+	// Service Discovery idea:
+	// a service is a mapping of a cluster, deployment, container and port. This allows the engine to return the
+	// list of running
+	// ListServices() ([]*Service, error)
 
 	// Get the configuration for this storage
 	Conf() *StorageConfig
@@ -140,8 +151,9 @@ type Executor interface {
 	// executed by the agent.
 	StopTask(t *Task) error
 
-	// a list of ports that are required by this executor
-	ReservedPorts() []uint
+	// attempts to check whether a task is running from the executor level.
+	// if the executor cannot answer or is unsure it should return an error.
+	IsRunning() (bool, error)
 }
 
 type Validatable interface {

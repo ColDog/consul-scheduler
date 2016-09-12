@@ -3,7 +3,7 @@ clusters:
     services:
       - helloworld
 
-services:
+deployments:
   - name: helloworld
     task_name: helloworld
     task_version: 4
@@ -11,12 +11,20 @@ services:
     max: 7
     desired: 7
 
+    # experimental:
+    # - should register these in consul as a services
+    # - provides a service discovery backend
+    discovery:
+      - service: helloworld-default
+        container: helloworld
+        port_name: main
+
     # experimental
-    # constraints:
-    #  - host.name = 'x'
-    #  - unique host.name
-    #  - host.tags.x = 'y'
-    #  - group_by host.tags.x
+    constraints:
+      - host.name = 'x'
+      - unique host.name
+      - host.tags.x = 'y'
+      - group_by host.tags.x
 
 tasks:
   - name: helloworld
@@ -25,6 +33,11 @@ tasks:
     containers:
       - name: helloworld
         type: docker
+
+        ports:
+          - name: main
+            host: 0
+            container: 1000
 
         executor:
           container_port: 80

@@ -6,7 +6,7 @@ package api
 //	- max must be greater than or equal to desired
 //	- min must be less than or equal to desired
 //
-type Service struct {
+type Deployment struct {
 	Name        string `json:"name"`
 	Scheduler   string `json:"scheduler"`
 	TaskName    string `json:"task_name"`
@@ -14,9 +14,10 @@ type Service struct {
 	Desired     int    `json:"desired"`
 	Min         int    `json:"min"`
 	Max         int    `json:"max"`
+	MaxAttempts int    `json:"max_attempts"`
 }
 
-func (service *Service) Validate(api SchedulerApi) (errors []string) {
+func (service *Deployment) Validate(api SchedulerApi) (errors []string) {
 	_, err := api.GetTaskDefinition(service.TaskName, service.TaskVersion)
 	if err != nil {
 		errors = append(errors, "task ("+service.TaskName+") does not exist")
@@ -41,6 +42,6 @@ func (service *Service) Validate(api SchedulerApi) (errors []string) {
 	return errors
 }
 
-func (s *Service) Key() string {
+func (s *Deployment) Key() string {
 	return "config/service/" + s.Name
 }
