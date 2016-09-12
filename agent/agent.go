@@ -22,6 +22,7 @@ type AgentConfig struct {
 	SyncInterval tools.Duration `json:"sync_interval"`
 	AppConfig    *config.Config `json:"app_config"`
 	Resources    *api.Resources `json:"resources"`
+	Cluster      string         `json:"cluster"`
 }
 
 var (

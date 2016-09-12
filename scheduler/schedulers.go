@@ -1,4 +1,4 @@
-package master
+package scheduler
 
 import (
 	"github.com/coldog/sked/api"
@@ -7,7 +7,8 @@ import (
 
 // scheduler implements the simple scheduler interface which should be able to handle getting a service and scheduling.
 type Scheduler interface {
-	Schedule(name string, cluster *api.Cluster, service *api.Service) error
+	Schedule(d *api.Deployment) error
+	SetCluster(c *api.Cluster)
 }
 
 type Ranker func(hosts map[string]*api.Host) []RankedHost
@@ -15,6 +16,13 @@ type Ranker func(hosts map[string]*api.Host) []RankedHost
 type RankedHost struct {
 	Name  string
 	Score int
+}
+
+func NewSchedulerMap() *Schedulers {
+	return &Schedulers{
+		lock:       &sync.RWMutex{},
+		schedulers: make(map[string]Scheduler),
+	}
 }
 
 type Schedulers struct {

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 	"github.com/coldog/sked/tools"
+	"github.com/coldog/sked/scheduler"
 )
 
 type scheduleReq struct {
@@ -26,10 +27,7 @@ func NewMaster(a api.SchedulerApi, conf *Config) *Master {
 		queue:  NewSchedulerQueue(),
 		locks:  NewSchedulerLocks(a),
 		Config: conf,
-		schedulers: &Schedulers{
-			lock:       &sync.RWMutex{},
-			schedulers: make(map[string]Scheduler),
-		},
+		schedulers: scheduler.NewSchedulerMap(),
 	}
 }
 
@@ -42,7 +40,7 @@ type Config struct {
 
 // The scheduler manages scheduling on a per service basis, dispatching requests for scheduling when needed.
 type Master struct {
-	schedulers *Schedulers
+	schedulers *scheduler.Schedulers
 	locks      *SchedulerLocks
 	queue      *SchedulerQueue
 	Config     *Config
@@ -101,13 +99,13 @@ func (s *Master) dispatchAll() error {
 		return err
 	}
 
-	for _, serviceName := range cluster.Services {
-		service, err := s.api.GetService(serviceName)
+	for _, name := range cluster.Deployments {
+		d, err := s.api.GetDeployment(name)
 		if err != nil {
 			return err
 		}
 
-		s.queue.Push(scheduleReq{cluster.Name, service.Name})
+		s.queue.Push(scheduleReq{cluster.Name, d.Name})
 	}
 
 	return nil
@@ -144,17 +142,19 @@ func (s *Master) worker(i int) {
 
 }
 
-func (s *Master) schedule(clusterName, serviceName string, i int) {
+func (s *Master) schedule(clusterName, depName string, i int) {
 	// use a random sleep to allow for locking to work effectively
 	rand.Seed(time.Now().Unix())
 	time.Sleep(time.Duration(100+rand.Intn(500)) * time.Millisecond)
 
-	lock, err := s.locks.Lock(serviceName)
+	l := clusterName + ":" + depName
+
+	lock, err := s.locks.Lock(l)
 	if err != nil {
-		log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] lock failed", i)
+		log.WithField("deployment", depName).WithField("err", err).Warnf("[master-worker-%d] lock failed", i)
 		return
 	}
-	defer s.locks.Unlock(serviceName)
+	defer s.locks.Unlock(l)
 
 	if lock.IsHeld() {
 		cluster, err := s.api.GetCluster(clusterName)
@@ -163,26 +163,26 @@ func (s *Master) schedule(clusterName, serviceName string, i int) {
 			return
 		}
 
-		service, err := s.api.GetService(serviceName)
+		deploy, err := s.api.GetDeployment(depName)
 		if err != nil {
-			log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] could not get service", i)
+			log.WithField("deployment", depName).WithField("err", err).Warnf("[master-worker-%d] could not get deployment", i)
 			return
 		}
 
-		scheduler, ok := s.schedulers.Get(service.Scheduler)
+		scheduler, ok := s.schedulers.Get(deploy.Scheduler)
 		if !ok {
-			log.WithField("scheduler", service.Scheduler).WithField("service", serviceName).Warnf("[master-worker-%d] could not get scheduler", i)
+			log.WithField("scheduler", deploy.Scheduler).WithField("deployment", depName).Warnf("[master-worker-%d] could not get scheduler", i)
 			return
 		}
 
-		log.WithField("service", serviceName).WithField("cluster", clusterName).Infof("[master-worker-%d] scheduling", i)
+		log.WithField("deployment", depName).WithField("cluster", clusterName).Infof("[master-worker-%d] scheduling", i)
 
-		err = scheduler.Schedule(service.Scheduler, cluster, service)
+		err = scheduler.Schedule(deploy)
 		if err != nil {
-			log.WithField("service", serviceName).WithField("err", err).Warnf("[master-worker-%d] scheduler errord", i)
+			log.WithField("deployment", depName).WithField("err", err).Warnf("[master-worker-%d] scheduler errord", i)
 		}
 	} else {
-		log.WithField("service", serviceName).Debugf("[master-worker-%d] could not lock service", i)
+		log.WithField("deployment", depName).Debugf("[master-worker-%d] could not lock service", i)
 	}
 }
 
@@ -222,7 +222,7 @@ func (s *Master) runGarbageCollect() error {
 
 	removed := 0
 	for _, task := range tasks {
-		if !inArrayStr(task.Service, cluster.Services) {
+		if !inArrayStr(task.Deployment, cluster.Deployments) {
 			task.Scheduled = false
 			s.api.PutTask(task)
 			removed++
@@ -245,8 +245,10 @@ func (s *Master) Stop() {
 	close(s.quit)
 }
 
-func (s *Master) Use(name string, sked Scheduler) {
+func (s *Master) Use(name string, sked scheduler.Scheduler) {
 	s.schedulers.Use(name, sked)
+	clus, _ := s.Cluster()
+	sked.SetCluster(clus)
 }
 
 func (s *Master) Run() {
@@ -262,7 +264,7 @@ func (s *Master) Run() {
 		s.Config.SyncInterval.Duration = 30 * time.Second
 	}
 
-	sked := NewDefaultScheduler(s.api)
+	sked := scheduler.NewDefaultScheduler(s.api)
 	s.schedulers.Use("", sked)
 	s.schedulers.Use("spread", sked)
 	s.schedulers.Use("binpack", sked)

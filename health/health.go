@@ -26,7 +26,7 @@ var checkers = map[string]func(c *api.Check, cont *api.Container, t *api.Task) e
 
 func checkHTTP(c *api.Check, cont *api.Container, t *api.Task) error {
 	httpClient := &http.Client{Timeout: c.Timeout.Duration}
-	resp, err := httpClient.Get(c.URLHttp(t, cont))
+	resp, err := httpClient.Get(c.HTTPWithPort(t, cont))
 
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func checkHTTP(c *api.Check, cont *api.Container, t *api.Task) error {
 }
 
 func checkTCP(c *api.Check, cont *api.Container, t *api.Task) error {
-	conn, err := net.Dial("tcp", c.URLTcp(t, cont))
+	conn, err := net.Dial("tcp", c.TCPWithPort(t, cont))
 	if err != nil {
 		return err
 	}

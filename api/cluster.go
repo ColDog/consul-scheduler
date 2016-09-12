@@ -1,10 +1,9 @@
 package api
 
 type Cluster struct {
-	Name       string   `json:"name"`
-	Datacenter string   `json:"datacenter"`
-	Services   []string `json:"services"`
-	Hosts      []string `json:"hosts"`
+	Name        string   `json:"name"`
+	Deployments []string `json:"deployments"`
+	Hosts       []string `json:"hosts"`
 }
 
 func (c *Cluster) Validate(api SchedulerApi) (errors []string) {

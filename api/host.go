@@ -8,6 +8,7 @@ type Host struct {
 	ObservedResources   *Resources        `json:"observed_resources"`
 	CalculatedResources *Resources        `json:"calculated_resources"`
 	BaseResources       *Resources        `json:"base_resources"`
+	Cluster             string            `json:"cluster"`
 	Tags                map[string]string `json:"tags"`
 }
 

@@ -48,7 +48,7 @@ func DefaultStorageConfig() *StorageConfig {
 
 type TaskQueryOpts struct {
 	ByCluster string
-	ByService string
+	ByDeployment string
 	ByHost    string
 	Running   bool
 	Scheduled bool
@@ -64,7 +64,10 @@ type ServiceQueryOpts struct {
 
 type HostQueryOpts struct {
 	ByCluster string
-	Healthy   bool
+}
+
+type EndpointQuery struct {
+	ByService string
 }
 
 type SchedulerApi interface {
@@ -78,11 +81,6 @@ type SchedulerApi interface {
 	// acquire a lock on a resource from consul, does not block when the lock cannot be held, rather
 	// it should return immediately
 	Lock(key string, block bool) (Lockable, error)
-
-	// Health checks for agents. These are implemented as simple TTL on a key, if the key does not exist, or is
-	// expired (ttl is 30 seconds) then the agent is marked as unhealthy.
-	GetAgentHealth(name string) (bool, error)
-	SetAgentHealthy(name string) error
 
 	// API Cluster Operations
 	// => config/clusters/<cluster_id>
@@ -113,6 +111,7 @@ type SchedulerApi interface {
 	//DelService(id string) error
 
 	// API Host Operations
+	// Host should have a TTL on it to implement health checking.
 	// => hosts/<cluster>/<host_id>
 	ListHosts(opts *HostQueryOpts) ([]*Host, error)
 	GetHost(id string) (*Host, error)
@@ -137,13 +136,13 @@ type SchedulerApi interface {
 
 	// API Endpoint Operations
 	// For a given service, return the currently available endpoints to reach that service at.
-	ListEndpoints(serviceId string) ([]*Endpoint, error)
+	ListEndpoints(o *EndpointQuery) ([]*Endpoint, error)
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.
 	// Events that should be emitted on change of a key:
 	// => health::task:<node>:<status>:<task_id>
-	// => health::host:<status>:<host_id>
+	// => hosts::<host_id>
 	// => config::<resource (service|task_definition|host|cluster)>/<resource_id>
 	// => state::<host_id>:<task_id>
 	Subscribe(key, evt string, listener chan string)
@@ -152,7 +151,7 @@ type SchedulerApi interface {
 	// Service Discovery idea:
 	// a service is a mapping of a cluster, deployment, container and port. This allows the engine to return the
 	// list of running
-	// ListServices() ([]*Service, error)
+	//ListServices() ([]*Service, error)
 
 	// Get the configuration for this storage
 	Conf() *StorageConfig

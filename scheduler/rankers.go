@@ -1,4 +1,4 @@
-package master
+package scheduler
 
 import (
 	"github.com/coldog/sked/api"

@@ -25,27 +25,27 @@ func Scale(a api.SchedulerApi, serviceName string, desired int) error {
 		return fmt.Errorf("no service to scale")
 	}
 
-	service, err := a.GetService(serviceName)
+	deploy, err := a.GetDeployment(serviceName)
 	if err != nil {
 		return err
 	}
 
-	if desired < service.Min {
-		service.Min = desired
+	if desired < deploy.Min {
+		deploy.Min = desired
 	}
 
-	if desired > service.Max {
-		service.Max = desired
+	if desired > deploy.Max {
+		deploy.Max = desired
 	}
 
-	service.Desired = desired
-	return a.PutService(service)
+	deploy.Desired = desired
+	return a.PutDeployment(deploy)
 }
 
-func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
+func ListTasks(a api.SchedulerApi, byHost, byCluster, byDeployment string) error {
 	tasks, err := a.ListTasks(&api.TaskQueryOpts{
 		ByHost:    byHost,
-		ByService: byService,
+		ByDeployment: byDeployment,
 		ByCluster: byCluster,
 		Scheduled: true,
 	})
@@ -56,20 +56,20 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byService string) error {
 
 	rows := make([][]interface{}, 0, len(tasks))
 	for _, t := range tasks {
-		ok, err := a.TaskHealthy(t)
+		state, err := a.GetTaskState(t.ID())
 		if err != nil {
 			return err
 		}
 
-		rows = append(rows, []interface{}{t.Id(), t.Host, t.Rejected, t.Cluster, t.Service, t.TaskDefinition.Name, t.TaskDefinition.Version, ok})
+		rows = append(rows, []interface{}{t.Id(), t.Host, t.Rejected, t.Cluster, t.Deployment, t.TaskDefinition.Name, t.TaskDefinition.Version, state})
 	}
 
-	table([]string{"id", "host", "rejected", "cluster", "service", "task def", "version", "healthy"}, rows)
+	table([]string{"id", "host", "rejected", "cluster", "service", "task def", "version", "state"}, rows)
 	return nil
 }
 
-func ListHosts(a api.SchedulerApi) error {
-	hosts, err := a.ListHosts()
+func ListHosts(a api.SchedulerApi, cluster string) error {
+	hosts, err := a.ListHosts(&api.HostQueryOpts{ByCluster: cluster})
 
 	if err != nil {
 		return err
@@ -81,13 +81,13 @@ func ListHosts(a api.SchedulerApi) error {
 			return err
 		}
 
-		rows = append(rows, []interface{} {h.Name, h.Tags, h.CalculatedResources.CpuUnits, h.CalculatedResources.Memory, h.CalculatedResources.DiskSpace, len(tasks)})
+		rows = append(rows, []interface{}{h.Name, h.Tags, h.CalculatedResources.CpuUnits, h.CalculatedResources.Memory, h.CalculatedResources.DiskSpace, len(tasks)})
 	}
 	table([]string{"name", "tags", "cpu", "mem", "disk", "tasks"}, rows)
 	return nil
 }
 
-func table(header []string, rows [][]interface{})  {
+func table(header []string, rows [][]interface{}) {
 	counts := make([]int, len(header))
 
 	for i := 0; i < len(header); i++ {

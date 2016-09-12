@@ -157,7 +157,7 @@ type Check struct {
 	Docker   string         `json:"docker"`
 }
 
-func (ch *Check) URLHttp(t *Task, c *Container) string {
+func (ch *Check) HTTPWithPort(t *Task, c *Container) string {
 	u := ch.HTTP
 	for _, p := range c.PortsForTask(t) {
 		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%s", p.Host), 1)
@@ -165,7 +165,7 @@ func (ch *Check) URLHttp(t *Task, c *Container) string {
 	return u
 }
 
-func (ch *Check) URLTcp(t *Task, c *Container) string {
+func (ch *Check) TCPWithPort(t *Task, c *Container) string {
 	u := ch.TCP
 	for _, p := range c.PortsForTask(t) {
 		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%s", p.Host), 1)
