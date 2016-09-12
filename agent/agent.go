@@ -307,6 +307,7 @@ func (agent *Agent) sync() {
 
 	tasks, err := agent.api.ListTasks(&api.TaskQueryOpts{
 		ByHost: agent.Host,
+		ByCluster: agent.Config.Cluster,
 	})
 	if err != nil {
 		log.WithField("error", err).Error("failed to sync")

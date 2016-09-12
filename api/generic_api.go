@@ -17,35 +17,6 @@ type Lockable interface {
 	Unlock() error
 }
 
-type StorageConfig struct {
-	ConfigPrefix          string
-	ClustersPrefix        string
-	ServicesPrefix        string
-	HostsPrefix           string
-	TaskDefinitionsPrefix string
-	SchedulersPrefix      string
-	StatePrefix           string
-	TasksPrefix           string
-	TasksByHostPrefix     string
-}
-
-func DefaultStorageConfig() *StorageConfig {
-	confPrefix := "config/"
-	statePrefix := "state/"
-
-	return &StorageConfig{
-		ConfigPrefix:          confPrefix,
-		ClustersPrefix:        confPrefix + "clusters/",
-		ServicesPrefix:        confPrefix + "services/",
-		HostsPrefix:           confPrefix + "hosts/",
-		TaskDefinitionsPrefix: confPrefix + "task_definitions/",
-		SchedulersPrefix:      "schedulers/",
-		StatePrefix:           statePrefix,
-		TasksByHostPrefix:     statePrefix + "hosts/",
-		TasksPrefix:           statePrefix + "tasks/",
-	}
-}
-
 type TaskQueryOpts struct {
 	ByCluster string
 	ByDeployment string
@@ -105,18 +76,18 @@ type SchedulerApi interface {
 	// API Service Operations
 	// storage:
 	// => config/services/<service_id>
-	//ListServices() ([]*Service, error)
-	//PutService(s *Service) error
-	//GetService(id string) (*Service, error)
-	//DelService(id string) error
+	ListServices() ([]*Service, error)
+	PutService(s *Service) error
+	GetService(id string) (*Service, error)
+	DelService(id string) error
 
 	// API Host Operations
 	// Host should have a TTL on it to implement health checking.
 	// => hosts/<cluster>/<host_id>
 	ListHosts(opts *HostQueryOpts) ([]*Host, error)
-	GetHost(id string) (*Host, error)
+	GetHost(cluster, id string) (*Host, error)
 	PutHost(h *Host) error
-	DelHost(id string) error
+	DelHost(cluster, id string) error
 
 	// API Task Operations:
 	// storing tasks:
@@ -147,14 +118,6 @@ type SchedulerApi interface {
 	// => state::<host_id>:<task_id>
 	Subscribe(key, evt string, listener chan string)
 	UnSubscribe(key string)
-
-	// Service Discovery idea:
-	// a service is a mapping of a cluster, deployment, container and port. This allows the engine to return the
-	// list of running
-	//ListServices() ([]*Service, error)
-
-	// Get the configuration for this storage
-	Conf() *StorageConfig
 }
 
 // the executor is a stop and startable executable that can be passed to an agent to run.
