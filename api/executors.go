@@ -20,7 +20,7 @@ const (
 
 type ExecutorBuilder func(c *Container) Executor
 
-var ExecutorBuilders = map[string] ExecutorBuilder {
+var ExecutorBuilders = map[string]ExecutorBuilder{
 	"docker": func(c *Container) Executor {
 		if c.docker != nil {
 			return c.docker
@@ -65,18 +65,16 @@ func (c *Container) GetExecutor() Executor {
 	return nil
 }
 
-
-
 // The bash executor simply runs a list of commands to start the process, and then runs another
 // list of commands to stop the process. This is a very rough executor as it doesn't know much
 // about the underlying process and therefore cannot intelligently make many decisions about it.
 type BashExecutor struct {
-	Ports            []uint        `json:"ports"`
-	Env              []string      `json:"env"`
-	Start            string      `json:"start"`
-	Stop             string      `json:"stop"`
-	Artifact         string        `json:"artifact"`
-	DownloadDir      string        `json:"download_dir"`
+	Ports       []uint   `json:"ports"`
+	Env         []string `json:"env"`
+	Start       string   `json:"start"`
+	Stop        string   `json:"stop"`
+	Artifact    string   `json:"artifact"`
+	DownloadDir string   `json:"download_dir"`
 }
 
 func (bash *BashExecutor) StartTask(t *Task) error {
@@ -98,22 +96,20 @@ func (bash *BashExecutor) IsRunning() (bool, error) {
 	return false, fmt.Errorf("cannot determine state")
 }
 
-
-
 // The docker executor will start a docker container.
 type DockerExecutor struct {
-	Image            string        `json:"image"`
-	Cmd              string        `json:"cmd"`
-	Entry            string        `json:"entry"`
-	ContainerPort    uint          `json:"container_port"`
-	Ports            []string      `json:"ports"`
-	Env              []string      `json:"env"`
-	WorkDir          string        `json:"work_dir"`
-	Net              string        `json:"net"`
-	NetAlias         string        `json:"net_alias"`
-	Volumes          []string      `json:"volumes"`
-	VolumeDriver     string        `json:"volume_driver"`
-	Flags            []string      `json:"flags"`
+	Image         string   `json:"image"`
+	Cmd           string   `json:"cmd"`
+	Entry         string   `json:"entry"`
+	ContainerPort uint     `json:"container_port"`
+	Ports         []string `json:"ports"`
+	Env           []string `json:"env"`
+	WorkDir       string   `json:"work_dir"`
+	Net           string   `json:"net"`
+	NetAlias      string   `json:"net_alias"`
+	Volumes       []string `json:"volumes"`
+	VolumeDriver  string   `json:"volume_driver"`
+	Flags         []string `json:"flags"`
 }
 
 func (docker *DockerExecutor) StartTask(t *Task) error {

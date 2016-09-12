@@ -13,10 +13,10 @@ import (
 // 	- version must be new
 //
 type TaskDefinition struct {
-	Name        string        `json:"name"`
-	Version     uint          `json:"version"`
-	Tags        []string      `json:"tags"`
-	Containers  []*Container  `json:"containers"`
+	Name        string         `json:"name"`
+	Version     uint           `json:"version"`
+	Tags        []string       `json:"tags"`
+	Containers  []*Container   `json:"containers"`
 	GracePeriod tools.Duration `json:"grace_period"`
 }
 
@@ -98,8 +98,8 @@ type Container struct {
 	CpuUnits int64           `json:"cpu_units"`
 	DiskUse  int64           `json:"disk_use"`
 
-	bash     *BashExecutor
-	docker   *DockerExecutor
+	bash   *BashExecutor
+	docker *DockerExecutor
 }
 
 func (c *Container) RunSetup() error {
@@ -126,19 +126,19 @@ func (c *Container) RunTeardown() error {
 
 // a check passed along to consul
 type Check struct {
-	ID          string        `json:"id"`
-	Name        string        `json:"name"`
-	HTTP        string        `json:"http"`
-	TCP         string        `json:"tcp"`
-	Script      string        `json:"script"`
-	Interval    tools.Duration `json:"interval"`
-	Timeout     tools.Duration `json:"timeout"`
-	TTL         string        `json:"ttl"`
-	Docker      string        `json:"docker"`
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	HTTP     string         `json:"http"`
+	TCP      string         `json:"tcp"`
+	Script   string         `json:"script"`
+	Interval tools.Duration `json:"interval"`
+	Timeout  tools.Duration `json:"timeout"`
+	TTL      string         `json:"ttl"`
+	Docker   string         `json:"docker"`
 }
 
-type PortMapping struct  {
-	Name  string `json:"name"`
-	Container uint `json:"container"`
-	Host uint `json:"host"`
+type PortMapping struct {
+	Name      string `json:"name"`
+	Container uint   `json:"container"`
+	Host      uint   `json:"host"`
 }

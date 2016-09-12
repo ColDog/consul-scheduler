@@ -19,7 +19,7 @@ $ sked apply -f examples/hello-world-cluster.yml
 ##### Watching your tasks
 ```
 $ sked tasks
-id                         host                           rejected     cluster     service        task def       version     healthy     
+id                         host                           rejected     cluster     deployment     task def       version     healthy
 -----------------------------------------------------------------------------------------------------------------------------------------
 default-helloworld-4-0     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
 default-helloworld-4-1     Colins-MacBook-Pro-2.local     false        default     helloworld     helloworld     4           false       
@@ -51,12 +51,13 @@ default-helloworld-4-6     Colins-MacBook-Pro-2.local     false        default  
     3. [Processes](#processes)
 3. [Architecture](#architecture)
     1. [Agents](#agents)
-    2. [Scheduler](#scheduler)
+    2. [Scheduling](#scheduling)
+    2. [Service Discovery](#service-discovery)
 4. [Storage](#storage)
     1. [Desired State](#desired-state)
     2. [Issued State](#issued-state)
 5. [Configuring](#configuring)
-    1. [Services](#services)
+    1. [Deployments](#services)
     2. [Clusters](#clustes)
     3. [Task Definitions](#task-definitions)
     3. [Tasks](#tasks)
@@ -106,7 +107,9 @@ Host: A physical machine where _containers_ can be run.
 
 Task Definition: A collection of _containers_ that can be health checked and should run together.
 
-Service: An object containing the configuration for running a given _task definition_.
+Deployment: An object containing the configuration required to run a given _task definition_.
+
+Service: A service is a mapping containing a _cluster_, _deployment_, _container_ and port to resolve these into endpoints.
 
 Cluster: A logical grouping of _services_.
 
@@ -156,10 +159,10 @@ able to run the provided tasks.
 
 When the `scheduler` command is passed to the binary this will start a process that monitors the configuration and the hosts
 in the defined cluster and dispatches requests to schedule when a change in the configuration is noticed. Schedulers run
-on a per cluster and service basis. The master process monitors all resources in the defined cluster and issues requests
-to schedule for a given service if needed.
+on a per cluster and deployment basis. The master process monitors all resources in the defined cluster and issues requests
+to schedule for a given deployment if needed.
 
-When a scheduler begins to schedule for a given service, it first attempts to lock that service and cluster. If a lock
+When a scheduler begins to schedule for a given deployment, it first attempts to lock that deployment and cluster. If a lock
 cannot be retrieved immediately, the scheduler will exit and wait for another request. This allows for us to run multiple
 schedulers throughout the cluster for fault tolerance and parallel scheduling.
 
@@ -167,6 +170,16 @@ Since schedulers work parallel to one another, they may schedule a task on a hos
 another task, or they may miscalculate the resources of a host since other scheduler processes have already allocated that
 memory or cpu. Agents are able to reject a task, which triggers another scheduling and forces the scheduler to rebalance
 the tasks across the hosts accordingly.
+
+### Service Discovery
+
+Service discovery is implemented by using services. A service is a mapping containing a cluster, deployment, container
+and port to reach the container at. These ports can be defined dynamically. This allows the API to resolve a query for
+a given service with the endpoints to reach all of the available containers with the configured ports inside the configured
+cluster. Overall you can think of the service as a predefined query to run against the state of the cluster.
+
+This is a mere building block for service discovery as it only implements a method to retrieve the given endpoints for a
+service. It makes no assumptions about what you do from there on.
 
 #### Writing Your Own Scheduler
 
@@ -177,7 +190,7 @@ same key mapping.
 
 Overall, all your scheduler needs to do is create tasks readable by the agent under the following key:
 
-    /state/hosts/<host_name>/<task_id> => {task}
+    /state/<task_id> => {task}
 
 All of the locking and monitoring of the cluster is ancillary and necessary to get distributed fault tolerant scheduling,
 however if you want to quickly hand roll a solution or have specific scheduling requirements this could be a viable
@@ -197,7 +210,7 @@ The storage format for the desired state is as follows:
     clusters:           config/clusters/<name>
     services:           config/services/<name>
     task definitions:   config/task_definitions/<name>/<version>
-    host:               config/hosts/<name>
+    host:               hosts/<cluster>/<name>
 
 #### Issued State
 
@@ -232,7 +245,7 @@ clusters:
     - <cluster-object>
 
 services:
-    - <service-object>
+    - <deployment-object>
 
 task_definitions:
     - <task-definition-object>
@@ -249,10 +262,10 @@ task_definitions:
 #### Services
 ```javascript
 {
-  "name": "helloworld",       // a unique name for this service
-  "task_name": "helloworld",  // the task name this service should run
+  "name": "helloworld",       // a unique name for this deployment
+  "task_name": "helloworld",  // the task name this deployment should run
   "scheduler": "default",     // the scheduler that should be used
-  "task_version": 2,          // the task version this service should run
+  "task_version": 2,          // the task version this deployment should run
   "desired": 4,               // the desired amount of tasks
   "min": 3,                   // the minimum amount the scheduler can drop to
   "max": 4                    // the maximum amount the scheduler can issue
@@ -353,7 +366,7 @@ Tasks are serialized with the full task definition.
     "grace_period": 60000000000,
     "max_attempts": 10
   },
-  "service": "helloworld",
+  "deployment": "helloworld",
   "instance": 0,
   "port": 20000,
   "host": "Colins-MacBook-Pro-2.local",
@@ -377,7 +390,7 @@ type Executor interface {
 ```
 
 These methods allow the agent to start the task and stop the task. If the `StartTask` method errors the agent will not
-register the service for health checks or in the service discovery backend. The reserved ports is a list of ports used
+register the deployment for health checks or in the deployment discovery backend. The reserved ports is a list of ports used
 by the scheduler to determine if this executor conflicts with a host.
 
 ##### Docker Executor

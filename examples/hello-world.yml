@@ -1,7 +1,13 @@
 clusters:
   - name: default
-    services:
+    deployments:
       - helloworld
+
+services:
+  - name: helloworld-default
+    cluster: default
+    selector:
+      - deployment_name:
 
 deployments:
   - name: helloworld
