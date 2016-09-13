@@ -128,7 +128,7 @@ func (c *Container) RunTeardown() error {
 
 // given port mappings for a task
 func (c *Container) PortsForTask(t *Task) []*PortMapping {
-	mappings := make([]*PortMapping, len(c.Ports))
+	mappings := make([]*PortMapping, 0)
 
 	for _, p := range c.Ports {
 		host := p.Host
@@ -170,7 +170,7 @@ type Check struct {
 func (ch *Check) HTTPWithPort(t *Task, c *Container) string {
 	u := ch.HTTP
 	for _, p := range c.PortsForTask(t) {
-		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%s", p.Host), 1)
+		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%d", p.Host), 1)
 	}
 	return u
 }
@@ -178,7 +178,7 @@ func (ch *Check) HTTPWithPort(t *Task, c *Container) string {
 func (ch *Check) TCPWithPort(t *Task, c *Container) string {
 	u := ch.TCP
 	for _, p := range c.PortsForTask(t) {
-		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%s", p.Host), 1)
+		u = strings.Replace(u, "$" + p.Name, fmt.Sprintf("%d", p.Host), 1)
 	}
 	return u
 }

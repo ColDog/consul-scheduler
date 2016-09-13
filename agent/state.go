@@ -10,10 +10,9 @@ import (
 
 type TaskState struct {
 	StartedAt time.Time `json:"started_at"`
-	Starting  bool      `json:"starting"`
 	Attempts  int       `json:"attempts"`
 	Failure   error     `json:"failure"`
-	Healthy   bool      `json:"healthy"`
+	State     api.TaskState `json:"state"`
 	Task      *api.Task `json:"task"`
 }
 
@@ -91,8 +90,7 @@ func (a *AgentState) load() error {
 
 	// clean up the state of certain attributes that should not be persisted between sessions
 	for _, t := range a.State {
-		t.Starting = false
-		t.Healthy = false
+		t.State = api.PENDING
 	}
 
 	return err

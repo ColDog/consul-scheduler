@@ -102,7 +102,7 @@ type SchedulerApi interface {
 	// if consul has any health checks these will be used, otherwise the default kv check
 	// will be consulted.
 	// => state/health/<task_id>
-	GetTaskState(taskId string) (TaskState, error)
+	GetTaskState(t *Task) (TaskState, error)
 	PutTaskState(taskId string, s TaskState) error
 
 	// Listen for custom events emitted from the API,
@@ -121,15 +121,15 @@ type SchedulerApi interface {
 // by the agent.
 type Executor interface {
 	// this function should start a task.
-	StartTask(t *Task) error
+	StartTask(t *Task, cont *Container) error
 
 	// this function should stop a task from running and is intended to be
 	// executed by the agent.
-	StopTask(t *Task) error
+	StopTask(t *Task, cont *Container) error
 
 	// attempts to check whether a task is running from the executor level.
 	// if the executor cannot answer or is unsure it should return an error.
-	IsRunning() (bool, error)
+	IsRunning(t *Task, cont *Container) (bool, error)
 }
 
 type Validatable interface {

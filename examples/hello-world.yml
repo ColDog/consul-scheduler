@@ -14,6 +14,7 @@ deployments:
     min: 3
     max: 7
     desired: 7
+    max_attempts: 20
 
 tasks:
   - name: helloworld
@@ -26,14 +27,13 @@ tasks:
         ports:
           - name: main
             host: 0
-            container: 1000
+            container: 80
 
         executor:
-          container_port: 80
           name: helloworld
           image: tutum/hello-world
 
         checks:
-          - http: http://127.0.0.1:$PROVIDED_PORT
+          - http: http://127.0.0.1:$main
             interval: 10s
             timeout: 5s

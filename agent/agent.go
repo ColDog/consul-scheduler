@@ -106,7 +106,7 @@ func (agent *Agent) start(t *api.Task) error {
 	}
 
 	state := agent.TaskState.get(t.ID(), t)
-	state.Starting = true
+	state.State = api.STARTING
 	state.StartedAt = time.Now()
 	state.Attempts += 1
 
@@ -115,7 +115,7 @@ func (agent *Agent) start(t *api.Task) error {
 
 		if executor != nil {
 			cont.RunSetup()
-			err := executor.StartTask(t)
+			err := executor.StartTask(t, cont)
 			if err != nil {
 				state.Failure = err
 				return err
@@ -126,8 +126,7 @@ func (agent *Agent) start(t *api.Task) error {
 		}
 	}
 
-	state.Starting = false
-	return agent.api.PutTaskState(t.ID(), api.STARTING)
+	return agent.api.PutTaskState(t.ID(), api.STARTED)
 }
 
 // deregisters a task from consul and attemps to stop the task from runnning
@@ -141,7 +140,7 @@ func (agent *Agent) stop(t *api.Task) error {
 		executor := cont.GetExecutor()
 
 		if executor != nil {
-			err := executor.StopTask(t)
+			err := executor.StopTask(t, cont)
 			if err != nil {
 				return err
 			}
@@ -196,6 +195,7 @@ func (agent *Agent) PublishState() {
 			CalculatedResources: &api.Resources{},
 			BaseResources:       agent.Config.Resources,
 			ObservedResources:   &api.Resources{},
+			Cluster:             agent.Config.Cluster,
 		}
 	}
 
@@ -215,38 +215,39 @@ func (agent *Agent) PublishState() {
 }
 
 func (agent *Agent) syncTask(task *api.Task) *action {
-	taskState, err := agent.api.GetTaskState(task.ID())
+	taskState, err := agent.api.GetTaskState(task)
 	if err != nil {
 		log.WithField("error", err).Error("failed to sync")
 		return nil
 	}
 
+	state := agent.TaskState.get(task.Id(), task)
+	state.State = taskState
+	if state.State.Healthy() {
+		state.Failure = nil
+		state.Attempts = 0
+	}
+
 	// agent runs a basic container based check from the executor. This simply checks if the process
 	// has failed or not. The agent does not concern itself with more complicated checks, those are
 	// left to the health checking process or Consul.
-	//for _, cont := range task.TaskDefinition.Containers {
-	//	if cont.Essential {
-	//		ex := cont.GetExecutor()
-	//		if ex == nil {
-	//			continue
-	//		}
-	//
-	//		ok, err := ex.IsRunning()
-	//		if err == nil {
-	//			continue
-	//		}
-	//
-	//		if !ok && taskState.Healthy() {
-	//			agent.api.PutTaskState(task.ID(), api.EXITED)
-	//			taskState = api.EXITED
-	//		}
-	//	}
-	//}
+	for _, cont := range task.TaskDefinition.Containers {
+		if cont.Essential {
+			ex := cont.GetExecutor()
+			if ex == nil {
+				continue
+			}
 
-	state := agent.TaskState.get(task.Id(), task)
-	state.Healthy = taskState.Healthy()
-	if state.Healthy {
-		state.Failure = nil
+			ok, err := ex.IsRunning(task, cont)
+			if err != nil {
+				continue
+			}
+
+			if !ok {
+				agent.api.PutTaskState(task.ID(), api.EXITED)
+				taskState = api.EXITED
+			}
+		}
 	}
 
 	deployment, err := agent.api.GetDeployment(task.Deployment)
@@ -268,7 +269,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 		"task":         task.ID(),
 		"attempts":     state.Attempts,
 		"failure":      state.Failure,
-		"health":       state.Healthy,
+		"health":       state.State,
 		"scheduled":    task.Scheduled,
 		"last_started": state.StartedAt,
 	}).Info("[agent] task state")
@@ -277,7 +278,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 	// - the task is scheduled
 	// - the task is not rejected
 	// - the task is not healthy and has health checks or the task has not been started and does not have any checks
-	if task.Scheduled && !task.Rejected && !state.Starting && ((!taskState.Healthy() && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
+	if task.Scheduled && !task.Rejected && state.State != api.STARTING && ((!taskState.Healthy() && task.HasChecks()) || (!task.HasChecks() && state.Attempts == 0)) {
 		// leave some time in between restarting tasks, ie they may take a while before the health checks
 		// begin passing.
 		if state.StartedAt.Add(task.TaskDefinition.GracePeriod.Duration).After(time.Now()) {
@@ -309,6 +310,7 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 
 		log.WithField("last_started", state.StartedAt).WithField("task", task.Id()).Info("[agent] starting")
 		state.StartedAt = time.Now() // put the started at here since time into the queue could be longer.
+		state.State = api.STARTING
 
 		// restart the task since it is failing
 		return &action{start: true, task: task}

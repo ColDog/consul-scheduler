@@ -382,7 +382,7 @@ func (a *ConsulApi) ListTasks(q *api.TaskQueryOpts) (ts []*api.Task, err error) 
 		backends.Decode(v.Value, t)
 
 		if q.Failing || q.Running {
-			state, err := a.GetTaskState(t.ID())
+			state, err := a.GetTaskState(t)
 			if err != nil {
 				return ts, err
 			}
@@ -447,18 +447,21 @@ func (a *ConsulApi) DelTask(t *api.Task) error {
 
 // TASK Health Operations
 
-func (a *ConsulApi) GetTaskState(taskId string) (api.TaskState, error) {
-	s, _, err := a.health.Checks("task-"+taskId, nil)
+func (a *ConsulApi) GetTaskState(t *api.Task) (api.TaskState, error) {
+	s, _, err := a.health.Checks("task-"+t.Name(), nil)
 	if err != nil {
 		return api.PENDING, err
 	}
 
-	stateStr, err := a.get("state/health/" + taskId)
+	stateStr, err := a.get("state/health/" + t.ID())
 	if err != nil && err != api.ErrNotFound {
 		return api.PENDING, err
 	}
 
-	state := api.TaskState(string(stateStr.Value))
+	state := api.PENDING
+	if stateStr != nil {
+		state = api.TaskState(string(stateStr.Value))
+	}
 
 	// authoritative over these states only, consul can be considered authoritative over the rest
 	if state == api.STOPPING || state == api.STARTING || state == api.EXITED {
@@ -467,7 +470,7 @@ func (a *ConsulApi) GetTaskState(taskId string) (api.TaskState, error) {
 
 	any := false
 	for _, ch := range s {
-		if ch.ServiceID == taskId {
+		if ch.ServiceID == "task-"+t.ID() {
 			any = true
 			if ch.Status != "passing" {
 				return api.FAILING, nil
@@ -523,7 +526,7 @@ func (a *ConsulApi) register(t *api.Task) error {
 
 	return a.agent.ServiceRegister(&consul.AgentServiceRegistration{
 		ID:      "task-" + t.ID(),
-		Name:    t.Name(),
+		Name:    "task-" + t.Name(),
 		Tags:    append(t.TaskDefinition.Tags, t.Cluster, t.Deployment),
 		Address: t.Host,
 		Checks:  checks,

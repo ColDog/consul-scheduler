@@ -56,7 +56,7 @@ func ListTasks(a api.SchedulerApi, byHost, byCluster, byDeployment string) error
 
 	rows := make([][]interface{}, 0, len(tasks))
 	for _, t := range tasks {
-		state, err := a.GetTaskState(t.ID())
+		state, err := a.GetTaskState(t)
 		if err != nil {
 			return err
 		}

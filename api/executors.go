@@ -75,7 +75,7 @@ type BashExecutor struct {
 	DownloadDir string   `json:"download_dir"`
 }
 
-func (bash *BashExecutor) StartTask(t *Task) error {
+func (bash *BashExecutor) StartTask(t *Task, cont *Container) error {
 	if bash.Artifact != "" {
 		err := tools.Exec(bash.Env, executorDownloadTimeout, "curl", "-o", bash.DownloadDir, bash.Artifact)
 		if err != nil {
@@ -86,11 +86,11 @@ func (bash *BashExecutor) StartTask(t *Task) error {
 	return tools.Exec(bash.Env, t.TaskDefinition.GracePeriod, "sh", "-c", bash.Start)
 }
 
-func (bash *BashExecutor) StopTask(t *Task) (err error) {
+func (bash *BashExecutor) StopTask(t *Task, cont *Container) (err error) {
 	return tools.Exec(bash.Env, executorStopTaskTimeout, "sh", "-c", bash.Stop)
 }
 
-func (bash *BashExecutor) IsRunning() (bool, error) {
+func (bash *BashExecutor) IsRunning(t *Task, cont *Container) (bool, error) {
 	return false, fmt.Errorf("cannot determine state")
 }
 
@@ -99,8 +99,6 @@ type DockerExecutor struct {
 	Image         string   `json:"image"`
 	Cmd           string   `json:"cmd"`
 	Entry         string   `json:"entry"`
-	ContainerPort uint     `json:"container_port"`
-	Ports         []string `json:"ports"`
 	Env           []string `json:"env"`
 	WorkDir       string   `json:"work_dir"`
 	Net           string   `json:"net"`
@@ -110,7 +108,7 @@ type DockerExecutor struct {
 	Flags         []string `json:"flags"`
 }
 
-func (docker *DockerExecutor) StartTask(t *Task) error {
+func (docker *DockerExecutor) StartTask(t *Task, cont *Container) error {
 	err := tools.Exec(docker.Env, executorDockerPullTimeout, "docker", "pull", docker.Image)
 	if err != nil {
 		return err
@@ -151,18 +149,19 @@ func (docker *DockerExecutor) StartTask(t *Task) error {
 		main = append(main, "-e", e)
 	}
 
-	for _, p := range docker.Ports {
-		main = append(main, "-p", p)
+	for _, p := range cont.PortsForTask(t) {
+		main = append(main, "-p", fmt.Sprintf("%d:%d", p.Host, p.Container))
 	}
 
 	main = append(main, "-d", docker.Image)
 	return tools.Exec(docker.Env, t.TaskDefinition.GracePeriod, "docker", main...)
 }
 
-func (docker *DockerExecutor) StopTask(t *Task) error {
+func (docker *DockerExecutor) StopTask(t *Task, cont *Container) error {
 	return tools.Exec(docker.Env, executorStopTaskTimeout, "docker", "stop", t.Id())
 }
 
-func (docker *DockerExecutor) IsRunning() (bool, error) {
-	return true, nil
+func (docker *DockerExecutor) IsRunning(t *Task, cont *Container) (bool, error) {
+	err := tools.Exec(nil, executorStopTaskTimeout, "docker", "inspect", "-f", "{{.State.Running}}", t.ID())
+	return err == nil, nil
 }

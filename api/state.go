@@ -5,14 +5,15 @@ type TaskState string
 const (
 	PENDING  TaskState = ""
 	STARTING TaskState = "starting"
-	STOPPING TaskState = "stopping"
-	STOPPED  TaskState = "stopped"
+	STARTED  TaskState = "started"
 	RUNNING  TaskState = "running"
 	WARNING  TaskState = "warning"
 	FAILING  TaskState = "failing"
+	STOPPING TaskState = "stopping"
+	STOPPED  TaskState = "stopped"
 	EXITED   TaskState = "exited"
 )
 
 func (t TaskState) Healthy() bool {
-	return t == RUNNING
+	return t == RUNNING || t == STARTED
 }

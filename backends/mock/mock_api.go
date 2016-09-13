@@ -293,7 +293,7 @@ func (a *MockApi) ListTasks(q *api.TaskQueryOpts) ([]*api.Task, error) {
 
 	for _, t := range a.tasks {
 		if q.Failing || q.Running {
-			state, err := a.GetTaskState(t.ID())
+			state, err := a.GetTaskState(t)
 			if err != nil {
 				return ts, err
 			}
@@ -360,10 +360,10 @@ func (a *MockApi) emit(evt string) {
 
 // API Task State Operations
 
-func (a *MockApi) GetTaskState(taskId string) (api.TaskState, error) {
+func (a *MockApi) GetTaskState(t *api.Task) (api.TaskState, error) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	return a.health[taskId], nil
+	return a.health[t.ID()], nil
 }
 
 func (a *MockApi) PutTaskState(taskId string, s api.TaskState) error {
