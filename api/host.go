@@ -2,6 +2,7 @@ package api
 
 type Host struct {
 	Name                string            `json:"name"`
+	Address             string            `json:"address"`
 	Draining            bool              `json:"draining"`
 	ReservedPorts       []uint            `json:"reserved_ports"`
 	HealthCheck         string            `json:"health_check"`

@@ -38,6 +38,7 @@ do
 
     consul_flags="${serve} -data-dir=/var/lib/consul -node=${consul_id} -advertise=${addr} ${ui} -client=0.0.0.0 ${expect}"
 
+
     docker run -d \
         --net=sked-net \
         --net-alias=${consul_id} \

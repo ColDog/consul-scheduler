@@ -1,0 +1,1 @@
+consul: /usr/bin/consul -agent -server -bootstrap-expect=3

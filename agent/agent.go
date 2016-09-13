@@ -23,6 +23,7 @@ type AgentConfig struct {
 	AppConfig    *config.Config `json:"app_config"`
 	Resources    *api.Resources `json:"resources"`
 	Cluster      string         `json:"cluster"`
+	Address      string         `json:"address"`
 }
 
 var (

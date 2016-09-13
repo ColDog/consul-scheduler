@@ -146,6 +146,15 @@ func (c *Container) PortsForTask(t *Task) []*PortMapping {
 	return mappings
 }
 
+func (c *Container) HostPortByName(name string, t *Task) uint {
+	for _, p := range c.PortsForTask(t) {
+		if p.Name == name {
+			return p.Host
+		}
+	}
+	return 0
+}
+
 // a check passed along to consul
 type Check struct {
 	ID       string         `json:"id"`

@@ -105,10 +105,6 @@ type SchedulerApi interface {
 	GetTaskState(taskId string) (TaskState, error)
 	PutTaskState(taskId string, s TaskState) error
 
-	// API Endpoint Operations
-	// For a given service, return the currently available endpoints to reach that service at.
-	//ListEndpoints(o *EndpointQuery) ([]*Endpoint, error)
-
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.
 	// Events that should be emitted on change of a key:
