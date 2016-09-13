@@ -8,6 +8,7 @@ func NewTask(cluster *Cluster, taskDef *TaskDefinition, service *Deployment, ins
 		TaskDefinition: taskDef,
 		Deployment:     service.Name,
 		Instance:       instance,
+		ProvidedPorts:  map[string]uint{},
 	}
 
 	return t

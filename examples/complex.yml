@@ -6,7 +6,7 @@ clusters:
       - helloworld2
       - helloworld3
 
-services:
+deployments:
   - name: helloworld
     task_name: helloworld
     task_version: 2

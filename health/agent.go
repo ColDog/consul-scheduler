@@ -11,24 +11,23 @@ import (
 )
 
 type Config struct {
-	AppConfig    *config.Config `json:"app_config"`
+	AppConfig *config.Config `json:"app_config"`
 }
 
 func NewHealthAgent(a api.SchedulerApi, conf *Config) *HealthAgent {
 	return &HealthAgent{
-		api: a,
+		api:    a,
 		Config: conf,
-		State: make(map[string]*Monitor),
-
+		State:  make(map[string]*Monitor),
 	}
 }
 
 type HealthAgent struct {
-	Host  string
+	Host   string
 	Config *Config
-	State map[string]*Monitor
-	api   api.SchedulerApi
-	quit  chan struct{}
+	State  map[string]*Monitor
+	api    api.SchedulerApi
+	quit   chan struct{}
 }
 
 func (h *HealthAgent) GetHostName() {
@@ -74,7 +73,15 @@ func (h *HealthAgent) sync() error {
 		for _, cont := range t.TaskDefinition.Containers {
 			for _, c := range cont.Checks {
 				if _, ok := h.State[c.ID]; !ok {
-					h.State[c.ID] = NewMonitor(h.api, c, cont, t)
+					h.State[c.ID] = NewMonitor(h.api, *HealthCheck{
+						TaskID:   t.ID(),
+						Docker:   c.Docker,
+						Script:   c.Script,
+						HTTP:     c.HTTP,
+						TCP:      c.TCP,
+						Interval: c.Interval.Duration,
+						Timeout:  c.Timeout.Duration,
+					})
 				}
 			}
 		}
@@ -84,7 +91,7 @@ func (h *HealthAgent) sync() error {
 	for key, m := range h.State {
 		ok := false
 		for _, t := range tasks {
-			if t.Id() == m.Task.Id() {
+			if t.ID() == m.Check.TaskID {
 				ok = true
 				break
 			}

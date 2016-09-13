@@ -59,6 +59,10 @@ func (s *DefaultScheduler) syncHosts() error {
 }
 
 func (s *DefaultScheduler) Schedule(d *api.Deployment) error {
+	if s.cluster == nil {
+		return fmt.Errorf("cluster was not set")
+	}
+
 	logName := fmt.Sprintf("scheduler:%s-%s", s.cluster.Name, d.Name)
 
 	log.Infof("[%s] starting", logName)
