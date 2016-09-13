@@ -389,6 +389,10 @@ func (agent *Agent) Wait() {
 func (agent *Agent) Run() {
 	log.Info("[agent] starting")
 
+	if agent.Config.Cluster == "" {
+		agent.Config.Cluster = "default"
+	}
+
 	agent.TaskState.load()
 	defer agent.TaskState.save()
 

@@ -21,6 +21,7 @@ func testConfig() *AgentConfig {
 	return &AgentConfig{
 		AppConfig: config.NewConfig(),
 		Resources: &api.Resources{},
+		Cluster: "default",
 	}
 }
 
@@ -71,7 +72,7 @@ func TestAgent_PublishState(t *testing.T) {
 
 	ag.PublishState()
 
-	h, err := a.GetHost("local")
+	h, err := a.GetHost("default", "local")
 	tools.Ok(t, err)
 	tools.Equals(t, h.Name, "local")
 }
@@ -81,11 +82,15 @@ func TestAgent_Sync(t *testing.T) {
 	ag := NewAgent(a, testConfig())
 	ag.Host = "local"
 
+	a.PutDeployment(api.SampleDeployment())
+
 	for i := 0; i < 20; i++ {
 		tk := api.SampleTask()
 		tk.Instance = i
 		tk.Scheduled = true
 		tk.Host = "local"
+		tk.Cluster = "default"
+		tk.Deployment = "test"
 		a.PutTask(tk)
 	}
 
