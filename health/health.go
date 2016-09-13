@@ -130,7 +130,7 @@ func (m *Monitor) Stop() {
 	m.quit <- struct{}{}
 }
 
-func checkType(c *api.Check) string {
+func checkType(c *HealthCheck) string {
 	if c.HTTP != "" {
 		return "http"
 	} else if c.TCP != "" {

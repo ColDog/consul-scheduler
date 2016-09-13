@@ -73,7 +73,7 @@ func (h *HealthAgent) sync() error {
 		for _, cont := range t.TaskDefinition.Containers {
 			for _, c := range cont.Checks {
 				if _, ok := h.State[c.ID]; !ok {
-					h.State[c.ID] = NewMonitor(h.api, *HealthCheck{
+					h.State[c.ID] = NewMonitor(h.api, &HealthCheck{
 						TaskID:   t.ID(),
 						Docker:   c.Docker,
 						Script:   c.Script,
