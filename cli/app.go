@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 	"os/exec"
+	"github.com/coldog/sked/discovery"
 )
 
 func init() {
@@ -48,6 +49,7 @@ type App struct {
 	Agent  *agent.Agent
 	Master *master.Master
 	Health *health.HealthAgent
+	Discovery *discovery.DiscoveryAgent
 	atExit func()
 }
 
@@ -133,6 +135,7 @@ func (app *App) setup() {
 		app.SchedulerCmd(),
 		app.HealthAgentCmd(),
 		app.CombinedCmd(),
+		app.DiscoveryAgentCmd(),
 		app.ApplyCmd(),
 		app.ScaleCmd(),
 		app.DrainCmd(),
@@ -165,6 +168,10 @@ func (app *App) AtExit(e func()) {
 
 		app.atExit()
 	}()
+}
+
+func (app *App) RegisterDiscoveryAgent(c *cli.Context) {
+	app.Discovery = discovery.New(app.Api, c.StringSlice("discover-services"))
 }
 
 func (app *App) RegisterAgent(c *cli.Context) {

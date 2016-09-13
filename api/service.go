@@ -18,12 +18,12 @@ func (s *Service) Validate(api SchedulerApi) (errors []string) {
 
 	_, err := api.GetCluster(s.Cluster)
 	if err != nil {
-		errors = append(errors, err.Error())
+		errors = append(errors, "cluster: " + err.Error())
 	}
 
-	_, err = api.GetDeployment(s.Cluster)
+	_, err = api.GetDeployment(s.Deployment)
 	if err != nil {
-		errors = append(errors, err.Error())
+		errors = append(errors, "deployment: " + err.Error())
 	}
 
 	return errors

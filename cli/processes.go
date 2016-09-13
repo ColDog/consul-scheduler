@@ -73,6 +73,29 @@ func (app *App) HealthAgentCmd() (cmd cli.Command) {
 	return cmd
 }
 
+func (app *App) DiscoveryAgentCmd() (cmd cli.Command) {
+	cmd.Name = "discovery"
+	cmd.Usage = "start the discovery service"
+	cmd.Action = func(c *cli.Context) error {
+		app.printWelcome("discovery-agent")
+
+		app.Api.Start()
+
+		app.AtExit(func() {
+			app.Discovery.Stop()
+		})
+
+		app.RegisterDiscoveryAgent(c)
+
+		app.Discovery.RegisterRoutes()
+		go app.Serve()
+		app.Discovery.Run()
+		return nil
+	}
+	return cmd
+}
+
+
 func (app *App) SchedulerCmd() (cmd cli.Command) {
 	cmd.Name = "scheduler"
 	cmd.Usage = "start the scheduler service"

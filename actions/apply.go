@@ -36,9 +36,11 @@ func ApplyConfig(arg string, a api.SchedulerApi) error {
 		Clusters        []*api.Cluster        `json:"clusters"`
 		Deployments     []*api.Deployment     `json:"deployments"`
 		TaskDefinitions []*api.TaskDefinition `json:"tasks"`
+		Services        []*api.Service        `json:"services"`
 		Deployment      *api.Deployment       `json:"deployment"`
 		TaskDefinition  *api.TaskDefinition   `json:"task_definition"`
 		Cluster         *api.Cluster          `json:"cluster"`
+		Service         *api.Service          `json:"service"`
 	}{}
 
 	err := readYml(arg, &obj)
@@ -73,6 +75,26 @@ func ApplyConfig(arg string, a api.SchedulerApi) error {
 			fmt.Printf("cluster: OK %s\n", cluster.Name)
 		} else {
 			fmt.Printf("cluster: FAIL %s\n", cluster.Name)
+		}
+	}
+
+	for _, service := range obj.Services {
+		err = valid(service.Validate(a))
+		if err == nil {
+			a.PutService(service)
+			fmt.Printf("service: OK %s\n", service.Name)
+		} else {
+			fmt.Printf("service: FAIL %s\n", service.Name)
+		}
+	}
+
+	if obj.Service != nil {
+		err = valid(obj.Service.Validate(a))
+		if err == nil {
+			a.PutService(obj.Service)
+			fmt.Printf("service: OK %s\n", obj.Service.Name)
+		} else {
+			fmt.Printf("service: FAIL %s\n", obj.Service.Name)
 		}
 	}
 

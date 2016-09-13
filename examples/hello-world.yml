@@ -6,6 +6,9 @@ clusters:
 services:
   - name: helloworld-default
     cluster: default
+    deployment: helloworld
+    container: helloworld
+    port_name: main
 
 deployments:
   - name: helloworld
