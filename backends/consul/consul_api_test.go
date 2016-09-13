@@ -145,7 +145,7 @@ func TestConsulApi_Hosts(t *testing.T) {
 		tools.Ok(t, err)
 		tools.Equals(t, c.Name, api.SampleHost().Name)
 
-		cs, err := a.ListHosts(api.SampleHost().Cluster)
+		cs, err := a.ListHosts(&api.HostQueryOpts{ByCluster: api.SampleHost().Cluster})
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no services to list")
 

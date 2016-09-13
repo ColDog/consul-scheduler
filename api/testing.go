@@ -51,6 +51,7 @@ func SampleService() *Service {
 func SampleHost() *Host {
 	return &Host{
 		Name: "testinghost",
+		Cluster: "default",
 		CalculatedResources: &Resources{
 			CpuUnits:  1000000000,
 			Memory:    1000000000,

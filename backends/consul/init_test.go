@@ -1,8 +1,6 @@
 package consul
 
 import (
-	"github.com/coldog/sked/api"
-
 	consul "github.com/hashicorp/consul/api"
 
 	"fmt"
@@ -11,6 +9,7 @@ import (
 	"os"
 	"syscall"
 )
+
 var consulBinary = "consul"
 
 func init() {
@@ -27,7 +26,7 @@ func RunConsulApiTest(f ConsulApiTest) {
 
 	fmt.Println("--- starting consul")
 
-	api := NewConsulApi(api.DefaultStorageConfig(), consul.DefaultConfig())
+	api := NewConsulApi("registry", consul.DefaultConfig())
 
 	for {
 		_, _, err := api.kv.Get("test", nil)

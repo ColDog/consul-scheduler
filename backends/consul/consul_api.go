@@ -37,6 +37,7 @@ func NewConsulApi(prefix string, apiConf *consul.Config) *ConsulApi {
 	}
 
 	a := &ConsulApi{
+		prefix:    prefix,
 		kv:        client.KV(),
 		agent:     client.Agent(),
 		catalog:   client.Catalog(),
@@ -47,26 +48,6 @@ func NewConsulApi(prefix string, apiConf *consul.Config) *ConsulApi {
 	}
 
 	return a
-}
-
-func newConsulApi() *ConsulApi {
-	apiConfig := consul.DefaultConfig()
-
-	client, err := consul.NewClient(apiConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return &ConsulApi{
-		kv:         client.KV(),
-		agent:      client.Agent(),
-		catalog:    client.Catalog(),
-		health:     client.Health(),
-		listeners:  make(map[string]*listener),
-		eventLock:  &sync.RWMutex{},
-		client:     client,
-		ConsulConf: apiConfig,
-	}
 }
 
 func (a *ConsulApi) Start() {
@@ -290,7 +271,7 @@ func (a *ConsulApi) ListHosts(opts *api.HostQueryOpts) (hosts []*api.Host, err e
 func (a *ConsulApi) GetHost(cluster, name string) (*api.Host, error) {
 	h := &api.Host{}
 
-	kv, err := a.get("hosts/" + name)
+	kv, err := a.get("hosts/" + cluster + "/" + name)
 	if kv == nil || kv.Value == nil {
 		return h, api.ErrNotFound
 	}
@@ -339,7 +320,7 @@ func (a *ConsulApi) DelHost(cluster, name string) error {
 // ==> TASK DEFINITION operations
 
 func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*api.TaskDefinition, err error) {
-	list, err := a.list("config/task_definitions")
+	list, err := a.list("config/task_definitions/")
 	if err != nil {
 		return taskDefs, err
 	}
@@ -354,7 +335,7 @@ func (a *ConsulApi) ListTaskDefinitions() (taskDefs []*api.TaskDefinition, err e
 
 func (a *ConsulApi) GetTaskDefinition(name string, version uint) (*api.TaskDefinition, error) {
 	t := &api.TaskDefinition{}
-	id := fmt.Sprintf("%s%s/%d", "config/task_definitions", name, version)
+	id := fmt.Sprintf("%s%s/%d", "config/task_definitions/", name, version)
 
 	kv, err := a.get(id)
 	if kv == nil || kv.Value == nil {
@@ -369,7 +350,7 @@ func (a *ConsulApi) GetTaskDefinition(name string, version uint) (*api.TaskDefin
 }
 
 func (a *ConsulApi) PutTaskDefinition(t *api.TaskDefinition) error {
-	id := fmt.Sprintf("%s%s/%d", "config/task_definitions", t.Name, t.Version)
+	id := fmt.Sprintf("%s%s/%d", "config/task_definitions/", t.Name, t.Version)
 	return a.put(id, backends.Encode(t))
 }
 

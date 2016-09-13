@@ -88,7 +88,7 @@ func (a *ConsulApi) monitor(key, name string) {
 			events := make([]string, 0, len(list))
 			for _, kv := range list {
 				if kv.ModifyIndex == meta.LastIndex {
-					events = append(events, fmt.Sprintf("%s::%s", name, strings.Replace(kv.Key, "config/", "", 1)))
+					events = append(events, fmt.Sprintf("%s::%s", name, strings.Replace(strings.Replace(kv.Key, "config/", "", 1), a.prefix+"/", "", 1)))
 				}
 			}
 
