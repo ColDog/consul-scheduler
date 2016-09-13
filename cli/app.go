@@ -78,6 +78,7 @@ func (app *App) setup() {
 		cli.StringFlag{Name: "consul-token", Value: "", EnvVar: "CONSUL_TOKEN", Usage: "consul token"},
 		cli.StringFlag{Name: "bind, b", EnvVar: "BIND", Value: "0.0.0.0", Usage: "address to bind to"},
 		cli.StringFlag{Name: "advertise, a", EnvVar: "ADVERTISE", Value: "127.0.0.1:8231", Usage: "address to advertise"},
+		cli.StringFlag{Name: "prefix", Value: "registry", Usage: "prefix for kv store"},
 		cli.IntFlag{Name: "port, p", EnvVar: "PORT", Value: 8231, Usage: "port to bind to"},
 	}
 	app.cli.Before = func(c *cli.Context) error {
@@ -99,11 +100,8 @@ func (app *App) setup() {
 			app.Config.ConsulConfig.Token = c.GlobalString("consul-token")
 		}
 
-		// todo: allow override of storage config
-		store := api.DefaultStorageConfig()
-
 		if app.Config.Backend == config.CONSUL {
-			app.Api = consul.NewConsulApi(store, app.Config.ConsulConfig)
+			app.Api = consul.NewConsulApi(c.GlobalString("prefix"), app.Config.ConsulConfig)
 		} else if app.Config.Backend == config.MEMORY {
 			app.Api = mock.NewMockApi()
 		} else {
@@ -133,6 +131,7 @@ func (app *App) setup() {
 	app.cli.Commands = []cli.Command{
 		app.AgentCmd(),
 		app.SchedulerCmd(),
+		app.HealthAgentCmd(),
 		app.CombinedCmd(),
 		app.ApplyCmd(),
 		app.ScaleCmd(),

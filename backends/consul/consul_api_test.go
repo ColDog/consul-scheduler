@@ -64,17 +64,6 @@ func TestConsulApi_LockNoWait(t *testing.T) {
 	})
 }
 
-//Register(t *Task) error
-func TestConsulApi_Register(t *testing.T) {
-	RunConsulApiTest(func(a *ConsulApi) {
-		err := a.Register(api.SampleTask())
-		tools.Ok(t, err)
-
-		err = a.DeRegister(api.SampleTask().Id())
-		tools.Ok(t, err)
-	})
-}
-
 //ListClusters() ([]*Cluster, error)
 //GetCluster(id string) (*Cluster, error)
 //PutCluster(cluster *Cluster) error
@@ -152,15 +141,37 @@ func TestConsulApi_Hosts(t *testing.T) {
 		err := a.PutHost(api.SampleHost())
 		tools.Ok(t, err)
 
-		c, err := a.GetHost(api.SampleHost().Name)
+		c, err := a.GetHost(api.SampleHost().Cluster, api.SampleHost().Name)
 		tools.Ok(t, err)
 		tools.Equals(t, c.Name, api.SampleHost().Name)
 
-		cs, err := a.ListHosts()
+		cs, err := a.ListHosts(api.SampleHost().Cluster)
 		tools.Ok(t, err)
 		tools.Assert(t, len(cs) > 0, "no services to list")
 
-		errr := a.DelHost(api.SampleHost().Name)
+		errr := a.DelHost(api.SampleHost().Cluster, api.SampleHost().Name)
+		tools.Ok(t, errr)
+	})
+}
+
+//ListHosts() ([]*Host, error)
+//GetHost(id string) (*Host, error)
+//PutHost(h *Host) (error)
+//DelHost(id string) (error)
+func TestConsulApi_Deployments(t *testing.T) {
+	RunConsulApiTest(func(a *ConsulApi) {
+		err := a.PutDeployment(api.SampleDeployment())
+		tools.Ok(t, err)
+
+		c, err := a.GetDeployment(api.SampleDeployment().Name)
+		tools.Ok(t, err)
+		tools.Equals(t, c.Name, api.SampleDeployment().Name)
+
+		cs, err := a.ListDeployments()
+		tools.Ok(t, err)
+		tools.Assert(t, len(cs) > 0, "no services to list")
+
+		errr := a.DelDeployment(api.SampleDeployment().Name)
 		tools.Ok(t, errr)
 	})
 }

@@ -6,12 +6,12 @@ import (
 	"unicode/utf8"
 )
 
-func Drain(a api.SchedulerApi, hostName string) error {
+func Drain(a api.SchedulerApi, clusterName, hostName string) error {
 	if hostName == "" {
 		return fmt.Errorf("no host to scale")
 	}
 
-	host, err := a.GetHost(hostName)
+	host, err := a.GetHost(clusterName, hostName)
 	if err != nil {
 		return err
 	}

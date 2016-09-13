@@ -20,7 +20,6 @@ func SampleTaskDefinition() *TaskDefinition {
 	return &TaskDefinition{
 		Name:        "test",
 		Version:     1,
-		ProvidePort: true,
 		Tags:        []string{"test"},
 		GracePeriod: tools.Duration{10 * time.Second},
 		Containers: []*Container{
@@ -38,6 +37,16 @@ func SampleDeployment() *Deployment {
 		Max:         5,
 	}
 }
+
+func SampleService() *Service {
+	return &Service{
+		Name:        "test",
+		Deployment:    "test",
+		Cluster: "test",
+		Container: "test",
+	}
+}
+
 
 func SampleHost() *Host {
 	return &Host{
@@ -68,6 +77,6 @@ func SampleTask() *Task {
 func SampleCluster() *Cluster {
 	return &Cluster{
 		Name:     "test",
-		Services: []string{"test"},
+		Deployments: []string{"test"},
 	}
 }

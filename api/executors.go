@@ -7,8 +7,6 @@ import (
 
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -166,5 +164,5 @@ func (docker *DockerExecutor) StopTask(t *Task) error {
 }
 
 func (docker *DockerExecutor) IsRunning() (bool, error) {
-
+	return true, nil
 }

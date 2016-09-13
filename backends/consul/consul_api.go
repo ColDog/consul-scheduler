@@ -145,8 +145,6 @@ func (a *ConsulApi) Lock(key string, block bool) (api.Lockable, error) {
 	return lock, err
 }
 
-// ==> REGISTER & DEREGISTER
-
 
 
 // ==> CLUSTER operations
@@ -186,6 +184,47 @@ func (a *ConsulApi) PutCluster(c *api.Cluster) error {
 
 func (a *ConsulApi) DelCluster(id string) error {
 	return a.del("config/clusters/" + id)
+}
+
+
+
+// ==> DEPLOYMENT operations
+
+func (a *ConsulApi) ListDeployments() (deps []*api.Deployment, err error) {
+	list, err := a.list("config/deployments")
+	if err != nil {
+		return deps, err
+	}
+
+	for _, v := range list {
+		c := &api.Deployment{}
+		backends.Decode(v.Value, c)
+		deps = append(deps, c)
+	}
+	return deps, nil
+}
+
+func (a *ConsulApi) GetDeployment(id string) (*api.Deployment, error) {
+	c := &api.Deployment{}
+
+	kv, err := a.get("config/deployments/" + id)
+	if kv == nil || kv.Value == nil {
+		return c, api.ErrNotFound
+	}
+
+	if err == nil {
+		backends.Decode(kv.Value, c)
+	}
+
+	return c, err
+}
+
+func (a *ConsulApi) PutDeployment(c *api.Deployment) error {
+	return a.put("config/deployments/" + c.Name, backends.Encode(c))
+}
+
+func (a *ConsulApi) DelDeployment(id string) error {
+	return a.del("config/deployments/" + id)
 }
 
 
@@ -430,17 +469,17 @@ func (a *ConsulApi) DelTask(t *api.Task) error {
 func (a *ConsulApi) GetTaskState(taskId string) (api.TaskState, error) {
 	s, _, err := a.health.Checks("task-"+taskId, nil)
 	if err != nil {
-		return false, err
+		return api.PENDING, err
 	}
 
 	stateStr, err := a.get("state/health/" + taskId)
 	if err != nil && err != api.ErrNotFound {
-		return api.FAILING, err
+		return api.PENDING, err
 	}
 
-	state := api.TaskState(stateStr)
+	state := api.TaskState(string(stateStr.Value))
 
-	// authoritative over these states only
+	// authoritative over these states only, consul can be considered authoritative over the rest
 	if state == api.STOPPING || state == api.STARTING || state == api.EXITED {
 		return state, nil
 	}
@@ -462,8 +501,8 @@ func (a *ConsulApi) GetTaskState(taskId string) (api.TaskState, error) {
 	return state, nil
 }
 
-func (a *ConsulApi) PutTaskState(taskId string, s api.TaskState) (bool, error) {
-	return a.put("state/health/" + taskId, s)
+func (a *ConsulApi) PutTaskState(taskId string, s api.TaskState) error {
+	return a.put("state/health/" + taskId, []byte(s))
 }
 
 

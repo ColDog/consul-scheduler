@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -19,7 +18,7 @@ var checkers = map[string]func(c *api.Check, cont *api.Container, t *api.Task) e
 	"tcp":    checkTCP,
 	"script": checkScript,
 	"docker": checkDocker,
-	"none": func(c *api.Check, t *api.Task) error {
+	"none": func(c *api.Check, cont *api.Container, t *api.Task) error {
 		return fmt.Errorf("no checks")
 	},
 }
@@ -59,10 +58,10 @@ func checkDocker(c *api.Check, cont *api.Container, t *api.Task) error {
 func NewMonitor(a api.SchedulerApi, ch *api.Check, c *api.Container, t *api.Task) *Monitor {
 	m := &Monitor{
 		api:   a,
-		Check: c,
-		Container: ch,
+		Check: ch,
+		Container: c,
 		Task:  t,
-		Type:  checkType(c),
+		Type:  checkType(ch),
 		quit:  make(chan struct{}),
 	}
 	go m.Run()
@@ -87,7 +86,7 @@ func (m *Monitor) Run() {
 
 		case <-time.After(m.Check.Interval.Duration):
 
-			err := checkers[m.Type](m.Check, m.Task)
+			err := checkers[m.Type](m.Check, m.Container, m.Task)
 
 			if err == nil {
 				m.Failures = 0

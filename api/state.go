@@ -3,6 +3,7 @@ package api
 type TaskState string
 
 const (
+	PENDING  TaskState = ""
 	STARTING TaskState = "starting"
 	STOPPING TaskState = "stopping"
 	STOPPED  TaskState = "stopped"

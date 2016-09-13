@@ -12,7 +12,7 @@ func NewMockApi() *MockApi {
 		taskDefinitions: make(map[string]*api.TaskDefinition),
 		tasks:           make(map[string]*api.Task),
 		hosts:           make(map[string]*api.Host),
-		health:          make(map[string]string),
+		health:          make(map[string]api.TaskState),
 		listeners: make(map[string]struct {
 			on string
 			ch chan string
@@ -26,10 +26,11 @@ type MockApi struct {
 	clusters        map[string]*api.Cluster
 	services        map[string]*api.Service
 	taskDefinitions map[string]*api.TaskDefinition
+	deployments     map[string]*api.Deployment
 	tasks           map[string]*api.Task
 	hosts           map[string]*api.Host
 	locks           map[string]bool
-	health          map[string]string
+	health          map[string]api.TaskState
 	listeners       map[string]struct {
 		on string
 		ch chan string
@@ -53,25 +54,7 @@ func (a *MockApi) Start() {
 
 }
 
-func (a *MockApi) RegisterAgent(host, addr string) error {
-	return nil
-}
-
-func (a *MockApi) DeRegisterAgent(id string) error {
-	return nil
-}
-
-func (a *MockApi) Register(t *api.Task) error {
-	return nil
-}
-
-func (a *MockApi) DeRegister(id string) error {
-	return nil
-}
-
-func (a *MockApi) AgentHealth(name string) (bool, error) {
-	return true, nil
-}
+// API Cluster Operations
 
 func (a *MockApi) ListClusters() ([]*api.Cluster, error) {
 	a.lock.RLock()
@@ -100,7 +83,7 @@ func (a *MockApi) PutCluster(c *api.Cluster) error {
 	defer a.lock.Unlock()
 
 	a.clusters[c.Name] = c
-	a.emit(a.Conf().ClustersPrefix + c.Name)
+	a.emit("clusters/" + c.Name)
 	return nil
 }
 
@@ -111,6 +94,49 @@ func (a *MockApi) DelCluster(id string) error {
 	delete(a.clusters, id)
 	return nil
 }
+
+// API Deployment Operations
+
+func (a *MockApi) ListDeployments() ([]*api.Deployment, error) {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+
+	deps := []*api.Deployment{}
+	for _, c := range a.deployments {
+		deps = append(deps, c)
+	}
+	return deps, nil
+}
+
+func (a *MockApi) GetDeployment(id string) (*api.Deployment, error) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	c, ok := a.deployments[id]
+	if !ok {
+		return c, api.ErrNotFound
+	}
+	return c, nil
+}
+
+func (a *MockApi) PutDeployment(c *api.Deployment) error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	a.deployments[c.Name] = c
+	a.emit("deploments/" + c.Name)
+	return nil
+}
+
+func (a *MockApi) DelDeployment(id string) error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	delete(a.deployments, id)
+	return nil
+}
+
+// API Service Operations
 
 func (a *MockApi) ListServices() ([]*api.Service, error) {
 	a.lock.RLock()
@@ -139,7 +165,7 @@ func (a *MockApi) PutService(c *api.Service) error {
 	defer a.lock.Unlock()
 
 	a.services[c.Name] = c
-	a.emit(a.Conf().ServicesPrefix + c.Name)
+	a.emit("services/" + c.Name)
 	return nil
 }
 
@@ -150,6 +176,8 @@ func (a *MockApi) DelService(id string) error {
 	delete(a.services, id)
 	return nil
 }
+
+// API Task Definition Operations
 
 func (a *MockApi) ListTaskDefinitions() ([]*api.TaskDefinition, error) {
 	a.lock.RLock()
@@ -178,11 +206,13 @@ func (a *MockApi) PutTaskDefinition(c *api.TaskDefinition) error {
 	defer a.lock.Unlock()
 
 	a.taskDefinitions[c.Name] = c
-	a.emit(a.Conf().TaskDefinitionsPrefix + c.Name)
+	a.emit("task_defintions/" + c.Name)
 	return nil
 }
 
-func (a *MockApi) ListHosts() ([]*api.Host, error) {
+// API Host Operations
+
+func (a *MockApi) ListHosts(opts *api.HostQueryOpts) ([]*api.Host, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
@@ -193,7 +223,7 @@ func (a *MockApi) ListHosts() ([]*api.Host, error) {
 	return list, nil
 }
 
-func (a *MockApi) GetHost(id string) (*api.Host, error) {
+func (a *MockApi) GetHost(cluster, id string) (*api.Host, error) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
@@ -209,11 +239,11 @@ func (a *MockApi) PutHost(c *api.Host) error {
 	defer a.lock.Unlock()
 
 	a.hosts[c.Name] = c
-	a.emit(a.Conf().HostsPrefix + c.Name)
+	a.emit("hosts/" + c.Name)
 	return nil
 }
 
-func (a *MockApi) DelHost(id string) error {
+func (a *MockApi) DelHost(cluster, id string) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
@@ -221,28 +251,7 @@ func (a *MockApi) DelHost(id string) error {
 	return nil
 }
 
-// API Task Operations:
-//
-// storing tasks:
-// => state/tasks/<cluster>/<service>/<task_id>  # stores a version of the task by cluster and service
-// => state/hosts/<host_id>/<task_id>            # stores a version of the task by host
-// => state/scheduling/<task_id>                 # marks the task as being scheduled or not scheduled
-// => state/rejections/<task_id>                 # marks the task as being rejected by the agent
-// => state/health/<task_id>                     # marks the task as being healthy or not (unnecessary in consul)
-//
-// Task queries can be executed with a set of options in the TaskQueryOpts, currently
-// tasks can only be queried by using the ByHost or ByService and ByCluster parameters.
-//ListTasks(opts *TaskQueryOpts) ([]*Task, error)
-//
-//GetTask(id string) (*Task, error)
-//ScheduleTask(t *Task) error
-//DeScheduleTask(t *Task) error
-//DelTask(t *Task) error
-//RejectTask(t *Task, reason string) error
-//
-//TaskHealthy(t *Task) (bool, error)
-//TaskScheduled(t *Task) (bool, error)
-//TaskRejected(t *Task) (bool, error)
+// API Task Operations
 
 func (a *MockApi) GetTask(id string) (*api.Task, error) {
 	a.lock.Lock()
@@ -260,7 +269,7 @@ func (a *MockApi) PutTask(t *api.Task) error {
 	defer a.lock.Unlock()
 
 	a.tasks[t.Id()] = t
-	a.emit(a.Conf().TasksPrefix + t.Id())
+	a.emit("tasks/" + t.Id())
 	return nil
 }
 
@@ -275,10 +284,6 @@ func (a *MockApi) DelTask(t *api.Task) error {
 	return nil
 }
 
-func (a *MockApi) TaskHealthy(t *api.Task) (bool, error) {
-	return true, nil
-}
-
 func (a *MockApi) ListTasks(q *api.TaskQueryOpts) ([]*api.Task, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
@@ -287,14 +292,14 @@ func (a *MockApi) ListTasks(q *api.TaskQueryOpts) ([]*api.Task, error) {
 
 	for _, t := range a.tasks {
 		if q.Failing || q.Running {
-			health, err := a.TaskHealthy(t)
+			state, err := a.GetTaskState(t.ID())
 			if err != nil {
 				return ts, err
 			}
 
-			if q.Failing && health {
+			if q.Failing && state.Healthy() {
 				continue
-			} else if q.Running && !health {
+			} else if q.Running && !state.Healthy() {
 				continue
 			}
 		}
@@ -315,7 +320,7 @@ func (a *MockApi) ListTasks(q *api.TaskQueryOpts) ([]*api.Task, error) {
 			continue
 		}
 
-		if q.ByService != "" && q.ByService != t.Service {
+		if q.ByDeployment != "" && q.ByDeployment != t.Deployment {
 			continue
 		}
 
@@ -339,10 +344,6 @@ func (a *MockApi) UnSubscribe(id string) {
 
 }
 
-func (a *MockApi) Conf() *api.StorageConfig {
-	return api.DefaultStorageConfig()
-}
-
 func (a *MockApi) emit(evt string) {
 	evt = "config::" + evt
 
@@ -356,10 +357,18 @@ func (a *MockApi) emit(evt string) {
 	}
 }
 
-func (a *MockApi) PutTaskHealth(taskId, status string) error {
+// API Task State Operations
+
+func (a *MockApi) GetTaskState(taskId string) (api.TaskState, error) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	a.health[taskId] = status
+	return a.health[taskId], nil
+}
+
+func (a *MockApi) PutTaskState(taskId string, s api.TaskState) error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	a.health[taskId] = s
 	return nil
 }
 

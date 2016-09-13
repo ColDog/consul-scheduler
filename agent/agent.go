@@ -214,11 +214,33 @@ func (agent *Agent) PublishState() {
 }
 
 func (agent *Agent) syncTask(task *api.Task) *action {
-	taskState, err := agent.api.GetTaskState(task)
+	taskState, err := agent.api.GetTaskState(task.ID())
 	if err != nil {
 		log.WithField("error", err).Error("failed to sync")
 		return nil
 	}
+
+	// agent runs a basic container based check from the executor. This simply checks if the process
+	// has failed or not. The agent does not concern itself with more complicated checks, those are
+	// left to the health checking process or Consul.
+	//for _, cont := range task.TaskDefinition.Containers {
+	//	if cont.Essential {
+	//		ex := cont.GetExecutor()
+	//		if ex == nil {
+	//			continue
+	//		}
+	//
+	//		ok, err := ex.IsRunning()
+	//		if err == nil {
+	//			continue
+	//		}
+	//
+	//		if !ok && taskState.Healthy() {
+	//			agent.api.PutTaskState(task.ID(), api.EXITED)
+	//			taskState = api.EXITED
+	//		}
+	//	}
+	//}
 
 	state := agent.TaskState.get(task.Id(), task)
 	state.Healthy = taskState.Healthy()
@@ -237,7 +259,8 @@ func (agent *Agent) syncTask(task *api.Task) *action {
 	}
 
 	if err != nil {
-		return err
+		log.WithField("task", task.ID()).Warn("[agent] no deployment found")
+		return nil
 	}
 
 	log.WithFields(log.Fields{
@@ -370,7 +393,7 @@ func (agent *Agent) Run() {
 	defer agent.TaskState.save()
 
 	// the server provides a basic health checking port to allow for the agent to provide consul with updates
-	defer agent.api.DelHost(agent.Host)
+	defer agent.api.DelHost(agent.Config.Cluster, agent.Host)
 
 	agent.GetHostName()
 	agent.PublishState()

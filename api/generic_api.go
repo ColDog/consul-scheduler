@@ -107,7 +107,7 @@ type SchedulerApi interface {
 
 	// API Endpoint Operations
 	// For a given service, return the currently available endpoints to reach that service at.
-	ListEndpoints(o *EndpointQuery) ([]*Endpoint, error)
+	//ListEndpoints(o *EndpointQuery) ([]*Endpoint, error)
 
 	// Listen for custom events emitted from the API,
 	// can match events using a * pattern.

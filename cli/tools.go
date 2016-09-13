@@ -39,8 +39,11 @@ func (app *App) DrainCmd() (cmd cli.Command) {
 	cmd.Name = "drain"
 	cmd.Usage = "drain a host of containers"
 	cmd.ArgsUsage = "host"
+	cmd.Flags = []cli.Flag{
+		cli.StringFlag{Name: "cluster", Value: "default"},
+	}
 	cmd.Action = func(c *cli.Context) error {
-		return actions.Drain(app.Api, c.Args().First())
+		return actions.Drain(app.Api, c.String("cluster"), c.Args().First())
 	}
 	return cmd
 }
@@ -62,8 +65,11 @@ func (app *App) TasksCmd() (cmd cli.Command) {
 func (app *App) HostsCmd() (cmd cli.Command) {
 	cmd.Name = "hosts"
 	cmd.Usage = "list hosts"
+	cmd.Flags = []cli.Flag{
+		cli.StringFlag{Name: "cluster", Value: "default"},
+	}
 	cmd.Action = func(c *cli.Context) error {
-		return actions.ListHosts(app.Api)
+		return actions.ListHosts(app.Api, c.String("cluster"))
 	}
 	return cmd
 }

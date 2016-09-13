@@ -8,7 +8,6 @@ import (
 
 	"math/rand"
 	"net/http"
-	"sync"
 	"time"
 	"github.com/coldog/sked/tools"
 	"github.com/coldog/sked/scheduler"
@@ -159,7 +158,7 @@ func (s *Master) schedule(clusterName, depName string, i int) {
 	if lock.IsHeld() {
 		cluster, err := s.api.GetCluster(clusterName)
 		if err != nil {
-			log.WithField("cluster", clusterName).WithField("err", err).Warnf("[master-worker-%d] could not get cluster", i)
+			log.WithField("cluster", cluster.Name).WithField("err", err).Warnf("[master-worker-%d] could not get cluster", i)
 			return
 		}
 
