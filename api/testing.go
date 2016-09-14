@@ -72,7 +72,9 @@ func SampleHost() *Host {
 }
 
 func SampleTask() *Task {
-	return NewTask(SampleCluster(), SampleTaskDefinition(), SampleDeployment(), 1)
+	t := NewTask(SampleCluster(), SampleTaskDefinition(), SampleDeployment(), 1)
+	t.Host = "local"
+	return t
 }
 
 func SampleCluster() *Cluster {

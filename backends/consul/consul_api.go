@@ -289,10 +289,6 @@ func (a *ConsulApi) PutHost(h *api.Host) error {
 		return err
 	}
 
-	if a.registered {
-		return nil
-	}
-
 	err = a.agent.ServiceRegister(&consul.AgentServiceRegistration{
 		ID:   "sked-" + h.Name,
 		Name: "sked",
@@ -303,15 +299,11 @@ func (a *ConsulApi) PutHost(h *api.Host) error {
 			},
 		},
 	})
-	if err != nil {
-		return err
-	}
-
-	a.registered = true
-	return nil
+	return err
 }
 
 func (a *ConsulApi) DelHost(cluster, name string) error {
+	a.agent.ServiceDeregister("sked-"+name)
 	return a.del("hosts/" + cluster + "/" + name)
 }
 
@@ -423,6 +415,10 @@ func (a *ConsulApi) GetTask(id string) (*api.Task, error) {
 	t := &api.Task{}
 
 	kv, err := a.get("state/tasks/" + id)
+	if kv == nil || kv.Value == nil {
+		return t, api.ErrNotFound
+	}
+
 	if err == nil {
 		backends.Decode(kv.Value, t)
 	}

@@ -109,6 +109,7 @@ type SchedulerApi interface {
 	// can match events using a * pattern.
 	// Events that should be emitted on change of a key:
 	// => health::task:<node>:<status>:<task_id>
+	// => health::node:<status>:<node_id>
 	// => hosts::<host_id>
 	// => config::<resource (service|task_definition|host|cluster)>/<resource_id>
 	// => state::<host_id>:<task_id>
