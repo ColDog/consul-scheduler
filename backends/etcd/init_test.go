@@ -44,6 +44,7 @@ func NewEtcd() *TestEtcd {
 	return a
 }
 
+
 type TestEtcd struct {
 	cmd *exec.Cmd
 }
