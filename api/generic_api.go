@@ -10,9 +10,9 @@ var (
 )
 
 // any lockable interface should implement the same functionality.
+//
 type Lockable interface {
 	Lock() (<-chan struct{}, error)
-	QuitChan() <-chan struct{}
 	IsHeld() bool
 	Unlock() error
 }

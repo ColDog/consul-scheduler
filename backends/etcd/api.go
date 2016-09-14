@@ -10,6 +10,7 @@ import (
 
 	"fmt"
 	"sync"
+	"os"
 )
 
 func NewEtcdApi(prefix string, conf client.Config) *EtcdApi {
@@ -31,6 +32,7 @@ type EtcdApi struct {
 	prefix string
 	listeners map[string]*listener
 	eventLock *sync.RWMutex
+	hostname  string
 }
 
 func (a *EtcdApi) put(key string, val []byte) error {
@@ -69,6 +71,20 @@ func (a *EtcdApi) list(key string, each func(val []byte) error) error {
 		}
 	}
 	return nil
+}
+
+func (a *EtcdApi) HostName() (string, error) {
+	if a.hostname != "" {
+		return a.hostname, nil
+	}
+
+	h, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+
+	a.hostname = h
+	return h, nil
 }
 
 
