@@ -43,7 +43,7 @@ func (a *MockApi) HostName() (string, error) {
 	return "test", nil
 }
 
-func (a *MockApi) Lock(key string, block bool) (api.Lockable, error) {
+func (a *MockApi) Lock(key string) (api.Lockable, error) {
 	return NewMockLock(key, a), nil
 }
 

@@ -16,10 +16,6 @@ import (
 )
 
 func DefaultConfig(endpoints []string) *Config {
-	if endpoints == nil || len(endpoints) == 0 {
-		endpoints = []string{"http://127.0.0.1:2379"}
-	}
-
 	return &Config{
 		LockTTL: tools.Duration{30 * time.Second},
 		Prefix:  "/registry/",
@@ -38,6 +34,10 @@ type Config struct {
 }
 
 func NewEtcdApi(conf *Config) *EtcdApi {
+	if conf.ClientConfig.Endpoints == nil || len(conf.ClientConfig.Endpoints) == 0 {
+		conf.ClientConfig.Endpoints = []string{"http://127.0.0.1:2379"}
+	}
+
 	c, err := client.New(*conf.ClientConfig)
 	if err != nil {
 		panic(err)
@@ -86,6 +86,12 @@ func (a *EtcdApi) get(key string) ([]byte, error) {
 
 func (a *EtcdApi) list(key string, each func(val []byte) error) error {
 	res, err := a.kv.Get(context.Background(), a.prefix+key, &client.GetOptions{Recursive: true})
+
+	// list functions shouldn't error, but just return empty arrays
+	if err != nil && err.(client.Error).Code == client.ErrorCodeKeyNotFound {
+		return nil
+	}
+
 	if err != nil {
 		return err
 	}
@@ -111,6 +117,10 @@ func (a *EtcdApi) HostName() (string, error) {
 
 	a.hostname = h
 	return h, nil
+}
+
+func (a *EtcdApi) Start() {
+	go a.watch("")
 }
 
 // ==> CLUSTER operations
@@ -344,6 +354,11 @@ func (a *EtcdApi) DelTask(t *api.Task) error {
 
 func (a *EtcdApi) GetTaskState(t *api.Task) (api.TaskState, error) {
 	raw, err := a.get("state/health/" + t.ID())
+
+	if err != nil && err.(client.Error).Code == client.ErrorCodeKeyNotFound {
+		return api.PENDING, nil
+	}
+
 	return api.TaskState(string(raw)), err
 }
 

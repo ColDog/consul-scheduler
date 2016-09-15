@@ -51,7 +51,7 @@ type SchedulerApi interface {
 
 	// acquire a lock on a resource from consul, does not block when the lock cannot be held, rather
 	// it should return immediately
-	Lock(key string, block bool) (Lockable, error)
+	Lock(key string) (Lockable, error)
 
 	// API Cluster Operations
 	// => config/clusters/<cluster_id>

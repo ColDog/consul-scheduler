@@ -79,6 +79,7 @@ func (app *App) setup() {
 		cli.StringFlag{Name: "consul-api", Value: "", EnvVar: "CONSUL_API", Usage: "consul api"},
 		cli.StringFlag{Name: "consul-dc", Value: "", EnvVar: "CONSUL_DC", Usage: "consul dc"},
 		cli.StringFlag{Name: "consul-token", Value: "", EnvVar: "CONSUL_TOKEN", Usage: "consul token"},
+		cli.StringSliceFlag{Name: "etcd-endpoints", EnvVar: "ETCD_ENDPOINTS", Usage: "etcd endpoints to use"},
 		cli.StringFlag{Name: "bind, b", EnvVar: "BIND", Value: "0.0.0.0", Usage: "address to bind to"},
 		cli.StringFlag{Name: "advertise, a", EnvVar: "ADVERTISE", Value: "127.0.0.1:8231", Usage: "address to advertise"},
 		cli.StringFlag{Name: "prefix", Value: "registry", Usage: "prefix for kv store"},
@@ -103,18 +104,16 @@ func (app *App) setup() {
 			app.Config.ConsulConfig.Token = c.GlobalString("consul-token")
 		}
 
+		app.Config.EtcdConfig.ClientConfig.Endpoints = c.GlobalStringSlice("etcd-endpoints")
+
 		switch app.Config.Backend {
 		case config.CONSUL:
 			app.Api = consul.NewConsulApi(c.GlobalString("prefix"), app.Config.ConsulConfig)
 		case config.ETCD:
-			app.Api = etcd.NewEtcdApi()
-		}
-
-		if app.Config.Backend == config.CONSUL {
-			app.Api = consul.NewConsulApi(c.GlobalString("prefix"), app.Config.ConsulConfig)
-		} else if app.Config.Backend == config.MEMORY {
+			app.Api = etcd.NewEtcdApi(app.Config.EtcdConfig)
+		case config.MEMORY:
 			app.Api = mock.NewMockApi()
-		} else {
+		default:
 			log.Fatalf("backend %s not supported", app.Config.Backend)
 		}
 

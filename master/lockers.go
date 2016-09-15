@@ -27,7 +27,7 @@ func (s *SchedulerLocks) Lock(serviceName string) (locker api.Lockable, err erro
 
 	locker, ok := s.locks[serviceName]
 	if !ok {
-		locker, err = s.api.Lock("schedulers/"+serviceName, false)
+		locker, err = s.api.Lock("schedulers/"+serviceName)
 		if err != nil {
 			return locker, err
 		}

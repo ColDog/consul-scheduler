@@ -22,7 +22,7 @@ func NewConfig() *Config {
 		LogLevel:     "info",
 		Backend:      CONSUL,
 		ConsulConfig: api.DefaultConfig(),
-		Config:       etcd.DefaultConfig(nil),
+		EtcdConfig:   etcd.DefaultConfig(nil),
 		Version:      VERSION,
 	}
 }
