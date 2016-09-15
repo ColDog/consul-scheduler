@@ -25,6 +25,7 @@ import (
 	"time"
 	"os/exec"
 	"github.com/coldog/sked/discovery"
+	"github.com/coldog/sked/backends/etcd"
 )
 
 func init() {
@@ -100,6 +101,13 @@ func (app *App) setup() {
 
 		if c.GlobalString("consul-token") != "" {
 			app.Config.ConsulConfig.Token = c.GlobalString("consul-token")
+		}
+
+		switch app.Config.Backend {
+		case config.CONSUL:
+			app.Api = consul.NewConsulApi(c.GlobalString("prefix"), app.Config.ConsulConfig)
+		case config.ETCD:
+			app.Api = etcd.NewEtcdApi()
 		}
 
 		if app.Config.Backend == config.CONSUL {

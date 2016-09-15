@@ -4,10 +4,10 @@ import (
 	consul "github.com/hashicorp/consul/api"
 
 	"fmt"
-	"time"
-	"os/exec"
 	"os"
+	"os/exec"
 	"syscall"
+	"time"
 )
 
 var consulBinary = "consul"

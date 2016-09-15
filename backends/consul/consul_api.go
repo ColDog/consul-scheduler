@@ -4,8 +4,8 @@ import (
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/backends"
 
-	consul "github.com/hashicorp/consul/api"
 	log "github.com/Sirupsen/logrus"
+	consul "github.com/hashicorp/consul/api"
 
 	"fmt"
 	"sync"
@@ -61,11 +61,11 @@ func (a *ConsulApi) Start() {
 		time.Sleep(5 * time.Second)
 	}
 
-	go a.monitor(a.prefix + "/config/task_definitions", "config")
-	go a.monitor(a.prefix + "/config/deployments", "config")
-	go a.monitor(a.prefix + "/config/services", "config")
-	go a.monitor(a.prefix + "/config/clusters", "config")
-	go a.monitor(a.prefix + "/state", "state")
+	go a.monitor(a.prefix+"/config/task_definitions", "config")
+	go a.monitor(a.prefix+"/config/deployments", "config")
+	go a.monitor(a.prefix+"/config/services", "config")
+	go a.monitor(a.prefix+"/config/clusters", "config")
+	go a.monitor(a.prefix+"/state", "state")
 	go a.monitorHealth()
 }
 
@@ -79,7 +79,7 @@ func (a *ConsulApi) put(key string, value []byte, flags ...uint64) error {
 		flag = flags[0]
 	}
 
-	_, err := a.kv.Put(&consul.KVPair{Key: a.prefix+"/"+key, Value: value, Flags: flag}, nil)
+	_, err := a.kv.Put(&consul.KVPair{Key: a.prefix + "/" + key, Value: value, Flags: flag}, nil)
 	if err != nil {
 		log.WithField("consul-api", "put").WithField("key", key).Error(err)
 	}
@@ -95,7 +95,7 @@ func (a *ConsulApi) del(key string) error {
 }
 
 func (a *ConsulApi) get(key string) (*consul.KVPair, error) {
-	res, _, err := a.kv.Get(a.prefix + "/" + key, nil)
+	res, _, err := a.kv.Get(a.prefix+"/"+key, nil)
 	if err != nil {
 		log.WithField("consul-api", "get").WithField("key", key).Error(err)
 		return res, api.ErrNotFound
@@ -109,7 +109,7 @@ func (a *ConsulApi) get(key string) (*consul.KVPair, error) {
 }
 
 func (a *ConsulApi) list(prefix string) (consul.KVPairs, error) {
-	res, _, err := a.kv.List(a.prefix + "/" + prefix, nil)
+	res, _, err := a.kv.List(a.prefix+"/"+prefix, nil)
 	if err != nil {
 		log.WithField("consul-api", "put").WithField("key", prefix).Error(err)
 	}
@@ -125,8 +125,6 @@ func (a *ConsulApi) Lock(key string, block bool) (api.Lockable, error) {
 	lock := &ConsulLockWrapper{lock: l}
 	return lock, err
 }
-
-
 
 // ==> CLUSTER operations
 
@@ -160,14 +158,12 @@ func (a *ConsulApi) GetCluster(id string) (*api.Cluster, error) {
 }
 
 func (a *ConsulApi) PutCluster(c *api.Cluster) error {
-	return a.put("config/clusters/" + c.Name, backends.Encode(c))
+	return a.put("config/clusters/"+c.Name, backends.Encode(c))
 }
 
 func (a *ConsulApi) DelCluster(id string) error {
 	return a.del("config/clusters/" + id)
 }
-
-
 
 // ==> DEPLOYMENT operations
 
@@ -201,14 +197,12 @@ func (a *ConsulApi) GetDeployment(id string) (*api.Deployment, error) {
 }
 
 func (a *ConsulApi) PutDeployment(c *api.Deployment) error {
-	return a.put("config/deployments/" + c.Name, backends.Encode(c))
+	return a.put("config/deployments/"+c.Name, backends.Encode(c))
 }
 
 func (a *ConsulApi) DelDeployment(id string) error {
 	return a.del("config/deployments/" + id)
 }
-
-
 
 // ==> SERVICE operations
 
@@ -248,9 +242,6 @@ func (a *ConsulApi) GetService(id string) (*api.Service, error) {
 
 	return c, err
 }
-
-
-
 
 // ==> HOST operations
 
@@ -303,11 +294,9 @@ func (a *ConsulApi) PutHost(h *api.Host) error {
 }
 
 func (a *ConsulApi) DelHost(cluster, name string) error {
-	a.agent.ServiceDeregister("sked-"+name)
+	a.agent.ServiceDeregister("sked-" + name)
 	return a.del("hosts/" + cluster + "/" + name)
 }
-
-
 
 // ==> TASK DEFINITION operations
 
@@ -346,9 +335,6 @@ func (a *ConsulApi) PutTaskDefinition(t *api.TaskDefinition) error {
 	return a.put(id, backends.Encode(t))
 }
 
-
-
-
 // ==> TASK operations
 
 func (a *ConsulApi) ListTasks(q *api.TaskQueryOpts) (ts []*api.Task, err error) {
@@ -381,7 +367,7 @@ func (a *ConsulApi) ListTasks(q *api.TaskQueryOpts) (ts []*api.Task, err error) 
 
 			if q.Failing && state.Healthy() {
 				continue
-			} else if q.Running && !state.Healthy(){
+			} else if q.Running && !state.Healthy() {
 				continue
 			}
 		}
@@ -439,8 +425,6 @@ func (a *ConsulApi) DelTask(t *api.Task) error {
 	return a.del("state/tasks/" + t.ID())
 }
 
-
-
 // TASK Health Operations
 
 func (a *ConsulApi) GetTaskState(t *api.Task) (api.TaskState, error) {
@@ -482,9 +466,8 @@ func (a *ConsulApi) GetTaskState(t *api.Task) (api.TaskState, error) {
 }
 
 func (a *ConsulApi) PutTaskState(taskId string, s api.TaskState) error {
-	return a.put("state/health/" + taskId, []byte(s))
+	return a.put("state/health/"+taskId, []byte(s))
 }
-
 
 func (a *ConsulApi) Debug() {
 	list, _, _ := a.kv.List("", nil)
@@ -516,7 +499,6 @@ func (a *ConsulApi) register(t *api.Task) error {
 			checks = append(checks, consulCheck)
 		}
 	}
-
 
 	log.WithField("id", t.Id()).WithField("name", t.Name()).WithField("checks", len(checks)).WithField("host", t.Host).Debug("registering task")
 

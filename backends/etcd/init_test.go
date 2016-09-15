@@ -2,13 +2,13 @@ package etcd
 
 import (
 	"fmt"
+	"github.com/Sirupsen/logrus"
+	"github.com/coldog/sked/tools"
 	"github.com/coreos/etcd/client"
 	"os"
 	"os/exec"
 	"syscall"
 	"time"
-	"github.com/coldog/sked/tools"
-	"github.com/Sirupsen/logrus"
 )
 
 func init() {
@@ -23,8 +23,8 @@ func RunEtcdAPITest(f EtcdApiTest) {
 
 	fmt.Println("--- starting etcd")
 
-	api := NewEtcdApi(&EtcdConfig{
-		Prefix: "/registry/",
+	api := NewEtcdApi(&Config{
+		Prefix:  "/registry/",
 		LockTTL: tools.Duration{30 * time.Second},
 		ClientConfig: &client.Config{
 			Endpoints: []string{"http://127.0.0.1:2379"},

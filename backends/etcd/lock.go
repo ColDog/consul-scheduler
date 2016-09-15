@@ -5,13 +5,12 @@ import (
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/client"
 	"golang.org/x/net/context"
-	log "github.com/Sirupsen/logrus"
 
 	"sync"
 	"time"
-	"math/rand"
 )
 
 func (a *EtcdApi) Lock(key string) (api.Lockable, error) {

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/coldog/sked/backends/etcd"
 	"github.com/hashicorp/consul/api"
 )
 
@@ -21,16 +22,18 @@ func NewConfig() *Config {
 		LogLevel:     "info",
 		Backend:      CONSUL,
 		ConsulConfig: api.DefaultConfig(),
+		Config:       etcd.DefaultConfig(nil),
 		Version:      VERSION,
 	}
 }
 
 type Config struct {
-	Addr         string      `json:"addr"`
-	Port         int         `json:"port"`
-	Advertise    string      `json:"advertise"`
-	LogLevel     string      `json:"log_level"`
-	Version      string      `json:"version"`
-	Backend      Backend     `json:"backend"`
-	ConsulConfig *api.Config `json:"-"`
+	Addr         string       `json:"addr"`
+	Port         int          `json:"port"`
+	Advertise    string       `json:"advertise"`
+	LogLevel     string       `json:"log_level"`
+	Version      string       `json:"version"`
+	Backend      Backend      `json:"backend"`
+	ConsulConfig *api.Config  `json:"-"`
+	EtcdConfig   *etcd.Config `json:"etcd_config"`
 }

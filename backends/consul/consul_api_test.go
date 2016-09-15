@@ -5,9 +5,9 @@ import (
 	consul "github.com/hashicorp/consul/api"
 
 	"fmt"
+	"github.com/coldog/sked/api"
 	"testing"
 	"time"
-	"github.com/coldog/sked/api"
 )
 
 // HostName() (string, error)

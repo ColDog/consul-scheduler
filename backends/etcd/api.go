@@ -5,22 +5,39 @@ import (
 	"github.com/coldog/sked/backends"
 	"github.com/coldog/sked/tools"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/client"
 	"golang.org/x/net/context"
-	log "github.com/Sirupsen/logrus"
 
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
-type EtcdConfig struct {
+func DefaultConfig(endpoints []string) *Config {
+	if endpoints == nil || len(endpoints) == 0 {
+		endpoints = []string{"http://127.0.0.1:2379"}
+	}
+
+	return &Config{
+		LockTTL: tools.Duration{30 * time.Second},
+		Prefix:  "/registry/",
+		ClientConfig: &client.Config{
+			Endpoints:               endpoints,
+			Transport:               client.DefaultTransport,
+			HeaderTimeoutPerRequest: time.Second,
+		},
+	}
+}
+
+type Config struct {
 	ClientConfig *client.Config
 	LockTTL      tools.Duration
 	Prefix       string
 }
 
-func NewEtcdApi(conf *EtcdConfig) *EtcdApi {
+func NewEtcdApi(conf *Config) *EtcdApi {
 	c, err := client.New(*conf.ClientConfig)
 	if err != nil {
 		panic(err)
@@ -36,7 +53,7 @@ func NewEtcdApi(conf *EtcdConfig) *EtcdApi {
 }
 
 type EtcdApi struct {
-	config    *EtcdConfig
+	config    *Config
 	kv        client.KeysAPI
 	prefix    string
 	listeners map[string]*listener
