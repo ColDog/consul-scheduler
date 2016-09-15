@@ -6,10 +6,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"strings"
 	"fmt"
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/backends"
+	"strings"
 )
 
 type listener struct {
@@ -121,7 +121,7 @@ func fromPath(path, name string) string {
 	spl := strings.Split(path, "/")
 	for i, s := range spl {
 		if s == name {
-			if i + 1 < len(spl) {
+			if i+1 < len(spl) {
 				return spl[i+1]
 			}
 		}

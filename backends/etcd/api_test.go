@@ -1,9 +1,9 @@
 package etcd
 
 import (
-	"testing"
 	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
+	"testing"
 )
 
 func TestEtcdApi_Cluster(t *testing.T) {
@@ -23,4 +23,3 @@ func TestEtcdApi_Cluster(t *testing.T) {
 		tools.Ok(t, errr)
 	})
 }
-

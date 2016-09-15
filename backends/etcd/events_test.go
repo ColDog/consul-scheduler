@@ -1,10 +1,10 @@
 package etcd
 
 import (
-	"testing"
-	"github.com/coldog/sked/api"
-	"time"
 	"fmt"
+	"github.com/coldog/sked/api"
+	"testing"
+	"time"
 )
 
 func TestEtcdAPI_Events(t *testing.T) {

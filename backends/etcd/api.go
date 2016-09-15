@@ -1,35 +1,44 @@
 package etcd
 
 import (
-	"golang.org/x/net/context"
-	"github.com/coreos/etcd/client"
-	"github.com/coldog/sked/backends"
 	"github.com/coldog/sked/api"
+	"github.com/coldog/sked/backends"
+	"github.com/coldog/sked/tools"
 
+	"github.com/coreos/etcd/client"
+	"golang.org/x/net/context"
 	log "github.com/Sirupsen/logrus"
 
 	"fmt"
-	"sync"
 	"os"
+	"sync"
 )
 
-func NewEtcdApi(prefix string, conf client.Config) *EtcdApi {
-	c, err := client.New(conf)
+type EtcdConfig struct {
+	ClientConfig *client.Config
+	LockTTL      tools.Duration
+	Prefix       string
+}
+
+func NewEtcdApi(conf *EtcdConfig) *EtcdApi {
+	c, err := client.New(*conf.ClientConfig)
 	if err != nil {
 		panic(err)
 	}
 
 	return &EtcdApi{
-		prefix: prefix,
-		kv: client.NewKeysAPI(c),
+		config:    conf,
+		prefix:    conf.Prefix,
+		kv:        client.NewKeysAPI(c),
 		eventLock: &sync.RWMutex{},
 		listeners: map[string]*listener{},
 	}
 }
 
 type EtcdApi struct {
-	kv client.KeysAPI
-	prefix string
+	config    *EtcdConfig
+	kv        client.KeysAPI
+	prefix    string
 	listeners map[string]*listener
 	eventLock *sync.RWMutex
 	hostname  string
@@ -87,8 +96,6 @@ func (a *EtcdApi) HostName() (string, error) {
 	return h, nil
 }
 
-
-
 // ==> CLUSTER operations
 
 func (a *EtcdApi) ListClusters() (clusters []*api.Cluster, err error) {
@@ -112,14 +119,12 @@ func (a *EtcdApi) GetCluster(id string) (*api.Cluster, error) {
 }
 
 func (a *EtcdApi) PutCluster(c *api.Cluster) error {
-	return a.put("config/clusters/" + c.Name, backends.Encode(c))
+	return a.put("config/clusters/"+c.Name, backends.Encode(c))
 }
 
 func (a *EtcdApi) DelCluster(id string) error {
 	return a.del("config/clusters/" + id)
 }
-
-
 
 // ==> DEPLOYMENT operations
 
@@ -145,14 +150,12 @@ func (a *EtcdApi) GetDeployment(id string) (*api.Deployment, error) {
 }
 
 func (a *EtcdApi) PutDeployment(c *api.Deployment) error {
-	return a.put("config/deployments/" + c.Name, backends.Encode(c))
+	return a.put("config/deployments/"+c.Name, backends.Encode(c))
 }
 
 func (a *EtcdApi) DelDeployment(id string) error {
 	return a.del("config/deployments/" + id)
 }
-
-
 
 // ==> SERVICE operations
 
@@ -185,11 +188,10 @@ func (a *EtcdApi) DelService(id string) error {
 	return a.del("config/services/" + id)
 }
 
-
 // ==> HOST operations
 
 func (a *EtcdApi) ListHosts(opts *api.HostQueryOpts) (hosts []*api.Host, err error) {
-	err = a.list("hosts/" + opts.ByCluster, func(v []byte) error {
+	err = a.list("hosts/"+opts.ByCluster, func(v []byte) error {
 		h := &api.Host{}
 		backends.Decode(v, h)
 		hosts = append(hosts, h)
@@ -216,8 +218,6 @@ func (a *EtcdApi) PutHost(h *api.Host) error {
 func (a *EtcdApi) DelHost(cluster, name string) error {
 	return a.del("hosts/" + cluster + "/" + name)
 }
-
-
 
 // ==> TASK DEFINITION operations
 
@@ -248,8 +248,6 @@ func (a *EtcdApi) PutTaskDefinition(t *api.TaskDefinition) error {
 	return a.put(id, backends.Encode(t))
 }
 
-
-
 // ==> TASK operations
 
 func (a *EtcdApi) ListTasks(q *api.TaskQueryOpts) (ts []*api.Task, err error) {
@@ -263,7 +261,6 @@ func (a *EtcdApi) ListTasks(q *api.TaskQueryOpts) (ts []*api.Task, err error) {
 		log.Warn("[consul-api] iterating all tasks")
 	}
 
-
 	err = a.list(prefix, func(v []byte) error {
 		t := &api.Task{}
 		backends.Decode(v, t)
@@ -276,7 +273,7 @@ func (a *EtcdApi) ListTasks(q *api.TaskQueryOpts) (ts []*api.Task, err error) {
 
 			if q.Failing && state.Healthy() {
 				return nil
-			} else if q.Running && !state.Healthy(){
+			} else if q.Running && !state.Healthy() {
 				return nil
 			}
 		}
@@ -326,8 +323,6 @@ func (a *EtcdApi) DelTask(t *api.Task) error {
 	return a.del("state/tasks/" + t.ID())
 }
 
-
-
 // TASK Health Operations
 
 func (a *EtcdApi) GetTaskState(t *api.Task) (api.TaskState, error) {
@@ -336,5 +331,5 @@ func (a *EtcdApi) GetTaskState(t *api.Task) (api.TaskState, error) {
 }
 
 func (a *EtcdApi) PutTaskState(taskId string, s api.TaskState) error {
-	return a.put("state/health/" + taskId, []byte(s))
+	return a.put("state/health/"+taskId, []byte(s))
 }

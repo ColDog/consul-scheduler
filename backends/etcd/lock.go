@@ -1,22 +1,25 @@
 package etcd
 
 import (
-	"github.com/coldog/sked/api"
-	"sync"
-	"golang.org/x/net/context"
-	"github.com/coreos/etcd/client"
-	"time"
 	"fmt"
-	"math/rand"
+	"github.com/coldog/sked/api"
 	"github.com/coldog/sked/tools"
+
+	"github.com/coreos/etcd/client"
+	"golang.org/x/net/context"
+	log "github.com/Sirupsen/logrus"
+
+	"sync"
+	"time"
+	"math/rand"
 )
 
 func (a *EtcdApi) Lock(key string) (api.Lockable, error) {
 	return &EtcdLock{
-		sess: tools.RandString(120),
-		key: a.prefix+key,
-		mtx: &sync.Mutex{},
-		api: a,
+		sess: tools.RandString(64),
+		key:  a.prefix + key,
+		mtx:  &sync.Mutex{},
+		api:  a,
 	}, nil
 }
 
@@ -33,20 +36,26 @@ type EtcdLock struct {
 	api    *EtcdApi
 }
 
-func (l *EtcdLock) refresh() {
+func (l *EtcdLock) refresh() error {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
 
-	_, err := l.api.kv.Set(context.Background(), l.key, l.sess, &client.SetOptions{
-		TTL: 30 * time.Second,
-		Refresh: true,
+	log.WithField("session", l.sess).Debug("[etcd-api] refreshing lock")
+
+	_, err := l.api.kv.Set(context.Background(), l.key, "", &client.SetOptions{
+		TTL:       l.api.config.LockTTL.Duration,
+		Refresh:   true,
 		PrevValue: l.sess,
 	})
 
 	if err != nil {
+		log.WithField("session", l.sess).WithField("error", err).Debug("[etcd-api] lock refresh failed")
 		l.held = false
 		close(l.closed)
+		return err
 	}
+
+	return nil
 }
 
 func (l *EtcdLock) Lock() (<-chan struct{}, error) {
@@ -70,8 +79,11 @@ func (l *EtcdLock) Lock() (<-chan struct{}, error) {
 
 	go func() {
 		for {
-			time.Sleep(time.Duration(15 + rand.Intn(10)) * time.Second)
-			l.refresh()
+			time.Sleep(l.api.config.LockTTL.Duration - (2 * time.Second))
+			err := l.refresh()
+			if err != nil {
+				return
+			}
 		}
 	}()
 

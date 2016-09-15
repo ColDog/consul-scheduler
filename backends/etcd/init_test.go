@@ -2,13 +2,18 @@ package etcd
 
 import (
 	"fmt"
-	"time"
-	"os/exec"
-	"os"
-	"syscall"
 	"github.com/coreos/etcd/client"
-	"golang.org/x/net/context"
+	"os"
+	"os/exec"
+	"syscall"
+	"time"
+	"github.com/coldog/sked/tools"
+	"github.com/Sirupsen/logrus"
 )
+
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+}
 
 type EtcdApiTest func(api *EtcdApi)
 
@@ -18,21 +23,18 @@ func RunEtcdAPITest(f EtcdApiTest) {
 
 	fmt.Println("--- starting etcd")
 
-	api := NewEtcdApi("/registry/", client.Config{
-		Endpoints:               []string{"http://127.0.0.1:2379"},
-		Transport:               client.DefaultTransport,
-		// set timeout per request to fail fast when the target endpoint is unavailable
-		HeaderTimeoutPerRequest: time.Second,
-	})
+	api := NewEtcdApi(&EtcdConfig{
+		Prefix: "/registry/",
+		LockTTL: tools.Duration{30 * time.Second},
+		ClientConfig: &client.Config{
+			Endpoints: []string{"http://127.0.0.1:2379"},
+			Transport: client.DefaultTransport,
+			// set timeout per request to fail fast when the target endpoint is unavailable
+			HeaderTimeoutPerRequest: time.Second,
+		}},
+	)
 
-	for {
-		_, err := api.kv.Get(context.Background(), "test", nil)
-		if err == nil {
-			break
-		}
-
-		time.Sleep(1 * time.Second)
-	}
+	time.Sleep(1 * time.Second)
 
 	fmt.Println("--- begin test")
 	f(api)
@@ -44,13 +46,12 @@ func NewEtcd() *TestEtcd {
 	return a
 }
 
-
 type TestEtcd struct {
 	cmd *exec.Cmd
 }
 
 func (a *TestEtcd) Start() {
-	a.cmd = exec.Command("etcd")
+	a.cmd = exec.Command("etcd", "-data-dir=~/documents/default.etcd")
 
 	if os.Getenv("TEST_LOG_ETCD") != "" {
 		a.cmd.Stderr = os.Stderr
@@ -66,5 +67,6 @@ func (a *TestEtcd) Start() {
 
 func (a *TestEtcd) Stop() {
 	a.cmd.Process.Signal(syscall.SIGTERM)
+	out, _ := exec.Command("rm", "-rf", "~/documents/default.etcd").CombinedOutput()
+	fmt.Println(string(out))
 }
-
